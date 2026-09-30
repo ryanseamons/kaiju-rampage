@@ -49,7 +49,7 @@ npm run build
 | Space or Shift (gamepad: A) | **Stomp**: shockwave, 5s cooldown |
 | 1 / 2 / 3, or ←/→ then Enter, or click (gamepad: d-pad + A) | Pick an upgrade on level-up |
 | Enter (gamepad: A) | Start, dismiss the news card |
-| P or Esc | Pause / resume |
+| P or Esc, or the pause button beside mute | Pause / resume. From the pause screen, Q (or the button) exits to the title after a confirm |
 | M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
 | ←/→ on the title screen, or click | Difficulty: **Easy**, **Medium** (default) or **Hard** (remembered; the daily rampage is always Medium) |
 
@@ -108,6 +108,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached (`DIFFICULTY=medium`, `START_WAVE=3` to vary it). |
 | `difficulty.spec.ts` | Skipped unless `DIFF=1`: a stationary kaiju at wave 2 (tier 2) and wave 4 (tier 3) on each difficulty; damage per game second must rise from Easy to Medium to Hard. |
 | `landmarks.spec.ts` | The castle, the KBN-7 tower, pagodas and torii are placed, and each renders (`landmark-*.png`). |
+| `exit.spec.ts` | Pause → Exit asks first (Enter keeps playing), Y returns to the title, and a new run starts cleanly. |
 | `sfx.spec.ts` | All 15 Kenney sample banks (and the Epidemic banks, when present) load and are audible on the master bus (recorded, not played aloud). |
 | `music.spec.ts` | Skipped unless `MUSIC=1`: every music context is audible and unclipped; recorded tracks rotate and sit level with the composer. |
 
