@@ -6,6 +6,7 @@ export type KState = {
   phase: string;
   modal: string | null;
   wave: number;
+  elapsed: number;
   tier: number;
   maxTierReached: number;
   level: number;

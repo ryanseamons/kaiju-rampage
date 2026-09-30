@@ -35,6 +35,21 @@ The bot won the full run at level 22 with 1,141 buildings flattened, and its HP 
 
 An earlier normal-speed run died in wave 1 at 113s (9 buildings, level 3). `?fast=1` had been hiding it: fast mode scales growth and XP per second by 2.5× but not enemy pressure, so it's **easier** than the real game. Wave 1–5 infantry caps and rates were cut (wave 1: 45 → 18 max riflemen) and tier-1 rifle damage went from 4 to 3. The normal-speed pacing run is now the evidence for the real game; the fast playthrough is the quick regression test.
 
+## Pass 2: the deeper audit
+
+A second pass played the game with a deliberately naive bot, read the code for edge cases, and stress-tested late-game performance. What it found, and what changed:
+
+- **Port collision (bug).** The narration server read `PORT`, which IDE launchers also export for the web server. In the desktop app's browser pane both processes fought over :5173 and every `/api` call returned 502. It now reads `NARRATION_PORT`.
+- **Tanks couldn't hit a moving target (bug).** Shells flew at 230 px/s toward where the kaiju *was*. At tier 2–3 keep-distance (260–420 px) the shell arrived a second or two later, and a moving kaiju was never there: a tier-3 stress run took zero tank damage in 48 s. Gunners now lead the target on its current velocity (with tier-scaled noise) and shells fly at 340 px/s: a straight-line runner gets hit, a sidestep still dodges. The test bot learned to sidestep.
+- **No heal source in wave 1 (feel).** A non-dodging player bled from 34 HP to 0 over 24 s with a few riflemen around, and nothing at tier 1 dropped hearts. Level-ups now heal 15% and crushed cars drop a heart 4% of the time.
+- **Enemies walked through buildings.** Infantry and tanks now collide with buildings and sidestep along the perpendicular that leans toward you; spawn points are snapped to road centrelines so nothing spawns inside a wall. The mech ignores buildings and flattens houses as it walks (collateral, not credited to you).
+- **Quality of life.** P/Esc pauses, M mutes (remembered), the title shows your best run, a white flash marks each growth spurt, projectiles scale up when the camera zooms out, towers and warehouses keep burning after they fall (one shared emitter, capped at 12 fires).
+- **Music.** A minimal procedural loop: a bass pulse and soft hat whose tempo rises with your tier, a low drone, a key change for the boss, ducked under menus. It is quiet by design and **has not been auditioned by a human ear**; if it grates, press M and tell me.
+- **Narration never touches the network without a key.** The run checks `/api/health` once; unless the server reports a key, no bulletin request is made (the tests now assert zero requests without a key and at least one with).
+- **Perf was fine and stayed fine:** 144 FPS at 400 buildings destroyed with a 60–80 MB heap. The rubble-as-tilemap refactor that was on the table was not needed.
+
+**Normal-speed pacing after pass 2** (same opt-in spec, seed 2024, dodging bot, wall-clock seconds): wave 2 at 169 s, tier 2 at 259 s, wave 3 at 445 s, tier 3 at 568 s, wave 4 at 835 s; the bot was alive at level 19 with 998 buildings flattened when the spec's 15-minute limit ended the run, and its HP never dropped below 65%. Wall-clock is inflated here because headless Chromium ran at 10–20 FPS during this run (the simulation caps each step at 50 ms, so slow frames slow the game rather than skipping); the spec now also logs simulated game seconds. The fast-mode regression run's minimum HP rose from about 40% to 92%, because level-up heals arrive 2.5× faster there; it remains a regression test, not balance evidence.
+
 ## Decisions made during the build (relayed via a peer session, to confirm)
 
 - Narration model switched from BRIEF.md's Haiku default to `claude-opus-5-5` at medium effort, configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.

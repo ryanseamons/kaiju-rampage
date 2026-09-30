@@ -216,8 +216,7 @@ export class EnemyManager {
         if (d < keep + 260 && e.fireCd <= 0) {
           e.fireCd = (tier === 3 ? 1.5 : 2.4) + Math.random();
           const muzzle = 16;
-          // Gunners lead a moving target (imperfectly), so running in a straight line is not free.
-          // Full lead on current velocity: a straight-line runner gets hit; a sidestep still dodges.
+          // Gunners lead the target on its current velocity: a straight-line runner gets hit; a sidestep still dodges.
           const speed = 340;
           const pv = (p.body as Phaser.Physics.Arcade.Body).velocity;
           const lead = d / speed;

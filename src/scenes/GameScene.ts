@@ -201,7 +201,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private recordBest(outcome: RunStats['outcome']) {
-    if (outcome === 'wave-cleared') return;
+    if (outcome === 'wave-cleared' || START_WAVE > 1) return; // debug starts don't count
     const run: BestRun = { wave: this.wave.wave, buildings: this.stats.buildings, victory: outcome === 'victory' };
     const best = loadBest();
     const better = !best || (run.victory && !best.victory) || (run.victory === best.victory && (run.wave > best.wave || (run.wave === best.wave && run.buildings > best.buildings)));
@@ -238,6 +238,7 @@ export class GameScene extends Phaser.Scene {
 
   private afterBulletin(outcome: RunStats['outcome']) {
     if (outcome !== 'wave-cleared') {
+      music.stop();
       this.scene.restart();
       this.ui.reset();
       return;
@@ -560,10 +561,11 @@ export class GameScene extends Phaser.Scene {
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
-      this.shake(tower ? 0.014 : 0.005, tower ? 260 : 120);
-      this.hitStop(tower ? 70 : 25);
+      // Collateral (the mech's footsteps) gets the dust but not the player's hit-stop and impact words.
+      this.shake(credit ? (tower ? 0.014 : 0.005) : 0.003, tower ? 260 : 120);
+      if (credit) this.hitStop(tower ? 70 : 25);
       sfx.collapse(tower);
-      if (tower || Math.random() < 0.25)
+      if (credit && (tower || Math.random() < 0.25))
         this.fx.word(d.x, d.y - d.h, tower ? Phaser.Utils.Array.GetRandom(['KRAKOOM!', 'DOOOOM!', 'KRA-TOOM!']) : 'CRUNCH!', tower ? '#ff7a2a' : '#ffe14a', 1 + p.tierIdx * 0.7);
       const spr = d.sprite;
       spr.setTint(0x9090a0);
@@ -689,6 +691,7 @@ export class GameScene extends Phaser.Scene {
       modal: this.ui.currentModal,
       wave: this.wave.wave,
       waveTime: this.waveTime,
+      elapsed: this.stats.elapsed,
       waveDuration: this.wave.boss ? null : this.waveDuration,
       tier: this.tier,
       maxTierReached: this.maxTierReached,
