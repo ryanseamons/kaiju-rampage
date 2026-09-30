@@ -19,6 +19,8 @@ export type KState = {
   enemyTypesSpawned: string[];
   enemyRoster: string[];
   pickups: { x: number; y: number; kind: string }[];
+  shots: { x: number; y: number; vx: number; vy: number }[];
+  narrationMode: 'unknown' | 'live' | 'bank';
   targets: { x: number; y: number; w: number; h: number; kind: string; sizeClass: number }[];
   offer: { id: string; name: string }[];
   upgradePoolSize: number;
@@ -90,6 +92,23 @@ export class Bot {
         fx += (dx / d) * w * 3;
         fy += (dy / d) * w * 3;
       }
+    }
+
+    // Incoming shells: sidestep off the shot line (perpendicular to its velocity, away from the line).
+    for (const sh of s.shots ?? []) {
+      const rx = p.x - sh.x, ry = p.y - sh.y;
+      const sp = Math.hypot(sh.vx, sh.vy) || 1;
+      const ux = sh.vx / sp, uy = sh.vy / sp;
+      const along = rx * ux + ry * uy;
+      if (along < 0) continue;
+      const t = along / sp;
+      if (t > 1.3) continue;
+      const perp = rx * -uy + ry * ux;
+      if (Math.abs(perp) > p.r + 50) continue;
+      const side = perp >= 0 ? 1 : -1;
+      const w = (1.3 - t) * 2.5;
+      fx += -uy * side * w;
+      fy += ux * side * w;
     }
 
     // Food: nearest crushable/damageable building or pickup.

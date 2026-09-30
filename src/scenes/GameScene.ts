@@ -11,11 +11,26 @@ import { RunTracker } from '../stats';
 import { NewsDesk } from '../news';
 import { UPGRADES, rollOffer, type UpgradeDef } from '../upgrades';
 import { mulberry32 } from '../rng';
-import { sfx } from '../sfx';
+import { music, sfx } from '../sfx';
 import type { Bulletin, RunStats, Tier } from '../shared/narration';
 import type { UIScene } from './UIScene';
 
-export type Phase = 'title' | 'playing' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory';
+export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory';
+
+export interface BestRun {
+  wave: number;
+  buildings: number;
+  victory: boolean;
+}
+const BEST_KEY = 'kaiju.best';
+export function loadBest(): BestRun | null {
+  try {
+    const raw = localStorage.getItem(BEST_KEY);
+    return raw ? (JSON.parse(raw) as BestRun) : null;
+  } catch {
+    return null;
+  }
+}
 
 interface Pickup {
   img: Phaser.GameObjects.Image;
@@ -111,6 +126,11 @@ export class GameScene extends Phaser.Scene {
         return d.alive && d.sizeClass > this.tier;
       },
     );
+    // Infantry and tanks go around buildings; the mech walks through (and flattens) them.
+    this.physics.add.collider(this.enemies.group, this.city.solids, undefined, (e, z) => {
+      const d = (z as Phaser.GameObjects.Zone).getData('d') as Destructible;
+      return d.alive && (e as Enemy).etype !== 'mech';
+    });
     this.physics.add.overlap(this.player, this.enemies.group, (_p, e) => this.onEnemyContact(e as Enemy));
     this.physics.add.overlap(this.player, this.enemies.shots, (_p, shot) => this.enemies.impact(shot as never));
 
@@ -143,6 +163,8 @@ export class GameScene extends Phaser.Scene {
       this.maxTierReached = t + 1;
     }
     this.phase = 'playing';
+    music.duck(false);
+    music.start(this.tier, false);
     this.startWave();
   }
 
@@ -163,10 +185,41 @@ export class GameScene extends Phaser.Scene {
     this.ui.banner(`WAVE ${w.wave}`, sub);
   }
 
+  pauseGame() {
+    if (this.phase !== 'playing') return;
+    this.phase = 'paused';
+    this.player.setVelocity(0, 0);
+    this.scene.pause();
+    music.duck(true);
+  }
+
+  resumeGame() {
+    if (this.phase !== 'paused') return;
+    this.phase = 'playing';
+    this.scene.resume();
+    music.duck(false);
+  }
+
+  private recordBest(outcome: RunStats['outcome']) {
+    if (outcome === 'wave-cleared') return;
+    const run: BestRun = { wave: this.wave.wave, buildings: this.stats.buildings, victory: outcome === 'victory' };
+    const best = loadBest();
+    const better = !best || (run.victory && !best.victory) || (run.victory === best.victory && (run.wave > best.wave || (run.wave === best.wave && run.buildings > best.buildings)));
+    if (better) {
+      try {
+        localStorage.setItem(BEST_KEY, JSON.stringify(run));
+      } catch {
+        /* private mode etc. */
+      }
+    }
+  }
+
   private endWave(outcome: RunStats['outcome']) {
     // Only one end-of-wave card at a time (e.g. dying during the mech's death sequence).
     if (this.phase !== 'playing' && this.phase !== 'dying') return;
     if (this.phase === 'dying' && outcome !== 'defeat') return;
+    this.recordBest(outcome);
+    music.duck(true);
     this.phase = outcome === 'wave-cleared' ? 'bulletin' : outcome === 'victory' ? 'victory' : 'gameover';
     if (outcome === 'wave-cleared') this.enemies.clearAll();
     this.player.setVelocity(0, 0);
@@ -192,6 +245,7 @@ export class GameScene extends Phaser.Scene {
     this.waveIdx = Math.min(this.waveIdx + 1, WAVES.length - 1);
     this.phase = 'playing';
     this.scene.resume();
+    music.duck(false);
     this.startWave();
   }
 
@@ -290,6 +344,7 @@ export class GameScene extends Phaser.Scene {
         this.enemies.spawnOffscreen('mech');
         this.ui.banner('WARNING', 'Flagship mech M-01 "SHIOKAZE GUARDIAN" inbound', true);
         sfx.alarm();
+        music.start(this.tier, true);
       }
       const b = this.enemies.boss;
       if (b && b.hp < b.maxHp * 0.35 && this.news.prefetchedFor !== w.wave) this.news.prefetch(this.snapshot('victory'));
@@ -321,6 +376,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpsShown++;
     sfx.levelup();
     this.scene.pause();
+    music.duck(true);
     this.ui.showLevelUp(this.offer, this.player.upgradeLevels, (i) => this.pickUpgrade(i));
   }
 
@@ -332,10 +388,14 @@ export class GameScene extends Phaser.Scene {
       p.upgradeLevels[u.id] = (p.upgradeLevels[u.id] ?? 0) + 1;
       this.stats.upgraded(u.name);
     }
+    // Levelling up is the hatchling's only reliable heal, so it matters most in wave 1.
+    p.heal(p.maxHp * 0.15);
+    this.fx.word(p.x, p.y - 24 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.offer = [];
     this.phase = 'playing';
     this.scene.resume();
+    music.duck(false);
   }
 
   // ── Combat & destruction ───────────────────────────────────────────────────
@@ -477,14 +537,15 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  destroyDestructible(d: Destructible, crushed: boolean) {
+  /** `credit=false` is collateral damage (the mech's footsteps): no stats, mass or drops for the player. */
+  destroyDestructible(d: Destructible, crushed: boolean, credit = true) {
     if (!d.alive) return;
     d.alive = false;
     if (d.zone) {
       this.city.solids.remove(d.zone, true, true);
       d.zone = undefined;
     }
-    this.stats.destroyed(d.kind, d.district);
+    if (credit) this.stats.destroyed(d.kind, d.district);
     const p = this.player;
     const small = d.kind === 'car' || d.kind === 'tree';
     const rew = small ? REWARDS.car : d.kind === 'tower' ? REWARDS.tower : REWARDS.house;
@@ -495,6 +556,7 @@ export class GameScene extends Phaser.Scene {
       d.sprite.destroy();
       this.city.leaveRubble(d);
       if (crushed && this.tier === 1) this.shake(0.002, 60);
+      if (credit && d.kind === 'car' && Math.random() < 0.04) this.dropPickup(d.x, d.y, 'heart', 0);
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
@@ -515,9 +577,12 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => spr.destroy(),
       });
       this.city.leaveRubble(d);
+      if (tower || d.kind === 'warehouse') this.fx.addFire(d.x, d.y - d.h * 0.2);
+      if (!credit) return;
       if (p.mods.rampageHeal) p.heal(p.mods.rampageHeal);
       if (Math.random() < (tower ? 0.08 : 0.03)) this.dropPickup(d.x, d.y, 'heart', 0);
     }
+    if (!credit) return;
     this.dropPickup(d.x, d.y, 'xp', rew.xp);
     if (p.addMass(rew.mass)) this.onTierUp();
   }
@@ -528,6 +593,8 @@ export class GameScene extends Phaser.Scene {
     this.maxTierReached = Math.max(this.maxTierReached, t.tier);
     this.fx.level = p.tierIdx;
     this.cameras.main.zoomTo(t.zoom, 1400, 'Sine.easeInOut');
+    this.ui.flashWhite();
+    music.start(this.tier, !!this.enemies.boss);
     this.hitStop(160);
     this.shake(0.02, 400);
     sfx.roar();
@@ -638,6 +705,9 @@ export class GameScene extends Phaser.Scene {
       enemyTypesSpawned: [...this.enemies.spawnedTypes],
       enemyRoster: ENEMY_ROSTER,
       pickups: this.pickups.filter((g) => near(g.img.x, g.img.y, 500)).map((g) => ({ x: g.img.x, y: g.img.y, kind: g.kind })),
+      shots: (this.enemies.shots.getChildren() as Phaser.Physics.Arcade.Image[])
+        .filter((o) => o.active && near(o.x, o.y, 600 * Math.max(1, k * 0.5)))
+        .map((o) => ({ x: o.x, y: o.y, vx: (o.body as Phaser.Physics.Arcade.Body).velocity.x, vy: (o.body as Phaser.Physics.Arcade.Body).velocity.y })),
       targets: tmp.map((d) => ({ x: d.x, y: d.y, w: d.w, h: d.h, kind: d.kind, sizeClass: d.sizeClass })),
       offer: this.offer.map((u) => ({ id: u.id, name: u.name })),
       upgradePoolSize: UPGRADES.length,
@@ -646,6 +716,7 @@ export class GameScene extends Phaser.Scene {
       levelUpsShown: this.levelUpsShown,
       bulletinsShown: this.bulletinsShown,
       lastBulletin: this.lastBulletin,
+      narrationMode: this.news.mode,
       fps: Math.round(this.game.loop.actualFps),
       stats: this.lastStats,
       destroyed: this.stats.buildings,

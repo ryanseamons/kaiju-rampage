@@ -8,6 +8,8 @@ test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)'
   const health = await (await page.request.get('/api/health')).json();
   expect(health).toMatchObject({ ok: true, hasKey: false });
 
+  let bulletinRequests = 0;
+  await page.route('**/api/bulletin', (route) => { bulletinRequests++; return route.continue(); });
   await page.goto('/?fast=1&seed=1234&mute=1');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await page.screenshot({ path: 'screenshots/title.png' });
@@ -67,6 +69,9 @@ test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)'
   fs.writeFileSync('screenshots/playthrough-summary.json', JSON.stringify(summary, null, 2));
 
   expect(last.phase).toBe('playing');
+  // No key → the run never asks the server for a bulletin.
+  expect(bulletinRequests).toBe(0);
+  expect(last.narrationMode).toBe('bank');
   expect(last.wave).toBeGreaterThanOrEqual(3);
   expect(last.maxTierReached).toBe(3);
   expect(last.upgradePoolSize).toBeGreaterThanOrEqual(15);

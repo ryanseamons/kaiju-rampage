@@ -14,11 +14,11 @@ export default defineConfig({
   },
   webServer: [
     { command: 'node tests/mock-anthropic.mjs', port: 8790, env: { MOCK_PORT: '8790' }, reuseExistingServer: false },
-    { command: 'npx tsx server/index.ts', port: 8791, env: { PORT: '8791', ANTHROPIC_API_KEY: '' }, reuseExistingServer: false },
+    { command: 'npx tsx server/index.ts', port: 8791, env: { NARRATION_PORT: '8791', ANTHROPIC_API_KEY: '' }, reuseExistingServer: false },
     {
       command: 'npx tsx server/index.ts',
       port: 8792,
-      env: { PORT: '8792', ANTHROPIC_API_KEY: 'sk-test-fake', ANTHROPIC_BASE_URL: 'http://localhost:8790' },
+      env: { NARRATION_PORT: '8792', ANTHROPIC_API_KEY: 'sk-test-fake', ANTHROPIC_BASE_URL: 'http://localhost:8790' },
       reuseExistingServer: false,
     },
     { command: 'npx vite --port 5174 --strictPort', port: 5174, env: { API_TARGET: 'http://localhost:8791' }, reuseExistingServer: false },

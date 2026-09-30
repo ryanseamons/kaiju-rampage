@@ -16,9 +16,48 @@ export class Fx {
   private sets: FxSet[] = [];
   /** 0-based index of the active scale set (follows the kaiju's tier). */
   level = 0;
+  /** Burning ruins: one shared emitter fed from a capped list of positions. */
+  private fires: { x: number; y: number }[] = [];
+  private fireEmitter: Emitter;
+  private fireSmoke: Emitter;
 
   constructor(private scene: Phaser.Scene) {
     for (const k of [1, 2.2, 4.4]) this.sets.push(this.makeSet(k));
+    this.fireEmitter = scene.add.particles(0, 0, 'glow', {
+      emitting: false,
+      speedY: { min: -40, max: -15 },
+      speedX: { min: -8, max: 8 },
+      lifespan: { min: 300, max: 700 },
+      scale: { start: 0.45, end: 0.05 },
+      alpha: { start: 0.8, end: 0 },
+      tint: [0xff7a2a, 0xffb040, 0xff4a1a],
+      blendMode: Phaser.BlendModes.ADD,
+    }).setDepth(-55);
+    this.fireSmoke = scene.add.particles(0, 0, 'smoke', {
+      emitting: false,
+      speedY: { min: -30, max: -12 },
+      speedX: { min: -6, max: 6 },
+      lifespan: { min: 1200, max: 2200 },
+      scale: { start: 0.5, end: 1.6 },
+      alpha: { start: 0.25, end: 0 },
+      tint: [0x33313a, 0x4a4650],
+    }).setDepth(-56);
+    scene.time.addEvent({
+      delay: 110,
+      loop: true,
+      callback: () => {
+        for (const f of this.fires) {
+          this.fireEmitter.emitParticleAt(f.x + Phaser.Math.Between(-10, 10), f.y + Phaser.Math.Between(-4, 4), 1);
+          if (Math.random() < 0.3) this.fireSmoke.emitParticleAt(f.x + Phaser.Math.Between(-8, 8), f.y - 6, 1);
+        }
+      },
+    });
+  }
+
+  /** Keep a ruin burning. Oldest fires go out once the cap is reached. */
+  addFire(x: number, y: number) {
+    this.fires.push({ x, y });
+    if (this.fires.length > 12) this.fires.shift();
   }
 
   private makeSet(k: number): FxSet {

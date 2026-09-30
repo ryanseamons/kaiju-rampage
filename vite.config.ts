@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 // The browser only ever talks to /api on its own origin. Vite forwards it to the
 // local narration server, which is the only process that sees ANTHROPIC_API_KEY.
-const apiTarget = process.env.API_TARGET ?? 'http://localhost:8787';
+const apiTarget = process.env.API_TARGET ?? `http://localhost:${process.env.NARRATION_PORT ?? 8787}`;
 
 export default defineConfig({
   server: {

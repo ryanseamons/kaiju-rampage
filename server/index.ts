@@ -15,7 +15,9 @@ if (process.env.ANTHROPIC_API_KEY === undefined) {
   }
 }
 
-const PORT = Number(process.env.PORT ?? 8787);
+// Deliberately not `PORT`: IDE launchers and hosts often export PORT for the *web* server, which would
+// make this process fight Vite for the same port.
+const PORT = Number(process.env.NARRATION_PORT ?? 8787);
 const MODEL = process.env.NARRATION_MODEL || DEFAULT_MODEL;
 const EFFORT = (process.env.NARRATION_EFFORT || DEFAULT_EFFORT) as 'low' | 'medium' | 'high';
 const apiKey = process.env.ANTHROPIC_API_KEY?.trim();

@@ -10,8 +10,10 @@ test('wave-end bulletin comes from the model when a key is configured', async ({
   const health = await (await page.request.get(`${KEYED}/api/health`)).json();
   expect(health).toMatchObject({ ok: true, hasKey: true, model: 'claude-opus-5-5', effort: 'medium' });
 
+  let bulletinRequests = 0;
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname === '/api/bulletin') bulletinRequests++;
     const response = await route.fetch({ url: `${KEYED}${url.pathname}${url.search}` });
     await route.fulfill({ response });
   });
@@ -37,6 +39,7 @@ test('wave-end bulletin comes from the model when a key is configured', async ({
 
   expect(bulletin).not.toBeNull();
   expect(bulletin!.source).toBe('ai');
+  expect(bulletinRequests).toBeGreaterThan(0);
   expect(bulletin!.headline).toContain('MOCK DESK');
   expect(bulletin!.anchor).toContain('[MOCK MODEL]');
 

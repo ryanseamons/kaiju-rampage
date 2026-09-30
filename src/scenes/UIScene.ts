@@ -4,14 +4,15 @@ import { TIERS, VIEW_H, VIEW_W, WAVES, XP_TO_LEVEL } from '../config';
 import { districtAt } from '../city';
 import { CHANNEL, DEFAULT_MODEL, KAIJU_NAME, TIER_FLAVOR, type Bulletin, type RunStats } from '../shared/narration';
 import type { UpgradeDef } from '../upgrades';
-import type { GameScene } from './GameScene';
+import { loadBest, type GameScene } from './GameScene';
+import { sfx } from '../sfx';
 
 const FONT = '"Courier New", Courier, monospace';
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => ({
   fontFamily: FONT, fontStyle: 'bold', fontSize: `${size}px`, color, stroke: '#05060d', strokeThickness: Math.max(2, Math.round(size / 6)), ...extra,
 });
 
-type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin';
+type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused';
 
 const KIND_COLOR: Record<UpgradeDef['kind'], number> = { weapon: 0xff7a2a, body: 0x56c46a, stomp: 0x5ff6ff, growth: 0xff5fd2 };
 
@@ -45,6 +46,8 @@ export class UIScene extends Phaser.Scene {
   private hud!: Phaser.GameObjects.Container;
   private hurt!: Phaser.GameObjects.Rectangle;
   private bannerRoot?: Phaser.GameObjects.Container;
+  private whiteFlash!: Phaser.GameObjects.Rectangle;
+  private mutedTag!: Phaser.GameObjects.Text;
 
   constructor() {
     super('UI');
@@ -53,6 +56,8 @@ export class UIScene extends Phaser.Scene {
   create() {
     this.add.image(VIEW_W / 2, VIEW_H / 2, 'vignette').setDisplaySize(VIEW_W, VIEW_H).setAlpha(0.9);
     this.hurt = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0xff0022, 0).setDepth(5);
+    this.whiteFlash = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0xffffff, 0).setDepth(60);
+    this.mutedTag = this.add.text(VIEW_W - 10, VIEW_H - 30, 'MUTED [M]', txt(12, '#8888aa')).setOrigin(1, 1).setDepth(10).setVisible(sfx.isMuted());
     this.buildHud();
     const kb = this.input.keyboard!;
     kb.on('keydown', (ev: KeyboardEvent) => this.onKey(ev.code));
@@ -137,6 +142,12 @@ export class UIScene extends Phaser.Scene {
     if (b) this.bossBarFill.width = 556 * Phaser.Math.Clamp(b.hp / b.maxHp, 0, 1);
   }
 
+  flashWhite() {
+    this.whiteFlash.setAlpha(0.85);
+    this.tweens.killTweensOf(this.whiteFlash);
+    this.tweens.add({ targets: this.whiteFlash, alpha: 0, duration: 450, ease: 'Quad.easeOut' });
+  }
+
   hurtFlash(frac: number) {
     this.hurt.setAlpha(Math.min(0.35, 0.08 + frac * 2));
     this.tweens.killTweensOf(this.hurt);
@@ -190,7 +201,11 @@ export class UIScene extends Phaser.Scene {
     const body = this.add.text(VIEW_W / 2, 400, lines.join('\n'), txt(18, '#e8e8f0', { align: 'left', lineSpacing: 6 })).setOrigin(0.5);
     const go = this.add.text(VIEW_W / 2, 580, 'PRESS ENTER TO RAMPAGE', txt(30, '#ffffff')).setOrigin(0.5);
     this.tweens.add({ targets: go, alpha: 0.25, yoyo: true, repeat: -1, duration: 500 });
-    this.openModal('title', [dim, t, t2, body, go]);
+    const best = loadBest();
+    const bestText = this.add
+      .text(VIEW_W / 2, 640, best ? `BEST RUN: ${best.victory ? 'MECH DESTROYED' : `WAVE ${best.wave}`} · ${best.buildings} BUILDINGS FLATTENED` : 'P pauses · M mutes', txt(16, '#9ffcff'))
+      .setOrigin(0.5);
+    this.openModal('title', [dim, t, t2, body, go, bestText]);
   }
 
   showLevelUp(offer: UpgradeDef[], levels: Record<string, number>, onPick: (i: number) => void) {
@@ -313,6 +328,13 @@ export class UIScene extends Phaser.Scene {
     this.modalRoot!.once(Phaser.GameObjects.Events.DESTROY, () => mask.destroy());
   }
 
+  private showPaused() {
+    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.6);
+    const t = this.add.text(VIEW_W / 2, VIEW_H / 2 - 30, 'PAUSED', txt(56, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
+    const s = this.add.text(VIEW_W / 2, VIEW_H / 2 + 34, 'P / ESC to resume  ·  M to mute', txt(20, '#9ffcff')).setOrigin(0.5);
+    this.openModal('paused', [dim, t, s]);
+  }
+
   private continueFromBulletin() {
     if (this.modal !== 'bulletin' || this.time.now - this.modalOpenedAt < 600) return;
     const cb = this.onContinue;
@@ -322,6 +344,20 @@ export class UIScene extends Phaser.Scene {
 
   // ── Input ────────────────────────────────────────────────────────────────
   private onKey(code: string) {
+    if (code === 'KeyM') {
+      this.mutedTag.setVisible(sfx.toggleMute());
+      return;
+    }
+    if (code === 'KeyP' || code === 'Escape') {
+      if (this.modal === null && this.gs.phase === 'playing') {
+        this.gs.pauseGame();
+        this.showPaused();
+      } else if (this.modal === 'paused') {
+        this.closeModal();
+        this.gs.resumeGame();
+      }
+      return;
+    }
     if (this.modal === 'title' && (code === 'Enter' || code === 'Space')) {
       if (this.time.now - this.modalOpenedAt < 200) return;
       this.closeModal();

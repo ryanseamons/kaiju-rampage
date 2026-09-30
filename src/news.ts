@@ -2,6 +2,18 @@
 import { BULLETIN_WAIT_MS } from './config';
 import { bankBulletin, type Bulletin, type RunStats } from './shared/narration';
 
+/** True only when the local server is up AND has an API key; otherwise the run never touches the network. */
+async function liveNarrationAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return false;
+    const json = await res.json();
+    return json?.ok === true && json.hasKey === true;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchBulletin(stats: RunStats): Promise<Bulletin | null> {
   try {
     const res = await fetch('/api/bulletin', {
@@ -24,10 +36,17 @@ export class NewsDesk {
   history: Bulletin[] = [];
   /** Bank lines already used this run (no repeats across waves). */
   private used = new Set<string>();
+  /** Checked once per run, in the background. */
+  private live = liveNarrationAvailable();
+  mode: 'unknown' | 'live' | 'bank' = 'unknown';
+
+  constructor() {
+    void this.live.then((ok) => (this.mode = ok ? 'live' : 'bank'));
+  }
 
   prefetch(stats: RunStats) {
     this.prefetchedFor = stats.wave;
-    this.pending = fetchBulletin(stats);
+    this.pending = this.live.then((ok) => (ok ? fetchBulletin(stats) : null));
   }
 
   /** Resolves within BULLETIN_WAIT_MS: the optional AI bulletin if a key is configured and it's ready, else one from the shipped bank built from final stats. */
