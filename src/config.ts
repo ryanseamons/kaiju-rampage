@@ -67,11 +67,11 @@ export interface WaveDef {
 }
 
 export const WAVES: WaveDef[] = [
-  { wave: 1, duration: 80, soldierRate: 1.3, soldierMax: 45, tankRate: 0, tankMax: 0, boss: false },
-  { wave: 2, duration: 105, soldierRate: 1.6, soldierMax: 60, tankRate: 0.15, tankMax: 6, boss: false },
-  { wave: 3, duration: 120, soldierRate: 1.4, soldierMax: 60, tankRate: 0.28, tankMax: 12, boss: false },
-  { wave: 4, duration: 130, soldierRate: 1.2, soldierMax: 55, tankRate: 0.36, tankMax: 16, boss: false },
-  { wave: 5, duration: 150, soldierRate: 0.8, soldierMax: 40, tankRate: 0.15, tankMax: 8, boss: true },
+  { wave: 1, duration: 80, soldierRate: 0.8, soldierMax: 18, tankRate: 0, tankMax: 0, boss: false },
+  { wave: 2, duration: 105, soldierRate: 1.1, soldierMax: 30, tankRate: 0.1, tankMax: 4, boss: false },
+  { wave: 3, duration: 120, soldierRate: 1.2, soldierMax: 40, tankRate: 0.2, tankMax: 8, boss: false },
+  { wave: 4, duration: 130, soldierRate: 1.1, soldierMax: 45, tankRate: 0.3, tankMax: 12, boss: false },
+  { wave: 5, duration: 150, soldierRate: 0.8, soldierMax: 30, tankRate: 0.15, tankMax: 6, boss: true },
 ];
 
 /**

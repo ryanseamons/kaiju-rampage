@@ -164,6 +164,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private endWave(outcome: RunStats['outcome']) {
+    // Only one end-of-wave card at a time (e.g. dying during the mech's death sequence).
+    if (this.phase !== 'playing' && this.phase !== 'dying') return;
+    if (this.phase === 'dying' && outcome !== 'defeat') return;
     this.phase = outcome === 'wave-cleared' ? 'bulletin' : outcome === 'victory' ? 'victory' : 'gameover';
     if (outcome === 'wave-cleared') this.enemies.clearAll();
     this.player.setVelocity(0, 0);
@@ -421,6 +424,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.fx.word(e.x, e.y - 160, 'MECH DOWN!', '#ff5fd2', 4);
     this.time.delayedCall(1600, () => {
+      if (this.phase !== 'playing') return;
       this.fx.ring(e.x, e.y, 500, 0xffffff, 700);
       const i = this.enemies.list.indexOf(e);
       if (i >= 0) this.enemies.list.splice(i, 1);

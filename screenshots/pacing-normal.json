@@ -1,0 +1,17 @@
+{
+  "events": {
+    "wave1": 2,
+    "tier1": 2,
+    "wave2": 132,
+    "tier2": 203,
+    "wave3": 272,
+    "tier3": 396,
+    "wave4": 511,
+    "wave5": 703,
+    "victory": 860
+  },
+  "level": 22,
+  "destroyed": 1141,
+  "minHpPct": 32,
+  "wallClockNote": "seconds of wall clock incl. level-up/bulletin pauses"
+}

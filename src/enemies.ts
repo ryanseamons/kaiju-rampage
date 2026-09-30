@@ -142,6 +142,7 @@ export class EnemyManager {
   update(dt: number) {
     const s = this.s, p = s.player, tier = s.tier;
     for (const e of this.list) {
+      if (e.dead) continue;
       const dx = p.x - e.x, dy = p.y - e.y;
       const d = Math.hypot(dx, dy) || 1;
       const ux = dx / d, uy = dy / d;
@@ -162,8 +163,8 @@ export class EnemyManager {
           if (d > 120) { vx = ux * sp; vy = uy * sp; }
           else if (d < 70) { vx = -ux * sp * 0.6; vy = -uy * sp * 0.6; }
           if (d < 220 && e.fireCd <= 0) {
-            e.fireCd = 1.2 + Math.random() * 0.8;
-            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 200, 4, 1.6);
+            e.fireCd = 1.4 + Math.random() * 0.8;
+            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 200, 3, 1.6);
             sfx.shot();
           }
         } else {
