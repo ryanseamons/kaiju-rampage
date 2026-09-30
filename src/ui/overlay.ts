@@ -5,7 +5,8 @@ import { EVOLUTIONS, UPGRADES, type UpgradeDef } from '../upgrades';
 import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
 import { DAILY, todayKey } from '../config';
 import { music } from '../audio/music';
-import { isRunning, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+import { isRunning, onAudioReady, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+import { uiSound } from '../audio/ui-sounds';
 
 const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
 const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
@@ -43,12 +44,24 @@ class Overlay {
     document.addEventListener('pointerdown', wake, true);
     document.addEventListener('keydown', wake, true);
     onLang(() => this.open && this.render());
+    onAudioReady(() => uiSound.preload());
+    // Hover + press sounds for every HTML button (menu, panels, pills, the mute button).
+    let lastBtn: Element | null = null;
+    document.addEventListener('pointerover', (e) => {
+      const b = (e.target as Element | null)?.closest?.('#overlay button, #mute');
+      if (b && b !== lastBtn) uiSound.hover();
+      lastBtn = b ?? null;
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if ((e.target as Element | null)?.closest?.('#overlay button, #mute')) uiSound.press();
+    }, true);
     // The mute button lives outside the poster so it is there during play too. M does the same.
     const mute = document.getElementById('mute') as HTMLButtonElement;
     mute.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleMuted();
+      const nowMuted = toggleMuted();
       this.syncMute();
+      if (!nowMuted) uiSound.press(); // audible confirmation on unmute
       mute.blur();
     });
     window.setInterval(() => this.syncMute(), 250);
@@ -178,6 +191,7 @@ class Overlay {
     if (this.panel) {
       if (code === 'Escape' || code === 'Backspace' || code === 'Enter' || code === 'Space') {
         handled();
+        uiSound.press();
         this.panel = null;
         this.render();
       }
@@ -186,13 +200,16 @@ class Overlay {
     if (code === 'ArrowDown' || code === 'KeyS') {
       handled();
       this.sel = (this.sel + 1) % ITEMS.length;
+      uiSound.hover(false);
       this.render();
     } else if (code === 'ArrowUp' || code === 'KeyW') {
       handled();
       this.sel = (this.sel + ITEMS.length - 1) % ITEMS.length;
+      uiSound.hover(false);
       this.render();
     } else if (code === 'Enter' || code === 'Space') {
       handled();
+      uiSound.press();
       this.activate(ITEMS[this.sel], true);
     }
   }

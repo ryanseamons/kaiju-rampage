@@ -6,7 +6,8 @@ const apiTarget = process.env.API_TARGET ?? `http://localhost:${process.env.NARR
 
 export default defineConfig({
   server: {
-    port: Number(process.env.VITE_PORT ?? 5173),
+    // VITE_PORT, else a launcher-assigned PORT (the narration server uses NARRATION_PORT, so no clash).
+    port: Number(process.env.VITE_PORT ?? process.env.PORT ?? 5173),
     strictPort: true,
     proxy: { '/api': { target: apiTarget, changeOrigin: true } },
   },

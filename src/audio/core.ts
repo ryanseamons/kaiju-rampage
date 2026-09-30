@@ -45,7 +45,8 @@ export interface Graph {
 let graph: Graph | null = null;
 const readyListeners = new Set<(g: Graph) => void>();
 
-const MUSIC_LEVEL = 0.62;
+// Music sits well under the effects (Voyage's rule of thumb: voice first, music second, UI distant third).
+const MUSIC_LEVEL = 0.3;
 const SFX_LEVEL = 0.9;
 
 function impulse(ctx: BaseAudioContext, seconds: number, decay: number) {
@@ -149,7 +150,7 @@ export function setSfxOn(on: boolean) {
 let duckLevel = 1;
 /** Pull the music down under menus and news cards. */
 export function duckMusic(on: boolean) {
-  duckLevel = on ? 0.4 : 1;
+  duckLevel = on ? 0.3 : 1;
   if (graph && prefs.music) ramp(graph.music.gain, MUSIC_LEVEL * duckLevel, 0.5);
 }
 

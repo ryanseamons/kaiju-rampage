@@ -11,6 +11,7 @@ import { comboMult } from '../config';
 import { sfx } from '../sfx';
 import { districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
 import { overlay } from '../ui/overlay';
+import { uiSound } from '../audio/ui-sounds';
 
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
   const ja = getLang() === 'ja';
@@ -287,7 +288,7 @@ export class UIScene extends Phaser.Scene {
       const desc = this.add.text(0, 24, upDesc(u.id, lv + 1), txt(16, '#e8e8f0', { align: 'center', wordWrap: { width: 270 }, strokeThickness: 2 })).setOrigin(0.5, 0);
       const kind = this.add.text(0, 104, t(`kind_${u.kind}` as 'kind_weapon'), txt(12, '#8888aa')).setOrigin(0.5);
       const card = this.add.container(x, 410, [bg, key, tag, glyph, name, desc, kind]).setSize(310, 250);
-      card.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.pick(i)).on('pointerover', () => this.select(i));
+      card.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.pick(i)).on('pointerover', () => this.select(i, true));
       card.setScale(0.6).setAlpha(0);
       this.tweens.add({ targets: card, scale: 1, alpha: 1, duration: 200, delay: i * 70, ease: 'Back.easeOut' });
       children.push(card);
@@ -297,8 +298,8 @@ export class UIScene extends Phaser.Scene {
     if (opts) {
       const rr = this.add.text(VIEW_W / 2 - 170, 580, t('reroll', { n: opts.rerolls }), txt(18, opts.rerolls > 0 ? '#9ffcff' : '#555a70')).setOrigin(0.5);
       const sk = this.add.text(VIEW_W / 2 + 170, 580, t('skip'), txt(18, '#ff9fb0')).setOrigin(0.5);
-      rr.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.rerollOffer());
-      sk.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.skipOffer());
+      rr.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.rerollOffer()).on('pointerover', () => uiSound.hover());
+      sk.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.skipOffer()).on('pointerover', () => uiSound.hover());
       children.push(rr, sk);
     }
     this.openModal('levelup', children);
@@ -309,6 +310,7 @@ export class UIScene extends Phaser.Scene {
   private rerollOffer() {
     if (this.modal !== 'levelup' || !this.levelOpts || this.levelOpts.rerolls <= 0 || this.time.now - this.modalOpenedAt < 250) return;
     const o = this.levelOpts;
+    uiSound.press();
     this.closeModal();
     o.reroll();
   }
@@ -316,11 +318,13 @@ export class UIScene extends Phaser.Scene {
   private skipOffer() {
     if (this.modal !== 'levelup' || !this.levelOpts || this.time.now - this.modalOpenedAt < 250) return;
     const o = this.levelOpts;
+    uiSound.press();
     this.closeModal();
     o.skip();
   }
 
-  private select(i: number) {
+  private select(i: number, fromPointer = false) {
+    if (i !== this.sel || fromPointer) uiSound.hover(fromPointer);
     this.sel = i;
     this.cards.forEach((c, j) => ((c.list[0] as Phaser.GameObjects.Rectangle).setFillStyle(j === i ? 0x1e2236 : 0x10121e, 0.96)));
   }
@@ -328,6 +332,7 @@ export class UIScene extends Phaser.Scene {
   private pick(i: number) {
     if (this.modal !== 'levelup' || i >= this.cards.length || this.time.now - this.modalOpenedAt < 250) return;
     const cb = this.onPick;
+    uiSound.press();
     this.closeModal();
     cb?.(i);
   }
@@ -493,6 +498,8 @@ export class UIScene extends Phaser.Scene {
         const c = r.name[r.cursor].charCodeAt(0) - A;
         r.name[r.cursor] = String.fromCharCode(A + ((c + d + 26) % 26));
       };
+      if (code !== 'Enter') uiSound.hover(false);
+      else uiSound.press();
       if (code === 'ArrowUp') bump(1);
       else if (code === 'ArrowDown') bump(-1);
       else if (code === 'ArrowLeft') r.cursor = Math.max(0, r.cursor - 1);
@@ -513,6 +520,7 @@ export class UIScene extends Phaser.Scene {
       return;
     }
     if (code === 'Enter') {
+      uiSound.press();
       const cb = r.onDone;
       this.results = undefined;
       this.closeModal();
@@ -528,6 +536,7 @@ export class UIScene extends Phaser.Scene {
   private continueFromBulletin() {
     if (this.modal !== 'bulletin' || this.time.now - this.modalOpenedAt < 600) return;
     const cb = this.onContinue;
+    uiSound.press();
     this.closeModal();
     cb?.();
   }

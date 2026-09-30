@@ -1,6 +1,6 @@
 # Assets and provenance
 
-This repo contains no image, audio or font files. Everything you see and hear is generated at runtime by code written for this project (generated assets, per BRIEF.md).
+Apart from two CC0 button sounds (below), this repo contains no image, audio or font files. Everything else you see and hear is generated at runtime by code written for this project.
 
 | Asset | Where it comes from |
 |---|---|
@@ -10,6 +10,8 @@ This repo contains no image, audio or font files. Everything you see and hear is
 | News anchor portrait | `src/textures.ts`: a generic, fictional figure, not based on any real person |
 | Particles, glow, shockwave ring, beam, vignette, shadow | Canvas gradients and shapes in `src/textures.ts` |
 | Sound effects (crunch, collapse, stomp, roar, pickups, alarm, news sting) | Synthesized with WebAudio oscillators and filtered noise in `src/sfx.ts` |
+| Button hover and press sounds (`public/sfx/hover.mp3`, `public/sfx/press.mp3`) | Kenney Impact Sounds (soft impact) and Kenney UI Audio `click_002`, both **CC0** (kenney.nl), in the encodes auditioned for Voyage's UI sound pack |
+| Music | Composed live by `src/audio/composer.ts` and synthesized in `src/audio/instruments.ts` (Karplus–Strong strings, generated reverb); no samples |
 | Font | None bundled. The UI uses the system `"Courier New", monospace` |
 | News copy | Written for this project in `src/shared/bank.ts` (fictional city Shiokaze Bay, fictional channel KBN-7) |
 

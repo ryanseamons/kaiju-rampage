@@ -1,24 +1,27 @@
 {
-  "wave": 3,
+  "wave": 4,
   "tier": 3,
   "maxTierReached": 3,
-  "level": 13,
+  "level": 16,
   "hp": 420,
-  "minHpPct": 89,
-  "destroyed": 178,
-  "bulletinsShown": 2,
-  "levelUpsShown": 12,
+  "minHpPct": 42,
+  "destroyed": 166,
+  "bulletinsShown": 3,
+  "levelUpsShown": 15,
   "enemyTypesSpawned": [
     "soldier",
     "rocket",
-    "tank"
+    "tank",
+    "heli",
+    "walker",
+    "jet"
   ],
   "upgradePoolSize": 16,
-  "damageTaken": 66,
-  "headlessAvgFps": 38,
+  "damageTaken": 371,
+  "headlessAvgFps": 30,
   "shots": [
-    "levelup",
     "tier1",
+    "levelup",
     "bulletin",
     "tier2",
     "tier3"
