@@ -110,6 +110,12 @@ const S = {
   // pause
   paused: { en: 'PAUSED', ja: '一時停止' },
   pauseHint: { en: 'P / ESC to resume  ·  M to mute', ja: 'P / ESC で再開  ·  M でミュート' },
+  p_resume: { en: 'RESUME  (P)', ja: '再開  (P)' },
+  p_exit: { en: 'EXIT TO TITLE  (Q)', ja: 'タイトルへ戻る  (Q)' },
+  exitTitle: { en: 'EXIT THIS RUN?', ja: 'このランを終了しますか？' },
+  exitBody: { en: 'You go back to the title screen. This run ends here and is not scored.', ja: 'タイトル画面に戻ります。このランはここで終わり、スコアは記録されません。' },
+  exitYes: { en: 'YES, EXIT  (Y)', ja: 'はい、終了  (Y)' },
+  exitNo: { en: 'KEEP PLAYING  (N)', ja: '続ける  (N)' },
   yourMutations: { en: 'YOUR MUTATIONS', ja: 'あなたの突然変異' },
   noMutations: { en: 'None yet. Level up to mutate.', ja: 'まだなし。レベルアップで変異する。' },
   // impact words
@@ -147,7 +153,7 @@ const S = {
   how_grow: { en: 'Crush the city to grow. The bigger you are, the bigger the things you crush: cars, then houses, then towers.', ja: '街を壊して成長しよう。大きくなるほど、車 → 家 → 高層ビルと潰せるものが増える。' },
   how_level: { en: 'Defeat the military for crystals. Each level-up offers three mutations: press 1, 2 or 3.', ja: '軍を倒して結晶を集めよう。レベルアップごとに3つの変異から選べる（1・2・3キー）。' },
   how_win: { en: 'Survive five waves, then destroy the flagship mech.', ja: '5つのウェーブを生き延び、旗艦メカを破壊せよ。' },
-  how_keys: { en: 'P or Esc pauses. M mutes. L switches language.', ja: 'P か Esc で一時停止。M でミュート。L で言語切替。' },
+  how_keys: { en: 'P or Esc pauses (then Q exits to the title, after a confirm). M mutes. L switches language.', ja: 'P か Esc で一時停止（Q で確認のうえタイトルへ）。M でミュート。L で言語切替。' },
   how_landmarks: { en: 'Pagodas, Shiokaze Castle and the KBN-7 tower are worth big points, feed your growth, and make the news.', ja: '五重塔・潮風城・KBN-7タワーは高得点。成長の糧になり、ニュースにもなる。' },
   how_diff: { en: 'Pick Easy, Medium or Hard beside Start (← →). Harder modes score more.', ja: 'スタートの横で「やさしい・ふつう・むずかしい」を選ぶ（← →）。難しいほど高得点。' },
   codexIntro: { en: 'Every mutation you can be offered on level-up.', ja: 'レベルアップで出現する、すべての突然変異。' },

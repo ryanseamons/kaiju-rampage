@@ -231,6 +231,14 @@ export class GameScene extends Phaser.Scene {
     duckMusic(true);
   }
 
+  /** From the pause menu, after confirming: abandon the run (unscored) and go back to the title. */
+  exitToTitle() {
+    if (this.phase !== 'paused') return;
+    duckMusic(false);
+    this.scene.restart();
+    this.ui.reset();
+  }
+
   resumeGame() {
     if (this.phase !== 'paused') return;
     this.phase = 'playing';

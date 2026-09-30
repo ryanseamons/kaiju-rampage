@@ -49,12 +49,12 @@ class Overlay {
     // Hover + press sounds for every HTML button (menu, panels, pills, the mute button).
     let lastBtn: Element | null = null;
     document.addEventListener('pointerover', (e) => {
-      const b = (e.target as Element | null)?.closest?.('#overlay button, #mute');
+      const b = (e.target as Element | null)?.closest?.('#overlay button, #mute, #pause');
       if (b && b !== lastBtn) uiSound.hover();
       lastBtn = b ?? null;
     });
     document.addEventListener('pointerdown', (e) => {
-      if ((e.target as Element | null)?.closest?.('#overlay button, #mute')) uiSound.press();
+      if ((e.target as Element | null)?.closest?.('#overlay button, #mute, #pause')) uiSound.press();
     }, true);
     // The mute button lives outside the poster so it is there during play too. M does the same.
     const mute = document.getElementById('mute') as HTMLButtonElement;
@@ -64,6 +64,13 @@ class Overlay {
       this.syncMute();
       if (!nowMuted) uiSound.press(); // audible confirmation on unmute
       mute.blur();
+    });
+    // The pause button (beside mute) is for mouse and touch players; the game listens for the event.
+    const pause = document.getElementById('pause') as HTMLButtonElement;
+    pause.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.dispatchEvent(new Event('kaiju-pause'));
+      pause.blur();
     });
     window.setInterval(() => this.syncMute(), 250);
     this.syncMute();
@@ -126,6 +133,7 @@ class Overlay {
     this.sel = 0;
     this.openedAt = performance.now();
     this.root.hidden = false;
+    document.getElementById('pause')?.toggleAttribute('hidden', true);
     this.place();
     this.render();
     if (isRunning()) music.play('title');
@@ -136,6 +144,7 @@ class Overlay {
     this.open = false;
     this.root.hidden = true;
     this.root.innerHTML = '';
+    document.getElementById('pause')?.toggleAttribute('hidden', false);
     if (this.plaqueTimer !== null) clearInterval(this.plaqueTimer);
     this.plaqueTimer = null;
   }
@@ -151,6 +160,11 @@ class Overlay {
       const size = Math.max(32, Math.min(48, r.width / 30));
       Object.assign(mute.style, { left: `${r.right - size - r.width * 0.012}px`, top: `${r.bottom - size - r.height * 0.05}px` });
       mute.style.setProperty('--mb', `${size}px`);
+      const pause = document.getElementById('pause');
+      if (pause) {
+        Object.assign(pause.style, { left: `${r.right - 2 * size - r.width * 0.012 - size * 0.3}px`, top: mute.style.top });
+        pause.style.setProperty('--mb', `${size}px`);
+      }
     }
   }
 

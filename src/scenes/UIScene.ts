@@ -24,7 +24,7 @@ const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Te
   return style;
 };
 
-type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused' | 'results';
+type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused' | 'exitConfirm' | 'results';
 
 export interface LevelUpOpts {
   rerolls: number;
@@ -38,6 +38,8 @@ const up = (s: string) => (getLang() === 'ja' ? s : s.toUpperCase());
 export class UIScene extends Phaser.Scene {
   private gs!: GameScene;
   private modal: Modal = null;
+  private pauseSel = 0;
+  private confirmSel = 1;
   private modalRoot?: Phaser.GameObjects.Container;
   private modalOpenedAt = 0;
   private onPick?: (i: number) => void;
@@ -88,6 +90,8 @@ export class UIScene extends Phaser.Scene {
     this.buildHud();
     const kb = this.input.keyboard!;
     kb.on('keydown', (ev: KeyboardEvent) => this.onKey(ev.code));
+    // The on-screen pause button (HTML, beside mute) behaves like P.
+    window.addEventListener('kaiju-pause', () => this.onKey('KeyP'));
     overlay.init(() => this.gs?.startRun());
     onLang(() => this.rebuildHud());
   }
@@ -409,27 +413,71 @@ export class UIScene extends Phaser.Scene {
     this.modalRoot!.once(Phaser.GameObjects.Events.DESTROY, () => mask.destroy());
   }
 
-  private showPaused() {
+  /** A clickable pill button for the pause screen. `focus` draws it highlighted (keyboard selection). */
+  private pauseButton(x: number, y: number, w: number, label: string, color: number, focus: boolean, onClick: () => void) {
+    const bg = this.add.rectangle(x, y, w, 46, focus ? color : 0x10121e, focus ? 1 : 0.92).setStrokeStyle(2, color).setInteractive({ useHandCursor: true });
+    const tx = this.add.text(x, y, label, txt(18, focus ? '#05060d' : '#ffffff', { strokeThickness: focus ? 0 : 3 })).setOrigin(0.5);
+    bg.on('pointerover', () => uiSound.hover());
+    bg.on('pointerdown', () => {
+      uiSound.press();
+      onClick();
+    });
+    return [bg, tx];
+  }
+
+  private showPaused(sel = this.pauseSel) {
+    this.pauseSel = sel;
     const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.72);
-    const tt = this.add.text(VIEW_W / 2, 110, t('paused'), txt(56, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
-    const s = this.add.text(VIEW_W / 2, 160, `${t('pauseHint')}  ·  ${t('s_difficulty')}: ${t(`diff_${this.gs.diff.id}` as 'diff_easy')}`, txt(18, '#9ffcff')).setOrigin(0.5);
-    const head = this.add.text(VIEW_W / 2, 214, t('yourMutations'), txt(20, '#ffe14a')).setOrigin(0.5);
-    const children: Phaser.GameObjects.GameObject[] = [dim, tt, s, head];
+    const tt = this.add.text(VIEW_W / 2, 84, t('paused'), txt(52, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
+    const s = this.add.text(VIEW_W / 2, 130, `${t('pauseHint')}  ·  ${t('s_difficulty')}: ${t(`diff_${this.gs.diff.id}` as 'diff_easy')}`, txt(16, '#9ffcff')).setOrigin(0.5);
+    const children: Phaser.GameObjects.GameObject[] = [dim, tt, s];
+    children.push(
+      ...this.pauseButton(VIEW_W / 2 - 170, 184, 300, t('p_resume'), 0x4dffb0, sel === 0, () => this.resumeFromPause()),
+      ...this.pauseButton(VIEW_W / 2 + 170, 184, 300, t('p_exit'), 0xff5577, sel === 1, () => this.showExitConfirm()),
+    );
+    children.push(this.add.text(VIEW_W / 2, 238, t('yourMutations'), txt(18, '#ffe14a')).setOrigin(0.5));
     const owned = UPGRADES.filter((u) => this.gs.player.upgradeLevels[u.id]);
-    if (!owned.length) children.push(this.add.text(VIEW_W / 2, 260, t('noMutations'), txt(16, '#c9d0ea')).setOrigin(0.5));
+    if (!owned.length) children.push(this.add.text(VIEW_W / 2, 280, t('noMutations'), txt(16, '#c9d0ea')).setOrigin(0.5));
     owned.forEach((u, i) => {
       const col = i % 2, rowI = Math.floor(i / 2);
-      const x = VIEW_W / 2 - 520 + col * 540, y = 250 + rowI * 58;
+      const x = VIEW_W / 2 - 520 + col * 540, y = 262 + rowI * 54;
       const lv = this.gs.player.upgradeLevels[u.id];
       const c = KIND_COLOR[u.kind];
       children.push(
-        this.add.rectangle(x, y, 500, 50, 0x10121e, 0.92).setOrigin(0).setStrokeStyle(2, c),
-        this.add.text(x + 26, y + 25, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '26px', color: Phaser.Display.Color.IntegerToColor(c).rgba }).setOrigin(0.5),
-        this.add.text(x + 52, y + 6, `${up(upName(u.id))}  LV ${lv}/${u.max}`, txt(15, '#ffffff', { strokeThickness: 2 })),
-        this.add.text(x + 52, y + 27, upDesc(u.id, Math.min(lv, 2)), txt(13, '#c9d0ea', { strokeThickness: 0, wordWrap: { width: 430 } })),
+        this.add.rectangle(x, y, 500, 48, 0x10121e, 0.92).setOrigin(0).setStrokeStyle(2, c),
+        this.add.text(x + 26, y + 24, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '26px', color: Phaser.Display.Color.IntegerToColor(c).rgba }).setOrigin(0.5),
+        this.add.text(x + 52, y + 5, `${up(upName(u.id))}  LV ${lv}/${u.max}`, txt(15, '#ffffff', { strokeThickness: 2 })),
+        this.add.text(x + 52, y + 26, upDesc(u.id, Math.min(lv, 2)), txt(13, '#c9d0ea', { strokeThickness: 0, wordWrap: { width: 430 } })),
       );
     });
     this.openModal('paused', children);
+  }
+
+  private resumeFromPause() {
+    if (this.modal !== 'paused' && this.modal !== 'exitConfirm') return;
+    this.closeModal();
+    this.gs.resumeGame();
+  }
+
+  /** "Exit this run?" Defaults to Keep playing, so a stray Enter never ends a run. */
+  private showExitConfirm(sel = 1) {
+    this.confirmSel = sel;
+    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.86);
+    const box = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, 660, 250, 0x10121e, 0.98).setStrokeStyle(3, 0xff5577);
+    const title = this.add.text(VIEW_W / 2, VIEW_H / 2 - 78, t('exitTitle'), txt(30, '#ff5577', { strokeThickness: 5 })).setOrigin(0.5);
+    const body = this.add.text(VIEW_W / 2, VIEW_H / 2 - 26, t('exitBody'), txt(16, '#e8e8f0', { strokeThickness: 0, align: 'center', wordWrap: { width: 580, useAdvancedWrap: true } })).setOrigin(0.5);
+    const children: Phaser.GameObjects.GameObject[] = [dim, box, title, body];
+    children.push(
+      ...this.pauseButton(VIEW_W / 2 - 150, VIEW_H / 2 + 60, 270, t('exitYes'), 0xff5577, sel === 0, () => this.confirmExit()),
+      ...this.pauseButton(VIEW_W / 2 + 150, VIEW_H / 2 + 60, 270, t('exitNo'), 0x4dffb0, sel === 1, () => this.showPaused(0)),
+    );
+    this.openModal('exitConfirm', children);
+  }
+
+  private confirmExit() {
+    if (this.modal !== 'exitConfirm') return;
+    this.closeModal();
+    this.gs.exitToTitle();
   }
 
   showResults(summary: RunSummary, onDone: (c: 'new' | 'endless') => void) {
@@ -550,13 +598,37 @@ export class UIScene extends Phaser.Scene {
       return;
     }
     if (overlay.isOpen()) return; // the HTML front page handles its own keys
+    if (this.modal === 'exitConfirm') {
+      if (code === 'KeyY') this.confirmExit();
+      else if (code === 'KeyN' || code === 'Escape' || code === 'KeyP') this.showPaused(0);
+      else if (code === 'ArrowLeft' || code === 'KeyA' || code === 'ArrowRight' || code === 'KeyD') {
+        uiSound.hover(false);
+        this.showExitConfirm(1 - this.confirmSel);
+      } else if (code === 'Enter' || code === 'Space') {
+        uiSound.press();
+        if (this.confirmSel === 0) this.confirmExit();
+        else this.showPaused(0);
+      }
+      return;
+    }
     if (code === 'KeyP' || code === 'Escape') {
       if (this.modal === null && this.gs.phase === 'playing') {
         this.gs.pauseGame();
-        this.showPaused();
-      } else if (this.modal === 'paused') {
-        this.closeModal();
-        this.gs.resumeGame();
+        this.showPaused(0);
+      } else if (this.modal === 'paused') this.resumeFromPause();
+      return;
+    }
+    if (this.modal === 'paused') {
+      if (code === 'KeyQ') {
+        uiSound.press();
+        this.showExitConfirm();
+      } else if (code === 'ArrowLeft' || code === 'KeyA' || code === 'ArrowRight' || code === 'KeyD' || code === 'ArrowUp' || code === 'ArrowDown') {
+        uiSound.hover(false);
+        this.showPaused(1 - this.pauseSel);
+      } else if (code === 'Enter' || code === 'Space') {
+        uiSound.press();
+        if (this.pauseSel === 0) this.resumeFromPause();
+        else this.showExitConfirm();
       }
       return;
     }
