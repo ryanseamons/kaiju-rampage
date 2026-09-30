@@ -7,6 +7,8 @@ export interface TrackInfo {
   title: string;
   artist: string;
   contexts: MusicContext[];
+  /** Epidemic's genre and mood tags, for the Sound Test. */
+  tags?: string[];
 }
 
 let list: TrackInfo[] | null = null;
@@ -51,6 +53,8 @@ export const tracks = {
     cursor.set(ctx, i + 1);
     return o[i % o.length];
   },
+  /** Every track, in list order ([] until loaded or when there is none). */
+  all: (): TrackInfo[] => list ?? [],
   url: (t: TrackInfo) => `${import.meta.env.BASE_URL}music/${t.id}.mp3`,
   /** A track failed to load: stop offering it. */
   drop(t: TrackInfo) {

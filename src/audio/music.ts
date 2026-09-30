@@ -174,8 +174,8 @@ function streamedFor(g: Graph, ctx: MusicContext, track: TrackInfo): Streamed {
   return p;
 }
 
-function start(g: Graph, ctx: MusicContext) {
-  const track = tracks.next(ctx);
+function start(g: Graph, ctx: MusicContext, forced?: TrackInfo) {
+  const track = forced ?? tracks.next(ctx);
   const p = track ? streamedFor(g, ctx, track) : composedFor(g, ctx);
   if (current) fadeOut(current, g, FADE_SEC);
   current = p;
@@ -217,6 +217,19 @@ export const music = {
       return;
     }
     start(g, ctx);
+  },
+  /** Sound Test: crossfade to one specific recorded track (it then rotates on within its first stage). */
+  async playTrack(id: string) {
+    await tracks.load();
+    const t = tracks.all().find((x) => x.id === id);
+    const g = audio();
+    if (!t || !g) return;
+    wanted = t.contexts[0];
+    start(g, t.contexts[0], t);
+  },
+  /** The recorded track playing now, if any. */
+  currentTrackId(): string | null {
+    return current?.kind === 'track' ? current.track.id : null;
   },
   stop() {
     wanted = null;

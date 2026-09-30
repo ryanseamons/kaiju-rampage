@@ -420,3 +420,28 @@ html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weig
 #overlay .difficulty .pill button.on.hard { background: #ff4b5c; color: #fff; }
 #overlay .difficulty .pill button:disabled { opacity: 0.35; cursor: default; }
 .difficulty .desc { font-size: 0.7em; color: var(--muted); max-width: calc(var(--u) * 16); line-height: 1.35; }
+
+/* Entrance animations play once when the title appears; in-place updates and re-renders skip them. */
+#overlay.settled .poster, #overlay.settled .logo span, #overlay.settled .seal,
+#overlay .scrim.settled, #overlay .scrim.settled .panel { animation: none; }
+
+/* ── Sound test ─────────────────────────────────────────────────────────── */
+.plaque[role='button'] { cursor: pointer; }
+.plaque[role='button']:hover { border-right-color: var(--yellow); }
+.panel.sound h3 { margin: 1em 0 0.35em; font-family: var(--display); font-size: 0.95em; letter-spacing: 0.12em; text-transform: uppercase; color: var(--yellow); }
+.panel.sound .track { display: grid; grid-template-columns: 2.4em 1fr auto; gap: 0.8em; align-items: center; padding: 0.45em 0.6em; border-left: 0.2em solid transparent; background: rgba(255, 255, 255, 0.03); margin-bottom: 0.3em; }
+.panel.sound .track.now { border-left-color: var(--yellow); background: rgba(255, 210, 63, 0.08); }
+#overlay .panel.sound .play { width: 2.2em; height: 2.2em; border-radius: 50%; border: 0.1em solid rgba(243, 234, 210, 0.45); background: rgba(5, 6, 13, 0.6); padding: 0; }
+#overlay .panel.sound .track.now .play { border-color: var(--yellow); color: var(--yellow); }
+.panel.sound .info b { display: block; font-size: 0.95em; }
+.panel.sound .info small { color: var(--muted); font-size: 0.78em; }
+.panel.sound .tags { margin-top: 0.2em; display: flex; flex-wrap: wrap; gap: 0.3em; }
+.panel.sound .tag { font-size: 0.66em; padding: 0.05em 0.5em; border-radius: 99em; background: rgba(95, 246, 255, 0.1); color: #9ffcff; }
+.panel.sound .tag.bit { background: rgba(255, 95, 210, 0.18); color: #ff9fe6; }
+.panel.sound .vote button { font-size: 0.75em; }
+#overlay .panel.sound .vote button.on.keep { background: #7fd48a; color: var(--ink); }
+#overlay .panel.sound .vote button.on.cut { background: #ff4b5c; color: #fff; }
+.sound-foot { margin-top: 1em; display: flex; gap: 1em; align-items: center; flex-wrap: wrap; }
+#overlay .sound-foot .copy, #overlay .sound-open { padding: 0.35em 1em; border: 0.08em solid var(--yellow); color: var(--yellow); background: transparent; }
+.sound-foot .copied { font-size: 0.8em; color: var(--muted); }
+.sound-foot textarea { width: 100%; font: inherit; font-size: 0.75em; }

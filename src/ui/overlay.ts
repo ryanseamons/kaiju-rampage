@@ -6,13 +6,31 @@ import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
 import { DAILY, todayKey } from '../config';
 import { DIFFICULTIES, cycleDifficulty, difficultyId, difficultyLocked, setDifficulty, type DifficultyId } from '../difficulty';
 import { music } from '../audio/music';
-import { isRunning, onAudioReady, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+import { duckMusic, isRunning, onAudioReady, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+import { tracks } from '../audio/tracks';
 import { uiSound } from '../audio/ui-sounds';
 
 const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
 const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
-type Panel = null | 'how' | 'codex' | 'scores' | 'settings';
+type Panel = null | 'how' | 'codex' | 'scores' | 'settings' | 'sound';
+const STAGES = ['title', 'tier1', 'tier2', 'tier3', 'boss', 'victory', 'defeat'] as const;
+const VOTES_KEY = 'kaiju.trackVotes';
+type Vote = 'keep' | 'cut';
+function loadVotes(): Record<string, Vote> {
+  try {
+    return JSON.parse(localStorage.getItem(VOTES_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function saveVotes(v: Record<string, Vote>) {
+  try {
+    localStorage.setItem(VOTES_KEY, JSON.stringify(v));
+  } catch {
+    /* private mode */
+  }
+}
 type Item = 'start' | 'daily' | 'how' | 'codex' | 'scores' | 'settings';
 const ITEMS: Item[] = ['start', 'daily', 'how', 'codex', 'scores', 'settings'];
 const KIND_COLOR: Record<UpgradeDef['kind'], string> = { weapon: '#ff7a2a', body: '#56c46a', stomp: '#5ff6ff', growth: '#ff5fd2' };
@@ -29,6 +47,10 @@ class Overlay {
   private monsterBody: string | null = null;
   private monsterGlow: string | null = null;
   private plaqueTimer: number | null = null;
+  /** True until the first render after show(): only then do the poster's entrance animations play. */
+  private entrance = true;
+  /** The panel currently in the DOM, so re-rendering it (a settings toggle) doesn't replay its pop-in. */
+  private shownPanel: Panel = null;
 
   init(onStart: () => void) {
     this.onStart = onStart;
@@ -45,6 +67,9 @@ class Overlay {
     document.addEventListener('pointerdown', wake, true);
     document.addEventListener('keydown', wake, true);
     onLang(() => this.open && this.render());
+    // The Sound Test highlights what's playing; keep it current when a track rotates on its own.
+    music.onChange(() => this.syncSoundNow());
+    void tracks.load().then(() => this.open && this.panel === 'sound' && !this.root.querySelector('.track') && this.renderPanel());
     onAudioReady(() => uiSound.preload());
     // Hover + press sounds for every HTML button (menu, panels, pills, the mute button).
     let lastBtn: Element | null = null;
@@ -132,7 +157,10 @@ class Overlay {
     this.panel = null;
     this.sel = 0;
     this.openedAt = performance.now();
+    this.entrance = true;
+    this.shownPanel = null;
     this.root.hidden = false;
+    duckMusic(false); // a run that ended on the results screen left the music ducked
     document.getElementById('pause')?.toggleAttribute('hidden', true);
     this.place();
     this.render();
@@ -187,7 +215,7 @@ class Overlay {
       return;
     }
     this.panel = item;
-    this.render();
+    this.renderPanel();
   }
 
   private onKey(e: KeyboardEvent) {
@@ -208,7 +236,7 @@ class Overlay {
         handled();
         uiSound.press();
         this.panel = null;
-        this.render();
+        this.renderPanel();
       }
       return;
     }
@@ -219,17 +247,17 @@ class Overlay {
       if (back) setDifficulty(DIFFICULTIES[(DIFFICULTIES.indexOf(difficultyId()) + DIFFICULTIES.length - 1) % DIFFICULTIES.length]);
       else cycleDifficulty();
       uiSound.hover(false);
-      this.render();
+      this.renderDifficulty();
     } else if (code === 'ArrowDown' || code === 'KeyS') {
       handled();
       this.sel = (this.sel + 1) % ITEMS.length;
       uiSound.hover(false);
-      this.render();
+      this.syncSel();
     } else if (code === 'ArrowUp' || code === 'KeyW') {
       handled();
       this.sel = (this.sel + ITEMS.length - 1) % ITEMS.length;
       uiSound.hover(false);
-      this.render();
+      this.syncSel();
     } else if (code === 'Enter' || code === 'Space') {
       handled();
       uiSound.press();
@@ -276,7 +304,7 @@ class Overlay {
             <button data-lang="ja" class="jp ${getLang() === 'ja' ? 'on' : ''}">日本語</button>
           </div>
         </div>
-        <div class="plaque silent">
+        <div class="plaque silent" role="button" tabindex="0" title="${esc(t('soundOpen'))}">
           <div class="label"><span class="eq"><b></b><b></b><b></b></span>${esc(t('nowPlaying'))}</div>
           <div class="title"></div>
           <div class="meta"></div>
@@ -285,7 +313,10 @@ class Overlay {
         <div class="keyhint">${esc(t('keyHint'))}</div>
         <div class="credits">${esc(t('credits'))}</div>
       </div>
-      ${this.panel ? `<div class="scrim">${this.panelHtml(this.panel)}</div>` : ''}`;
+      <div class="panel-slot"></div>`;
+    // Later full renders (language switch, monster art arriving) must not replay the entrance.
+    this.root.classList.toggle('settled', !this.entrance);
+    this.entrance = false;
     this.root.querySelectorAll<HTMLButtonElement>('[data-item]').forEach((b) =>
       b.addEventListener('click', () => {
         this.sel = ITEMS.indexOf(b.dataset.item as Item);
@@ -297,30 +328,89 @@ class Overlay {
         const i = ITEMS.indexOf(b.dataset.item as Item);
         if (i !== this.sel) {
           this.sel = i;
-          this.root.querySelectorAll('[data-item]').forEach((x, j) => x.classList.toggle('sel', j === i));
+          this.syncSel();
         }
       }),
     );
+    this.bindDifficulty();
+    this.root.querySelector('.plaque')?.addEventListener('click', () => {
+      uiSound.press();
+      this.panel = 'sound';
+      this.renderPanel();
+    });
+    this.root.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang as 'en' | 'ja')));
+    this.renderPanel();
+    this.updatePlaque();
+  }
+
+  private syncSel() {
+    this.root.querySelectorAll('[data-item]').forEach((x, j) => x.classList.toggle('sel', j === this.sel));
+  }
+
+  private bindDifficulty() {
     this.root.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) =>
       b.addEventListener('click', () => {
         setDifficulty(b.dataset.diff as DifficultyId);
-        this.render();
+        this.renderDifficulty();
       }),
     );
-    this.root.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang as 'en' | 'ja')));
-    this.root.querySelectorAll<HTMLButtonElement>('[data-close]').forEach((b) =>
-      b.addEventListener('click', () => {
-        this.panel = null;
-        this.render();
-      }),
-    );
-    this.root.querySelector('.scrim')?.addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) {
-        this.panel = null;
-        this.render();
-      }
+  }
+
+  /** Swap just the difficulty picker. */
+  private renderDifficulty() {
+    const el = this.root.querySelector('.difficulty');
+    if (!el) return;
+    el.outerHTML = this.difficultyHtml();
+    this.bindDifficulty();
+  }
+
+  /** Open, swap or close the panel without touching the poster behind it. */
+  private renderPanel() {
+    const slot = this.root.querySelector('.panel-slot');
+    if (!slot) return;
+    const same = this.panel !== null && this.panel === this.shownPanel;
+    const scroll = slot.querySelector('.body')?.scrollTop ?? 0;
+    slot.innerHTML = this.panel ? `<div class="scrim${same ? ' settled' : ''}">${this.panelHtml(this.panel)}</div>` : '';
+    this.shownPanel = this.panel;
+    if (!this.panel) return;
+    if (same) slot.querySelector('.body')?.scrollTo(0, scroll);
+    const close = () => {
+      this.panel = null;
+      this.renderPanel();
+    };
+    slot.querySelectorAll<HTMLButtonElement>('[data-close]').forEach((b) => b.addEventListener('click', close));
+    slot.querySelector('.scrim')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) close();
     });
-    this.root.querySelectorAll<HTMLButtonElement>('[data-set]').forEach((b) =>
+    slot.querySelectorAll<HTMLButtonElement>('[data-open]').forEach((b) =>
+      b.addEventListener('click', () => {
+        this.panel = b.dataset.open as Panel;
+        this.renderPanel();
+      }),
+    );
+    slot.querySelectorAll<HTMLButtonElement>('[data-play]').forEach((b) =>
+      b.addEventListener('click', () => {
+        unlock();
+        if (!prefs.music) setMusicOn(true);
+        void music.playTrack(b.dataset.play!).then(() => this.syncSoundNow());
+      }),
+    );
+    slot.querySelectorAll<HTMLButtonElement>('[data-vote]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const [id, v] = b.dataset.vote!.split(':') as [string, Vote];
+        const votes = loadVotes();
+        if (votes[id] === v) delete votes[id];
+        else votes[id] = v;
+        saveVotes(votes);
+        const row = b.closest('.track');
+        row?.querySelectorAll<HTMLButtonElement>('[data-vote]').forEach((x) => {
+          const kind = x.dataset.vote!.split(':')[1];
+          x.className = votes[id] === kind ? `on ${kind}` : '';
+        });
+      }),
+    );
+    slot.querySelector<HTMLButtonElement>('[data-copy]')?.addEventListener('click', () => void this.copyPicks());
+    slot.querySelectorAll<HTMLButtonElement>('[data-set]').forEach((b) =>
       b.addEventListener('click', () => {
         const [what, val] = (b.dataset.set as string).split(':');
         if (what === 'music') {
@@ -328,11 +418,43 @@ class Overlay {
           if (val === 'on') music.resume();
         }
         if (what === 'sfx') setSfxOn(val === 'on');
-        if (what === 'lang') setLang(val as 'en' | 'ja');
-        this.render();
+        if (what === 'lang') return setLang(val as 'en' | 'ja'); // re-renders everything via onLang
+        this.renderPanel();
       }),
     );
-    this.updatePlaque();
+  }
+
+  /** Move the Sound Test's "now playing" highlight without rebuilding the list. */
+  private syncSoundNow() {
+    if (!this.open || this.panel !== 'sound') return;
+    const id = music.currentTrackId();
+    this.root.querySelectorAll<HTMLElement>('.panel.sound .track').forEach((row) => {
+      const now = row.dataset.track === id;
+      row.classList.toggle('now', now);
+      const b = row.querySelector('.play');
+      if (b) b.textContent = now ? '♪' : '▶';
+    });
+  }
+
+  /** The Sound Test votes as plain text on the clipboard, grouped by stage. */
+  private async copyPicks() {
+    const votes = loadVotes();
+    const lines = ['Kaiju Rampage soundtrack picks'];
+    for (const st of STAGES) {
+      const list = tracks.all().filter((x) => x.contexts[0] === st);
+      if (!list.length) continue;
+      lines.push('', `${t(`st_${st}` as 'st_title')}:`);
+      for (const x of list) lines.push(`  ${votes[x.id] === 'keep' ? '👍 keep' : votes[x.id] === 'cut' ? '👎 cut ' : '·  —   '}  ${x.title} (${x.artist})`);
+    }
+    const text = lines.join('\n');
+    const note = this.root.querySelector('.sound-foot .copied');
+    try {
+      await navigator.clipboard.writeText(text);
+      if (note) note.textContent = t('soundCopied');
+    } catch {
+      // No clipboard permission: show the text so it can be selected by hand.
+      if (note) note.innerHTML = `<textarea readonly rows="8">${esc(text)}</textarea>`;
+    }
   }
 
   private difficultyHtml() {
@@ -386,6 +508,28 @@ class Overlay {
       return `<section class="panel">${head(t('m_codex'))}<div class="body"><p>${esc(t('codexIntro'))}</p><div class="codex">${cards}</div>
         <p class="lede" style="margin-top:1.2em"><b>${esc(t('evolutions'))}</b> ${esc(t('evoHow'))}</p><div class="codex">${evos}</div></div></section>`;
     }
+    if (p === 'sound') {
+      const all = tracks.all();
+      if (!all.length) return `<section class="panel">${head(t('m_sound'))}<div class="body"><p>${esc(t('soundNone'))}</p></div></section>`;
+      const votes = loadVotes();
+      const playing = music.currentTrackId();
+      const groups = STAGES.map((st) => {
+        const rows = all.filter((x) => x.contexts[0] === st).map((x) => {
+          const v = votes[x.id];
+          const tags = (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');
+          return `<div class="track${x.id === playing ? ' now' : ''}" data-track="${x.id}">
+            <button class="play" data-play="${x.id}" aria-label="Play ${esc(x.title)}">${x.id === playing ? '♪' : '▶'}</button>
+            <div class="info"><b>${esc(x.title)}</b><small>${esc(x.artist)}</small><div class="tags">${tags}</div></div>
+            <div class="pill vote"><button data-vote="${x.id}:keep" class="${v === 'keep' ? 'on keep' : ''}">👍 ${esc(t('soundKeep'))}</button><button data-vote="${x.id}:cut" class="${v === 'cut' ? 'on cut' : ''}">👎 ${esc(t('soundCut'))}</button></div>
+          </div>`;
+        }).join('');
+        return rows ? `<h3>${esc(t(`st_${st}` as 'st_title'))}</h3>${rows}` : '';
+      }).join('');
+      return `<section class="panel sound">${head(t('m_sound'))}<div class="body">
+        <p class="lede">${esc(t('soundIntro'))}</p>${groups}
+        <div class="sound-foot"><button class="copy" data-copy>${esc(t('soundCopy'))}</button><span class="copied"></span></div>
+      </div></section>`;
+    }
     if (p === 'scores') {
       const table = (list: ScoreEntry[]) =>
         list.length
@@ -409,6 +553,7 @@ class Overlay {
       <div class="pill"><button data-set="lang:en" class="${getLang() === 'en' ? 'on' : ''}">English</button><button data-set="lang:ja" class="jp ${getLang() === 'ja' ? 'on' : ''}">日本語</button></div>
       <span>${esc(t('s_music'))}</span>${toggle('music', prefs.music)}
       <span>${esc(t('s_sfx'))}</span>${toggle('sfx', prefs.sfx)}
+      <span>${esc(t('m_sound'))}</span><div><button class="sound-open" data-open="sound">♪ ${esc(t('soundOpen'))}</button></div>
       <p class="note">${esc(t('jpNote'))}</p>
     </div></div></section>`;
   }

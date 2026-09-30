@@ -108,6 +108,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached (`DIFFICULTY=medium`, `START_WAVE=3` to vary it). |
 | `difficulty.spec.ts` | Skipped unless `DIFF=1`: a stationary kaiju at wave 2 (tier 2) and wave 4 (tier 3) on each difficulty; damage per game second must rise from Easy to Medium to Hard. |
 | `landmarks.spec.ts` | The castle, the KBN-7 tower, pagodas and torii are placed, and each renders (`landmark-*.png`). |
+| `overlay.spec.ts` | Title buttons (difficulty, menu, settings) update in place without rebuilding the poster; the Sound Test lists every track, plays one and remembers votes. |
 | `exit.spec.ts` | Pause → Exit asks first (Enter keeps playing), Y returns to the title, and a new run starts cleanly. |
 | `sfx.spec.ts` | All 15 Kenney sample banks (and the Epidemic banks, when present) load and are audible on the master bus (recorded, not played aloud). |
 | `music.spec.ts` | Skipped unless `MUSIC=1`: every music context is audible and unclipped; recorded tracks rotate and sit level with the composer. |
