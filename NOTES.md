@@ -58,8 +58,20 @@ Published as a public repo (github.com/ryanseamons/kaiju-rampage) and a Cloudfla
 - **More army, more reasons to move.** Rocket teams, helicopters, cannon batteries, a heavy walker mid-boss, jet bombing runs, elites, and an encirclement ring. Ground units follow a flow field (BFS from the kaiju over the tile grid), so they route around buildings instead of pressing into walls; riflemen close to 85% of their range instead of orbiting out of it.
 - **Items and build.** Supply crates (from elites and the walker) open an evolution or a big upgrade; floor items (magnet, quake, rage); four evolutions from weapon + passive pairs; reroll and skip on level-up; the pause screen lists your build.
 - **Score.** A destruction combo (×0.5 per 15 hits, up to ×5), a results screen with a grade, initials entry, all-time and daily top-10s, a daily seed, and endless mode after the mech.
-- **Sound.** Music is 14 licensed Epidemic Sound tracks rotating per stage with 2.5 s crossfades, loudness-normalised and mixed under the effects (the procedural composer is the fallback in a clone). Effects are Kenney CC0 samples in 14 banks (alternates, pitch jitter, voice caps, deeper crunches as you grow, an XP pickup tick that climbs in pitch while you hoover a stream of crystals) layered over the old synthesis for weight. Every HTML button has Voyage's hover and press sounds.
+- **Sound.** Music is 14 licensed Epidemic Sound tracks rotating per stage with 2.5 s crossfades, loudness-normalised and mixed under the effects (the procedural composer is the fallback in a clone). Effects: 22 licensed Epidemic clips for the big moments (roars, collapses, explosions, stomp booms, cannon, car crush, jet pass, siren, rifle bursts; deploy-only like the music) over Kenney CC0 samples in 15 banks (alternates, pitch jitter, voice caps, deeper crunches as you grow, an XP pickup tick that climbs in pitch while you hoover a stream of crystals) layered over the old synthesis for weight. Every HTML button has Voyage's hover and press sounds.
+- **Landmarks.** The city was a uniform grid of houses and towers. It now has Shiokaze Castle in Old Town, the KBN-7 broadcast tower downtown, and five-storey pagodas with torii gates through the old quarters, each with its own art, HP, score and growth bonus, a banner when it falls, and news lines (topple the KBN-7 tower and the channel reports from a parking lot).
+- **Weight.** Footfalls get slower and deeper as you grow; at City-Ender size every step shakes the camera and kicks up dust.
 - **Difficulty.** Easy is the old tuning; Medium (the new default) and Hard multiply enemy HP, damage, spawn rates and caps, add elites and earlier, more frequent jets, field extra cannons and helicopters at tier 3, add tier-3 damage, and cut heals. See README for the table and `src/difficulty.ts` for the numbers.
+
+**Difficulty evidence (pass 3).** Two measurements, both in game seconds so a loaded machine doesn't skew them:
+
+| | Easy | Medium | Hard |
+|---|---|---|---|
+| Stationary kaiju, wave 2 (tier 2): damage/s (`difficulty.spec.ts`) | 7.5 | 9.0 | 9.2 |
+| Stationary kaiju, wave 4 (tier 3): damage/s | 11.0 | 12.3 | 14.3 |
+| Dodging bot, full normal-speed run: died at | 142 s | 124 s | 107 s |
+
+The order is right on every row. The absolute numbers are not tuned to the bot. It dies in wave 2 at tier 1 on every setting, because since the flow-field change infantry reach it and it flattens too little (31–57 buildings) to grow. A human who beat Easy on the first run is a much stronger player than this bot, so the multipliers in `src/difficulty.ts` are set relative to Easy, which the one real player called "good easy". Improving the bot's growth routing is the next step for balance evidence.
 
 ## Decisions made during the build
 

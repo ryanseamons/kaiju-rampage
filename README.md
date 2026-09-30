@@ -14,6 +14,10 @@ A browser survivor-like. You hatch in the bay as **TIDEMAW**, a van-sized lizard
 |---|---|---|
 | ![level up](screenshots/levelup.png) | ![bulletin](screenshots/bulletin-bank.png) | ![boss](screenshots/boss.png) |
 
+| Shiokaze Castle | KBN-7 Tower | Old Town pagoda |
+|---|---|---|
+| ![castle](screenshots/landmark-castle.png) | ![tv tower](screenshots/landmark-tvtower.png) | ![pagoda](screenshots/landmark-pagoda.png) |
+
 ## Run it
 
 Requires Node 22+.
@@ -49,7 +53,7 @@ npm run build
 | M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
 | ←/→ on the title screen, or click | Difficulty: **Easy**, **Medium** (default) or **Hard** (remembered; the daily rampage is always Medium) |
 
-**The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**.
+**The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**. **Landmarks** (Shiokaze Castle, the KBN-7 tower, the Old Town pagodas and their torii gates) are worth big points and growth, and the news desk notices when they fall.
 
 **Difficulty.** Easy is the original tuning. Medium and Hard raise enemy HP and damage, spawn rates and caps, add elites (2 and 3 per wave), bring jets in from wave 3 and more often, field more cannon batteries and helicopters once you reach tier 3 (where you'd otherwise outgrow the army), add tier-3 damage, cut heart drops and level-up heals, and thicken the encirclement ring. Score is ×0.75 on Easy, ×1 on Medium and ×1.5 on Hard, and the high-score table shows each run's mode. The knobs live in `src/difficulty.ts`.
 
@@ -103,6 +107,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `live-ai.spec.ts` | Skipped unless `LIVE_NARRATION_URL` points at a narration server with a real key. |
 | `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached (`DIFFICULTY=medium`, `START_WAVE=3` to vary it). |
 | `difficulty.spec.ts` | Skipped unless `DIFF=1`: a stationary kaiju at wave 2 (tier 2) and wave 4 (tier 3) on each difficulty; damage per game second must rise from Easy to Medium to Hard. |
+| `landmarks.spec.ts` | The castle, the KBN-7 tower, pagodas and torii are placed, and each renders (`landmark-*.png`). |
 | `sfx.spec.ts` | All 15 Kenney sample banks (and the Epidemic banks, when present) load and are audible on the master bus (recorded, not played aloud). |
 | `music.spec.ts` | Skipped unless `MUSIC=1`: every music context is audible and unclipped; recorded tracks rotate and sit level with the composer. |
 
