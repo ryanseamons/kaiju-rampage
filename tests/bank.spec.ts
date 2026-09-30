@@ -17,6 +17,8 @@ const PROFILES: Record<string, RunStats> = {
   quietT3: { ...base, wave: 3, tier: 3, buildingsDestroyed: 90, waveBuildingsDestroyed: 2, housesDestroyed: 80, towersDestroyed: 10, carsCrushed: 3, lowestHpPct: 70 },
   victory: { ...base, wave: 5, tier: 3, outcome: 'victory', bossDefeated: true, buildingsDestroyed: 520, housesDestroyed: 380, towersDestroyed: 140, tanksDestroyed: 60, soldiersDefeated: 700, elapsedSec: 640 },
   defeatEarly: { ...base, wave: 1, outcome: 'defeat', lowestHpPct: 0, hpPct: 0, nearDeathMoments: 1 },
+  landmarks: { ...base, wave: 3, tier: 3, district: 'Downtown', hardestHitDistrict: 'Downtown', buildingsDestroyed: 200, waveBuildingsDestroyed: 60, housesDestroyed: 150, towersDestroyed: 30, landmarksDestroyed: ['Shiokaze Castle', 'the KBN-7 Tower'], elapsedSec: 400 },
+  landmarksWin: { ...base, wave: 5, tier: 3, outcome: 'victory', bossDefeated: true, buildingsDestroyed: 500, housesDestroyed: 380, towersDestroyed: 120, landmarksDestroyed: ['the KBN-7 Tower'], elapsedSec: 640 },
   defeatLate: { ...base, wave: 4, tier: 3, outcome: 'defeat', buildingsDestroyed: 300, towersDestroyed: 50, housesDestroyed: 250, elapsedSec: 480, lowestHpPct: 0, hpPct: 0 },
 };
 

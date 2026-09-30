@@ -17,6 +17,7 @@ export class RunTracker {
   nearDeath = 0;
   lowestHpPct = 100;
   stomps = 0;
+  landmarks: string[] = [];
   elapsed = 0;
   upgrades: string[] = [];
   private waveUpgrades: string[] = [];
@@ -82,6 +83,7 @@ export class RunTracker {
       upgrades: [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)),
       newUpgradesThisWave: [...new Set(this.waveUpgrades)],
       stompsUsed: this.stomps,
+      landmarksDestroyed: [...this.landmarks],
       elapsedSec: Math.round(this.elapsed),
       previousHeadline: this.previousHeadline,
     };

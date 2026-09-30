@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
-const KENNEY = ['squish', 'car', 'plank', 'debris', 'plate', 'punch', 'hurt', 'slice', 'glass', 'powerup', 'evolve', 'item', 'zap', 'latch'];
+const KENNEY = ['step', 'squish', 'car', 'plank', 'debris', 'plate', 'punch', 'hurt', 'slice', 'glass', 'powerup', 'evolve', 'item', 'zap', 'latch'];
 
 test('effect samples load and play', async ({ page }) => {
   await page.goto('/?seed=3&lang=en&music=composed');

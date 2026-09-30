@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DAILY, LAND_H, REWARDS, SEED, START_WAVE, TIERS, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL, waveDmgMult, waveHpMult } from '../config';
-import { City, circleHits, districtAt, type Destructible } from '../city';
+import { City, LANDMARK, LANDMARK_NEWS, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
 import { Enemy, EnemyManager, ENEMY_ROSTER } from '../enemies';
 import { Weapons } from '../weapons';
@@ -56,6 +56,10 @@ export class GameScene extends Phaser.Scene {
   nav!: NavField;
   private navT = 0;
   score = new Score();
+  private stride = 0;
+  private peekAt: { x: number; y: number } | null = null;
+  /** Landmarks flattened this run, in order. */
+  landmarksDown: string[] = [];
   diff: DifficultyDef = difficulty();
   stats = new RunTracker();
   news = new NewsDesk();
@@ -110,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.stats = new RunTracker();
     this.news = new NewsDesk();
     this.score = new Score();
+    this.landmarksDown = [];
     this.phase = 'title';
     this.gameTime = 0;
     this.waveIdx = 0;
@@ -311,6 +316,11 @@ export class GameScene extends Phaser.Scene {
     if (this.phase === 'title') {
       this.titleT += delta;
       const cam = this.cameras.main;
+      if (this.peekAt) {
+        cam.centerOn(this.peekAt.x, this.peekAt.y);
+        this.player?.syncDecor(this.gameTime);
+        return;
+      }
       cam.centerOn(WORLD_W / 2 + Math.sin(this.titleT / 21000) * 900, LAND_H - 700 + Math.sin(this.titleT / 13000) * 160);
       this.titleFx.forEach((f, i) => f.setRotation(-Math.PI / 2 + Math.sin(this.titleT / (2600 + i * 700) + i * 1.7) * 0.75));
       this.player?.syncDecor(this.gameTime);
@@ -350,6 +360,17 @@ export class GameScene extends Phaser.Scene {
       if (Math.abs(mx) > 0.1) p.setFlipX(mx < 0);
       if (!p.anims.isPlaying && p.texture.key !== 'kaiju2') p.play('kaiju-walk');
       if (Math.random() < dt * 4 * p.tierIdx) this.fx.dust(p.x, p.y, 1);
+      // Footfalls: slower and heavier as the kaiju grows; at tier 3 the ground shakes.
+      this.stride += dt * Math.min(1, len) * (p.mods.rage > 0 ? 1.3 : 1);
+      const period = [0.3, 0.44, 0.58][p.tierIdx];
+      if (this.stride >= period) {
+        this.stride -= period;
+        sfx.step();
+        if (p.tierIdx === 2) {
+          this.shake(0.0025, 90);
+          this.fx.dust(p.x, p.y, 3);
+        }
+      }
     } else {
       p.setVelocity(0, 0);
     }
@@ -758,7 +779,22 @@ export class GameScene extends Phaser.Scene {
     this.score.add(rew.score);
     this.comboSfx();
     this.pickups.drop(d.x, d.y, 'xp', rew.xp);
-    if (p.addMass(rew.mass)) this.onTierUp();
+    let mass = rew.mass;
+    if (d.landmark) {
+      const lm = LANDMARK[d.landmark];
+      mass += lm.mass;
+      this.score.bonus(lm.score);
+      this.landmarksDown.push(d.landmark);
+      this.stats.landmarks.push(LANDMARK_NEWS[d.landmark]);
+      const name = t(`lm_${d.landmark}` as 'lm_pagoda');
+      this.fx.word(d.x, d.y - d.h * 1.6, `${name} +${Math.round(lm.score * this.score.diffMult).toLocaleString()}`, '#ffd24a', 1.4 + p.tierIdx * 0.7);
+      if (d.landmark !== 'torii') {
+        this.ui.banner(t('landmarkDown'), name, true);
+        this.pickups.drop(d.x, d.y, 'xp', 12);
+        this.time.delayedCall(250, () => sfx.roar());
+      }
+    }
+    if (p.addMass(mass)) this.onTierUp();
   }
 
   private onTierUp() {
@@ -803,6 +839,11 @@ export class GameScene extends Phaser.Scene {
     const w = window as unknown as { __kaiju: unknown };
     w.__kaiju = {
       state: () => this.debugState(),
+      /** Title screen only: park the camera on a world point (for landmark screenshots). */
+      peek: (x: number, y: number, zoom = 1) => {
+        this.peekAt = { x, y };
+        this.cameras.main.setZoom(zoom);
+      },
     };
   }
 
@@ -823,6 +864,8 @@ export class GameScene extends Phaser.Scene {
       waveDuration: this.wave.boss ? null : this.waveDuration,
       tier: this.tier,
       difficulty: this.diff.id,
+      landmarks: this.city.landmarks.map((d) => ({ id: d.landmark, x: d.x, y: d.y, alive: d.alive })),
+      landmarksDown: this.landmarksDown,
       maxTierReached: this.maxTierReached,
       level: p.level,
       hp: p.hp,

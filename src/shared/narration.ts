@@ -48,6 +48,8 @@ export interface RunStats {
   upgrades: string[];
   newUpgradesThisWave: string[];
   stompsUsed: number;
+  /** Named landmarks flattened so far (English names), oldest first. Optional for older callers. */
+  landmarksDestroyed?: string[];
   elapsedSec: number;
   previousHeadline?: string;
 }
@@ -101,6 +103,7 @@ export function describeStats(s: RunStats): string {
       : 'No new abilities observed this wave.',
     s.upgrades.length ? `All abilities observed so far: ${s.upgrades.join(', ')}.` : '',
     `Seismic "stomp" events recorded: ${s.stompsUsed}.`,
+    s.landmarksDestroyed?.length ? `Landmarks destroyed: ${s.landmarksDestroyed.join(', ')}.` : 'No named landmarks lost yet.',
     s.previousHeadline ? `Your previous headline was: "${s.previousHeadline}" — do not repeat it.` : '',
   ];
   return lines.filter(Boolean).join('\n');

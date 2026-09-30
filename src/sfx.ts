@@ -100,6 +100,13 @@ export const sfx = {
     }
     tone('sine', big ? 80 : 120, 28, big ? 0.7 : 0.35, 0.5);
   },
+  /** A footfall: light steps as a hatchling, ground-shaking thuds at City-Ender size. */
+  step: () => {
+    if (tierIdx === 0) return void samples.play('step', { rate: 1.1, gain: 0.6 });
+    samples.play('step', { rate: 0.6 - tierIdx * 0.1, gain: 0.8 });
+    samples.play('punch', { rate: 0.55 - tierIdx * 0.08, gain: 0.25 + tierIdx * 0.12 });
+    tone('sine', 70 - tierIdx * 12, 28, 0.25 + tierIdx * 0.1, 0.18 + tierIdx * 0.12);
+  },
   stomp: () => {
     if (!samples.play('es.stomp', { rate: deep(0.06) })) samples.play('punch', { rate: 0.65 * deep(0.08) });
     tone('sine', 110, 25, 0.5, 0.9);

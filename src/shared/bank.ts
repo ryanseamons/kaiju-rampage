@@ -34,6 +34,8 @@ const ST = (s: RunStats) => s.stompsUsed > 0;
 const QUIET = (s: RunStats) => s.waveBuildingsDestroyed < 5;
 const BIG = (s: RunStats) => s.waveBuildingsDestroyed >= 25;
 const MOVED = (s: RunStats) => s.district !== s.hardestHitDistrict;
+const LM = (s: RunStats) => (s.landmarksDestroyed?.length ?? 0) > 0;
+const TVDOWN = (s: RunStats) => !!s.landmarksDestroyed?.includes('the KBN-7 Tower');
 const all = (...fs: ((s: RunStats) => boolean)[]) => (s: RunStats) => fs.every((f) => f(s));
 
 // ── Headlines (rendered in caps) ─────────────────────────────────────────────
@@ -50,6 +52,9 @@ export const HEADLINES: Template[] = [
   tpl('Experts: this is bad', BIG),
   tpl('Quiet wave, nervous city', QUIET),
   tpl('{towersN} fall across the skyline', TW),
+  tpl('{landmark} reduced to rubble', LM),
+  tpl('Heritage officials mourn {landmark}', LM),
+  any('KBN-7 back on air from a parking lot', TVDOWN),
   tpl('Armor losses mount: {tanksN} down', TK),
   tpl('New ability reported: {upgrade}', UP),
   tpl('Monster wounded, not stopped', ND),
@@ -76,6 +81,10 @@ export const HEADLINES: Template[] = [
 
 // ── Anchor lines (one spoken sentence) ───────────────────────────────────────
 export const ANCHORS: Template[] = [
+  // landmarks
+  tpl('{kaiju} has flattened {landmark}. Historians call the loss irreplaceable; the creature appeared to find it crunchy.', LM),
+  tpl('A moment of silence tonight for {landmark}, which stood for centuries and lasted about four seconds against {kaiju}.', LM),
+  any('Good evening from the KBN-7 emergency van. Our tower is gone, our anchor desk is a folding table, and we are still on the air.', TVDOWN),
   // general destruction
   tpl('Good evening. {kaiju} has now destroyed {buildingsN}, and residents of {hardest} are asking whether "regrouping" is a military word for running.', B),
   tpl('Tonight\'s top story remains the same as the last one: a monster, a city, and {buildingsN} that used to be buildings.', B),
@@ -216,6 +225,9 @@ export const ANCHORS: Template[] = [
 
 // ── Ticker fragments (rendered in caps) ──────────────────────────────────────
 export const TICKERS: Template[] = [
+  tpl('Tourism board quietly removes {landmark} from brochures', LM),
+  tpl('Landmarks lost so far: {landmarksN}', LM),
+  any('KBN-7 transmitting on backup power after tower collapse', TVDOWN),
   tpl('{hardest} residents urged to evacuate "immediately, or sooner"', WB),
   tpl('Defense ministry: {soldiersN} "reassigned to running away"', SO),
   tpl('Seismologists log {stompsN}; Richter scale files complaint', ST),
@@ -365,6 +377,8 @@ export function slotsFor(s: RunStats, ctx: { kaiju: string; size: string; threat
     soldiersN: plural(s.soldiersDefeated, 'soldier', 'soldiers'),
     tanksN: plural(s.tanksDestroyed, 'tank', 'tanks'),
     stompsN: plural(s.stompsUsed, 'stomp', 'stomps'),
+    landmark: s.landmarksDestroyed?.[s.landmarksDestroyed.length - 1] ?? '',
+    landmarksN: String(s.landmarksDestroyed?.length ?? 0),
     nearDeathN: times(s.nearDeathMoments),
     upgrade: s.newUpgradesThisWave[s.newUpgradesThisWave.length - 1] ?? '',
     upgradeList: s.upgrades.slice(-4).join(', '),

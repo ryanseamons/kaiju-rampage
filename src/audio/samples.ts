@@ -21,6 +21,7 @@ interface BankDef {
 const k = (name: string, n: number) => Array.from({ length: n }, (_, i) => `sfx/k/${name}-${i}.mp3`);
 
 const KENNEY: Record<string, BankDef> = {
+  step: { files: k('step', 5), peak: 0.3, gap: 120, voices: 2, jitter: 0.06 },
   squish: { files: k('squish', 5), peak: 0.35, gap: 45, voices: 3 },
   car: { files: k('car', 5), peak: 0.4, gap: 50, voices: 3 },
   plank: { files: k('plank', 5), peak: 0.55, gap: 60, voices: 3 },

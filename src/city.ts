@@ -5,6 +5,16 @@ import { T } from './textures';
 import { mulberry32, rint, type Rng } from './rng';
 
 export type DestructibleKind = 'car' | 'tree' | 'house' | 'warehouse' | 'tower';
+/** Named landmarks: towers (and one house-sized gate) with their own art, HP and score. */
+export type LandmarkId = 'pagoda' | 'castle' | 'tvtower' | 'torii';
+export const LANDMARK: Record<LandmarkId, { hp: number; score: number; mass: number }> = {
+  pagoda: { hp: 200, score: 3000, mass: 30 },
+  castle: { hp: 340, score: 8000, mass: 60 },
+  tvtower: { hp: 280, score: 6000, mass: 45 },
+  torii: { hp: 30, score: 400, mass: 4 },
+};
+/** How the (English) news bank names each landmark. */
+export const LANDMARK_NEWS: Record<LandmarkId, string> = { pagoda: 'the Old Town pagoda', castle: 'Shiokaze Castle', tvtower: 'the KBN-7 Tower', torii: 'a shrine gate' };
 
 export interface Destructible {
   kind: DestructibleKind;
@@ -21,6 +31,7 @@ export interface Destructible {
   district: string;
   alive: boolean;
   lastHit: number;
+  landmark?: LandmarkId;
 }
 
 export class Grid<T extends { x: number; y: number; alive: boolean }> {
@@ -81,6 +92,9 @@ export class City {
   grid = new Grid<Destructible>(128);
   all: Destructible[] = [];
   private r: Rng;
+  private special = new Map<string, LandmarkId>();
+  /** Every landmark placed, for the minimap-free player to find (and tests). */
+  landmarks: Destructible[] = [];
 
   constructor(private scene: Phaser.Scene, seed: number) {
     this.r = mulberry32(seed);
@@ -100,6 +114,9 @@ export class City {
     this.layer.setDepth(-100);
     this.solids = s.physics.add.staticGroup();
 
+    // One castle in Old Town and the KBN-7 tower downtown; pagodas are scattered through the old quarters.
+    this.special.set('2,4', 'castle');
+    this.special.set('7,3', 'tvtower');
     for (let by = 0; by * 9 + 8 < 83; by++)
       for (let bx = 0; bx * 9 + 8 < MAP_W; bx++) this.fillBlock(bx, by);
 
@@ -139,6 +156,8 @@ export class City {
     for (const [p, w] of weights[district]) {
       if ((roll -= w) <= 0) { pattern = p; break; }
     }
+    const lm = this.special.get(`${bx},${by}`) ?? ((district === 'Old Town' || district === 'Hillside') && r() < 0.1 ? 'pagoda' : undefined);
+    if (lm) return this.landmarkBlock(tx0, ty0, lm, district);
     const used = new Set<string>();
     const big = (lx: number, ly: number, kind: 'tower' | 'warehouse') => {
       for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) used.add(`${lx + dx},${ly + dy}`);
@@ -175,7 +194,24 @@ export class City {
       }
   }
 
-  private addBuilding(kind: 'house' | 'warehouse' | 'tower', px: number, py: number, district: string) {
+  /** A landmark in the middle of the block, a torii in front, and a park around them. */
+  private landmarkBlock(tx0: number, ty0: number, lm: LandmarkId, district: string) {
+    const r = this.r;
+    const d = this.addBuilding('tower', (tx0 + 1) * TILE + 16, (ty0 + 1) * TILE, district, lm);
+    d.hp = d.maxHp = LANDMARK[lm].hp;
+    if (lm !== 'tvtower') {
+      const g = this.addBuilding('house', (tx0 + 2) * TILE, (ty0 + 4) * TILE, district, 'torii');
+      g.hp = g.maxHp = LANDMARK.torii.hp;
+    }
+    for (let ly = 0; ly < 5; ly++)
+      for (let lx = 0; lx < 5; lx++) {
+        const inside = lx >= 1 && lx <= 3 && ly <= 2; // tall sprites rise over row 0
+        this.map.putTileAt(lm === 'tvtower' ? T.sidewalk : T.park, tx0 + lx, ty0 + ly);
+        if (!inside && !(lx === 2 && ly >= 3) && r() < 0.5) this.addProp('tree', (tx0 + lx) * TILE + 16 + rint(r, -6, 6), (ty0 + ly) * TILE + 16 + rint(r, -6, 6), district);
+      }
+  }
+
+  private addBuilding(kind: 'house' | 'warehouse' | 'tower', px: number, py: number, district: string, landmark?: LandmarkId): Destructible {
     const s = this.scene, r = this.r;
     const v = kind === 'warehouse' ? rint(r, 0, 2) : rint(r, 0, 5);
     // footprint (collision) rectangle, bottom-aligned with the sprite
@@ -183,7 +219,7 @@ export class City {
     const fh = kind === 'house' ? 26 : kind === 'warehouse' ? 44 : 58;
     const left = px + (kind === 'house' ? 2 : 2);
     const bottom = py + (kind === 'house' ? 30 : 62);
-    const sprite = s.add.image(left + fw / 2, bottom, `${kind}${v}`).setOrigin(0.5, 1).setDepth(bottom);
+    const sprite = s.add.image(left + fw / 2, bottom, landmark ?? `${kind}${v}`).setOrigin(0.5, 1).setDepth(bottom);
     const d: Destructible = {
       kind,
       sizeClass: kind === 'tower' ? SIZE.tower : SIZE.house,
@@ -197,6 +233,7 @@ export class City {
       district,
       alive: true,
       lastHit: 0,
+      landmark,
     };
     const zone = s.add.zone(d.x, d.y, fw, fh);
     this.solids.add(zone);
@@ -204,6 +241,8 @@ export class City {
     d.zone = zone;
     this.grid.insert(d);
     this.all.push(d);
+    if (landmark) this.landmarks.push(d);
+    return d;
   }
 
   private addProp(kind: 'car' | 'tree', x: number, y: number, district: string, rot = 0) {

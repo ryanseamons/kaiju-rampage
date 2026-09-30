@@ -344,6 +344,7 @@ class Overlay {
         ['1 · 2 · 3', t('how_level')],
         ['CRATES', t('how_items')],
         ['SCORE', t('how_score')],
+        ['LANDMARKS', t('how_landmarks')],
         ['WIN', t('how_win')],
         ['← →', t('how_diff')],
         ['P · M · L', t('how_keys')],

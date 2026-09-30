@@ -257,6 +257,76 @@ function drawTower(c: Ctx, v: number) {
   }
 }
 
+// ── Landmarks ────────────────────────────────────────────────────────────────
+/** Five-storey pagoda: stacked flared roofs over red walls, a gold spire. 60 x 104. */
+function drawPagoda(c: Ctx) {
+  const roof = '#2c3444', edge = '#56627a', wall = '#9a2a2a';
+  rect(c, 28, 0, 4, 14, '#e0b23b');
+  for (let i = 0; i < 5; i++) ell(c, 30, 3 + i * 2.4, 3 - i * 0.3, 1, '#ffd66b');
+  for (let i = 0; i < 5; i++) {
+    const y = 16 + i * 17, hw = 12 + i * 4.5;
+    rect(c, 30 - hw * 0.62, y + 6, hw * 1.24, 11, wall);
+    rect(c, 30 - hw * 0.62, y + 6, hw * 1.24, 2, shade(wall, 0.2));
+    rect(c, 27, y + 9, 6, 7, i % 2 ? '#ffd66b' : '#2a0e0e');
+    poly(c, [30 - hw - 3, y + 8, 30 - hw, y + 3, 30, y - 2, 30 + hw, y + 3, 30 + hw + 3, y + 8, 30, y + 5], roof);
+    poly(c, [30 - hw - 3, y + 8, 30, y + 5, 30 + hw + 3, y + 8, 30, y + 7], edge);
+  }
+  rect(c, 8, 98, 44, 6, '#6a6a76');
+  rect(c, 8, 98, 44, 1, '#8a8a96');
+}
+
+/** Castle keep on a stone base: white walls, dark tiered roofs, gold ornaments. 62 x 106. */
+function drawCastle(c: Ctx) {
+  const roof = '#34454c', edge = '#6a8088', wall = '#e8e4d8';
+  poly(c, [0, 106, 6, 76, 56, 76, 62, 106], '#5a5a66');
+  for (let y = 80; y < 106; y += 6) rect(c, 2, y, 58, 1, '#44444e');
+  for (let y = 80, o = 0; y < 106; y += 6, o = 1 - o) for (let x = 4 + o * 5; x < 58; x += 10) rect(c, x, y, 1, 6, '#44444e');
+  const tiers: [number, number, number][] = [[58, 24, 18], [38, 20, 14], [20, 15, 11]];
+  for (const [y, hw, wh] of tiers) {
+    rect(c, 31 - hw * 0.75, y + 4, hw * 1.5, wh, wall);
+    for (let x = 31 - hw * 0.6; x < 31 + hw * 0.6; x += 7) rect(c, x, y + 7, 3, 4, '#23283a');
+    poly(c, [31 - hw - 4, y + 5, 31 - hw + 2, y - 3, 31 + hw - 2, y - 3, 31 + hw + 4, y + 5], roof);
+    rect(c, 31 - hw - 4, y + 4, hw * 2 + 8, 1, edge);
+    poly(c, [31 - 6, y - 3, 31, y - 9, 31 + 6, y - 3], shade(roof, 0.15)); // gable
+  }
+  rect(c, 22, 6, 18, 12, wall);
+  poly(c, [16, 10, 22, 2, 40, 2, 46, 10], roof);
+  ell(c, 21, 2, 2, 2, '#e0b23b');
+  ell(c, 41, 2, 2, 2, '#e0b23b');
+}
+
+/** The KBN-7 broadcast tower: a red-and-white lattice with an observation deck. 60 x 150. */
+function drawTvTower(c: Ctx) {
+  rect(c, 29, 0, 2, 20, '#c8ccd8');
+  rect(c, 28, 0, 4, 2, '#ff3355');
+  for (let y = 20; y < 150; y += 8) {
+    const hw = 3 + ((y - 20) / 130) ** 1.4 * 24;
+    const band = Math.floor(y / 16) % 2 ? '#e04040' : '#f0f0f0';
+    rect(c, 30 - hw, y, 2, 8, band);
+    rect(c, 30 + hw - 2, y, 2, 8, band);
+    poly(c, [30 - hw, y, 30 + hw, y + 8, 30 + hw - 2, y + 8, 30 - hw + 2, y], shade(band, -0.25));
+    rect(c, 30 - hw, y + 7, hw * 2, 1, band);
+  }
+  ell(c, 30, 58, 15, 6, '#2a2f44');
+  ell(c, 30, 56, 15, 4, '#3a4058');
+  for (let x = 18; x < 43; x += 4) rect(c, x, 57, 2, 2, WINDOW_LIT[x % 3 ? 0 : 1]);
+  rect(c, 22, 88, 16, 4, '#2a2f44');
+  rect(c, 6, 146, 48, 4, '#4a4f66');
+}
+
+/** A vermilion torii gate. 30 x 30 (house-sized). */
+function drawTorii(c: Ctx) {
+  const red = '#d23a2a';
+  rect(c, 6, 9, 3, 21, red);
+  rect(c, 21, 9, 3, 21, red);
+  rect(c, 3, 11, 24, 2, red);
+  poly(c, [0, 5, 30, 5, 28, 8, 2, 8], '#1a1418');
+  rect(c, 2, 3, 26, 2, '#1a1418');
+  rect(c, 13, 8, 4, 3, red);
+  rect(c, 5, 28, 5, 2, '#3a3a44');
+  rect(c, 20, 28, 5, 2, '#3a3a44');
+}
+
 function drawWarehouse(c: Ctx, v: number) {
   const w = 62, roofH = 34;
   const roof = ['#3b4a5a', '#5a4a3b', '#3b5a4a'][v % 3];
@@ -375,6 +445,10 @@ export function generateTextures(scene: Phaser.Scene) {
     pixelTex(scene, `warehouse${v}`, 62, 46, (c) => drawWarehouse(c, v));
     pixelTex(scene, `tree${v}`, 15, 14, (c) => drawTree(c, v));
   }
+  pixelTex(scene, 'pagoda', 60, 104, drawPagoda);
+  pixelTex(scene, 'castle', 62, 106, drawCastle);
+  pixelTex(scene, 'tvtower', 60, 150, drawTvTower);
+  pixelTex(scene, 'torii', 30, 30, drawTorii);
   // pickups & projectiles
   pixelTex(scene, 'gem', 7, 9, (c) => { poly(c, [3.5, 0, 7, 4.5, 3.5, 9, 0, 4.5], '#4dffb0'); rect(c, 2, 3, 2, 2, '#e8fff4'); });
   pixelTex(scene, 'gemBig', 11, 13, (c) => { poly(c, [5.5, 0, 11, 6.5, 5.5, 13, 0, 6.5], '#ff5fd2'); rect(c, 3, 4, 3, 3, '#fff0fb'); });
