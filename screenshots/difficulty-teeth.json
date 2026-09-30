@@ -1,0 +1,50 @@
+[
+  {
+    "level": "easy",
+    "wave": 2,
+    "damage": 17,
+    "maxHp": 180,
+    "died": false,
+    "difficulty": "easy"
+  },
+  {
+    "level": "medium",
+    "wave": 2,
+    "damage": 0,
+    "maxHp": 180,
+    "died": false,
+    "difficulty": "medium"
+  },
+  {
+    "level": "hard",
+    "wave": 2,
+    "damage": 0,
+    "maxHp": 180,
+    "died": false,
+    "difficulty": "hard"
+  },
+  {
+    "level": "easy",
+    "wave": 4,
+    "damage": 0,
+    "maxHp": 300,
+    "died": false,
+    "difficulty": "easy"
+  },
+  {
+    "level": "medium",
+    "wave": 4,
+    "damage": 0,
+    "maxHp": 300,
+    "died": false,
+    "difficulty": "medium"
+  },
+  {
+    "level": "hard",
+    "wave": 4,
+    "damage": 0,
+    "maxHp": 300,
+    "died": false,
+    "difficulty": "hard"
+  }
+]
