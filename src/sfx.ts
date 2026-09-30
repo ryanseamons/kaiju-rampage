@@ -82,7 +82,7 @@ export const sfx = {
   },
   collapse: (big: boolean) => {
     if (!throttle(big ? 'collapseBig' : 'collapse', big ? 120 : 70)) return;
-    const es = big ? samples.play('es.collapse', { rate: deep(0.05) }) : false;
+    const es = samples.play(big ? 'es.collapseBig' : 'es.collapse', { rate: deep(0.05), gain: big ? 1 : 0.8 });
     if (!es) {
       samples.play('debris', { rate: (big ? 0.75 : 0.95) * deep(0.08) });
       samples.play('plank', { rate: (big ? 0.7 : 0.9) * deep(0.08), gain: big ? 0.8 : 0.6 });
@@ -108,7 +108,9 @@ export const sfx = {
   swipe: () => {
     if (!samples.play('slice', { rate: 0.85 * deep(0.1) }) && throttle('swipe', 90)) noise(0.08, 5000, 0.12, 2, 1500);
   },
-  shot: () => throttle('shot', 70) && tone('square', 900, 300, 0.05, 0.05),
+  shot: () => {
+    if (!samples.play('es.rifle', { rate: 1.1 }) && throttle('shot', 70)) tone('square', 900, 300, 0.05, 0.05);
+  },
   cannon: () => {
     if (!throttle('cannon', 120)) return;
     if (!samples.play('es.cannon')) {
@@ -131,8 +133,9 @@ export const sfx = {
   levelup: () => {
     if (!samples.play('powerup')) [523, 659, 784, 1046].forEach((f, i) => tone('square', f, f, 0.12, 0.12, i * 0.07));
   },
-  roar: () => {
-    if (samples.play('es.roar', { rate: deep(0.07) })) return;
+  /** `big`: the tier-up roar. */
+  roar: (big = false) => {
+    if (samples.play(big ? 'es.roarBig' : 'es.roar', { rate: deep(0.07) }) || samples.play('es.roar', { rate: deep(0.07) })) return;
     tone('sawtooth', 180, 60, 1.0, 0.35);
     tone('sawtooth', 120, 45, 1.1, 0.3, 0.05);
     noise(1.0, 1800, 0.4, 1, 200);

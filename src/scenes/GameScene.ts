@@ -772,7 +772,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.enemies.boss) music.play(`tier${td.tier}` as 'tier1');
     this.hitStop(160);
     this.shake(0.02, 400);
-    sfx.roar();
+    sfx.roar(true);
     p.anims.stop();
     p.setTexture('kaiju2');
     this.time.delayedCall(700, () => p.play('kaiju-walk', true));
