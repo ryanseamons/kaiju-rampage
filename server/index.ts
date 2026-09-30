@@ -5,6 +5,16 @@ import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_MODEL, SYSTEM_PROMPT, buildUserPrompt, parseBulletin, type RunStats } from '../src/shared/narration.ts';
 
+// Optional gitignored .env next to package.json (ANTHROPIC_API_KEY=...). An explicitly set
+// environment variable (even an empty one) always wins, so tests can force the no-key path.
+if (process.env.ANTHROPIC_API_KEY === undefined) {
+  try {
+    process.loadEnvFile('.env');
+  } catch {
+    /* no .env — fine */
+  }
+}
+
 const PORT = Number(process.env.PORT ?? 8787);
 const MODEL = process.env.NARRATION_MODEL || DEFAULT_MODEL;
 const apiKey = process.env.ANTHROPIC_API_KEY?.trim();

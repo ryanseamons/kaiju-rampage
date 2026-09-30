@@ -1,0 +1,26 @@
+import { defineConfig } from '@playwright/test';
+
+// Isolated ports so a running `npm run dev` (possibly with a real key) never interferes.
+// 8790 mock Anthropic · 8791 narration server WITHOUT key · 8792 narration server WITH (fake) key → mock · 5174 Vite
+export default defineConfig({
+  testDir: 'tests',
+  timeout: 10 * 60_000,
+  workers: 1,
+  reporter: [['list']],
+  use: {
+    baseURL: 'http://localhost:5174',
+    viewport: { width: 1280, height: 720 },
+    launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+  },
+  webServer: [
+    { command: 'node tests/mock-anthropic.mjs', port: 8790, env: { MOCK_PORT: '8790' }, reuseExistingServer: false },
+    { command: 'npx tsx server/index.ts', port: 8791, env: { PORT: '8791', ANTHROPIC_API_KEY: '' }, reuseExistingServer: false },
+    {
+      command: 'npx tsx server/index.ts',
+      port: 8792,
+      env: { PORT: '8792', ANTHROPIC_API_KEY: 'sk-test-fake', ANTHROPIC_BASE_URL: 'http://localhost:8790' },
+      reuseExistingServer: false,
+    },
+    { command: 'npx vite --port 5174 --strictPort', port: 5174, env: { API_TARGET: 'http://localhost:8791' }, reuseExistingServer: false },
+  ],
+});

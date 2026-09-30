@@ -44,7 +44,7 @@ export const MASS_MULT = FAST ? 2.6 : 1;
 export const XP_MULT = FAST ? 1.6 : 1;
 
 /** Size class of things in the city: crushed on contact if <= tier, damageable by attacks if <= tier + 1, otherwise solid. */
-export const SIZE = { car: 1, soldier: 1, house: 2, tank: 2, tower: 3, mech: 4 } as const;
+export const SIZE = { car: 1, soldier: 1, house: 2, tank: 3, tower: 3, mech: 4 } as const;
 
 export const REWARDS = {
   car: { mass: 2, xp: 1 },
@@ -74,7 +74,7 @@ export const WAVES: WaveDef[] = [
 ];
 
 /** When (fraction of the wave) to start fetching the bulletin so the break never waits. */
-export const BULLETIN_PREFETCH_AT = 0.7;
+export const BULLETIN_PREFETCH_AT = 0.85;
 /** Max ms the wave break waits for an in-flight AI bulletin before showing the canned one. */
 export const BULLETIN_WAIT_MS = 1500;
 

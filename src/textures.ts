@@ -270,8 +270,8 @@ function drawTiles(scene: Phaser.Scene) {
   rect(c, at(T.sidewalk), 0, TILE, TILE, '#2a2d42');
   for (let k = 0; k < TILE; k += 8) { rect(c, at(T.sidewalk) + k, 0, 1, TILE, '#23263a'); rect(c, at(T.sidewalk), k, TILE, 1, '#23263a'); }
   for (const i of [T.road, T.roadH, T.roadV, T.cross]) { rect(c, at(i), 0, TILE, TILE, '#12131c'); noise(at(i), '#12131c', 0.5, 30); }
-  rect(c, at(T.roadH) + 4, 15, 10, 2, '#8a7424'); rect(c, at(T.roadH) + 20, 15, 10, 2, '#8a7424');
-  rect(c, at(T.roadV) + 15, 4, 2, 10, '#8a7424'); rect(c, at(T.roadV) + 15, 20, 2, 10, '#8a7424');
+  rect(c, at(T.roadH) + 4, 30, 10, 2, '#8a7424'); rect(c, at(T.roadH) + 20, 30, 10, 2, '#8a7424');
+  rect(c, at(T.roadV) + 30, 4, 2, 10, '#8a7424'); rect(c, at(T.roadV) + 30, 20, 2, 10, '#8a7424');
   for (let k = 2; k < TILE; k += 6) rect(c, at(T.cross) + k, 2, 3, 6, '#3a3c4a');
   rect(c, at(T.park), 0, TILE, TILE, '#132a20'); noise(at(T.park), '#1a3a2a', 0.6, 60);
   rect(c, at(T.sand), 0, TILE, TILE, '#3d3a30'); noise(at(T.sand), '#4a4636', 0.5, 50);
@@ -352,6 +352,21 @@ export function generateTextures(scene: Phaser.Scene) {
     const g = c.createRadialGradient(128, 72, 40, 128, 72, 150);
     g.addColorStop(0, 'rgba(0,0,10,0)'); g.addColorStop(1, 'rgba(0,0,10,0.75)');
     c.fillStyle = g; c.fillRect(0, 0, 256, 144);
+  });
+  // Fictional pixel news anchor (generic figure behind a desk).
+  pixelTex(scene, 'anchor', 26, 30, (c) => {
+    rect(c, 6, 13, 14, 12, '#23304f'); // suit
+    poly(c, [11, 13, 15, 13, 13, 19], '#e8e8f0'); // shirt
+    rect(c, 12, 14, 2, 5, '#b8283a'); // tie
+    ell(c, 13, 8, 5, 5.5, '#e0b08a'); // face
+    ell(c, 13, 4.5, 5.5, 3.5, '#2a1c14'); // hair
+    rect(c, 7, 4, 2, 6, '#2a1c14');
+    rect(c, 11, 8, 1, 1, '#1a1010');
+    rect(c, 15, 8, 1, 1, '#1a1010');
+    rect(c, 12, 11, 3, 1, '#9a5a4a');
+    rect(c, 0, 23, 26, 7, '#4a3a5a'); // desk
+    rect(c, 0, 23, 26, 2, '#6a5a7a');
+    rect(c, 18, 21, 5, 3, '#e8e8f0'); // papers
   });
   softTex(scene, 'white', 4, 4, (c) => { c.fillStyle = '#fff'; c.fillRect(0, 0, 4, 4); });
 }
