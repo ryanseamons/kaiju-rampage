@@ -36,23 +36,24 @@ export interface TierDef {
 
 export const TIERS: TierDef[] = [
   { tier: 1, name: 'HATCHLING', massToReach: 0, zoom: 2.1, scaleMin: 1.0, scaleMax: 1.4, maxHp: 100, speed: 150 },
-  { tier: 2, name: 'BEHEMOTH', massToReach: 140, zoom: 1.15, scaleMin: 2.3, scaleMax: 3.0, maxHp: 180, speed: 185 },
-  { tier: 3, name: 'CITY-ENDER', massToReach: 520, zoom: 0.6, scaleMin: 4.6, scaleMax: 5.6, maxHp: 300, speed: 225 },
+  { tier: 2, name: 'BEHEMOTH', massToReach: 450, zoom: 1.15, scaleMin: 2.3, scaleMax: 3.0, maxHp: 180, speed: 185 },
+  { tier: 3, name: 'CITY-ENDER', massToReach: 3000, zoom: 0.6, scaleMin: 4.6, scaleMax: 5.6, maxHp: 300, speed: 225 },
 ];
 
-export const MASS_MULT = FAST ? 2.6 : 1;
-export const XP_MULT = FAST ? 1.6 : 1;
+// Fast mode compresses time by TIME_SCALE, so growth/xp income is scaled by the inverse to keep wave-relative pacing.
+export const MASS_MULT = FAST ? 2.5 : 1;
+export const XP_MULT = FAST ? 2.5 : 1;
 
 /** Size class of things in the city: crushed on contact if <= tier, damageable by attacks if <= tier + 1, otherwise solid. */
 export const SIZE = { car: 1, soldier: 1, house: 2, tank: 3, tower: 3, mech: 4 } as const;
 
 export const REWARDS = {
-  car: { mass: 2, xp: 1 },
-  house: { mass: 7, xp: 2 },
-  tower: { mass: 24, xp: 5 },
-  soldier: { mass: 1, xp: 1 },
-  tank: { mass: 6, xp: 4 },
-  mech: { mass: 80, xp: 30 },
+  car: { mass: 1.5, xp: 0 },
+  house: { mass: 6, xp: 1 },
+  tower: { mass: 18, xp: 3 },
+  soldier: { mass: 0.5, xp: 1 },
+  tank: { mass: 5, xp: 5 },
+  mech: { mass: 0, xp: 0 },
 };
 
 export interface WaveDef {
@@ -67,15 +68,19 @@ export interface WaveDef {
 
 export const WAVES: WaveDef[] = [
   { wave: 1, duration: 80, soldierRate: 1.3, soldierMax: 45, tankRate: 0, tankMax: 0, boss: false },
-  { wave: 2, duration: 105, soldierRate: 1.6, soldierMax: 60, tankRate: 0.12, tankMax: 6, boss: false },
-  { wave: 3, duration: 120, soldierRate: 1.4, soldierMax: 60, tankRate: 0.22, tankMax: 10, boss: false },
-  { wave: 4, duration: 130, soldierRate: 1.2, soldierMax: 55, tankRate: 0.32, tankMax: 14, boss: false },
+  { wave: 2, duration: 105, soldierRate: 1.6, soldierMax: 60, tankRate: 0.15, tankMax: 6, boss: false },
+  { wave: 3, duration: 120, soldierRate: 1.4, soldierMax: 60, tankRate: 0.28, tankMax: 12, boss: false },
+  { wave: 4, duration: 130, soldierRate: 1.2, soldierMax: 55, tankRate: 0.36, tankMax: 16, boss: false },
   { wave: 5, duration: 150, soldierRate: 0.8, soldierMax: 40, tankRate: 0.15, tankMax: 8, boss: true },
 ];
 
-/** When (fraction of the wave) to start fetching the bulletin so the break never waits. */
-export const BULLETIN_PREFETCH_AT = 0.85;
+/**
+ * Start fetching the bulletin this many real seconds before the wave ends, so the break never waits.
+ * Opus 5.5 at medium effort measured ~14s per bulletin. Never earlier than BULLETIN_MIN_FRACTION of the wave.
+ */
+export const BULLETIN_LEAD_S = 22;
+export const BULLETIN_MIN_FRACTION = 0.4;
 /** Max ms the wave break waits for an in-flight AI bulletin before showing the canned one. */
-export const BULLETIN_WAIT_MS = 1500;
+export const BULLETIN_WAIT_MS = 2000;
 
-export const XP_TO_LEVEL = (level: number) => Math.round((6 + level * 5) / XP_MULT);
+export const XP_TO_LEVEL = (level: number) => Math.max(2, Math.round((4 + 3 * level + 0.35 * level * level) / XP_MULT));

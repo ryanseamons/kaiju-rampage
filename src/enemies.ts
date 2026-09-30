@@ -43,7 +43,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       (this.body as Phaser.Physics.Arcade.Body).setSize(18, 14);
       this.turret = scene.add.image(x, y, 'tankTurret').setOrigin(0.3, 0.5).setScale(1.5);
     } else {
-      this.setScale(3.2);
+      this.setScale(3.8);
       this.play('mech-walk');
       this.setOrigin(0.5, 0.9);
       (this.body as Phaser.Physics.Arcade.Body).setCircle(16, 6, 22);
@@ -89,7 +89,7 @@ export class EnemyManager {
   spawnOffscreen(type: EnemyType) {
     const cam = this.s.cameras.main;
     const v = cam.worldView;
-    const R = Math.hypot(v.width, v.height) / 2 + (type === 'mech' ? 120 : 40);
+    const R = Math.hypot(v.width, v.height) / 2 + (type === 'mech' ? 0 : 40);
     const p = this.s.player;
     for (let i = 0; i < 8; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -162,8 +162,8 @@ export class EnemyManager {
           if (d > 120) { vx = ux * sp; vy = uy * sp; }
           else if (d < 70) { vx = -ux * sp * 0.6; vy = -uy * sp * 0.6; }
           if (d < 220 && e.fireCd <= 0) {
-            e.fireCd = 1.5 + Math.random();
-            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.12, 0.12), 190, 3, 1.6);
+            e.fireCd = 1.2 + Math.random() * 0.8;
+            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 200, 4, 1.6);
             sfx.shot();
           }
         } else {
@@ -193,9 +193,9 @@ export class EnemyManager {
           e.turret.setPosition(e.x, e.y).setRotation(aim).setDepth(e.y + 1);
         }
         if (d < keep + 260 && e.fireCd <= 0) {
-          e.fireCd = (tier === 3 ? 2.0 : 2.8) + Math.random();
+          e.fireCd = (tier === 3 ? 1.8 : 2.4) + Math.random();
           const muzzle = 16;
-          this.fire('shell', e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, aim + Phaser.Math.FloatBetween(-0.05, 0.05), 230, tier === 3 ? 14 : 10, (d + 60) / 230, 22 + tier * 6);
+          this.fire('shell', e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, aim + Phaser.Math.FloatBetween(-0.05, 0.05), 230, [10, 14, 18][tier - 1], (d + 60) / 230, 22 + tier * 6);
           s.fx.hit(e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, 3);
           sfx.cannon();
         }
@@ -245,7 +245,7 @@ export class EnemyManager {
     const g = e.telegraph!;
     g.clear();
     if (e.mode === 'walk') {
-      const sp = d > 260 ? 70 : 35;
+      const sp = d > 260 ? 95 : 40;
       body.setVelocity(ux * sp, uy * sp);
       e.setFlipX(ux < 0);
       if (e.modeT <= 0) {

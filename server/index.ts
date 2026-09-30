@@ -3,7 +3,7 @@
 // GET  /api/health                         → { ok: true, hasKey, model }
 import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
-import { DEFAULT_MODEL, SYSTEM_PROMPT, buildUserPrompt, parseBulletin, type RunStats } from '../src/shared/narration.ts';
+import { DEFAULT_EFFORT, DEFAULT_MODEL, SYSTEM_PROMPT, buildUserPrompt, parseBulletin, type RunStats } from '../src/shared/narration.ts';
 
 // Optional gitignored .env next to package.json (ANTHROPIC_API_KEY=...). An explicitly set
 // environment variable (even an empty one) always wins, so tests can force the no-key path.
@@ -17,6 +17,7 @@ if (process.env.ANTHROPIC_API_KEY === undefined) {
 
 const PORT = Number(process.env.PORT ?? 8787);
 const MODEL = process.env.NARRATION_MODEL || DEFAULT_MODEL;
+const EFFORT = (process.env.NARRATION_EFFORT || DEFAULT_EFFORT) as 'low' | 'medium' | 'high';
 const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
 const client = apiKey
   ? new Anthropic({ apiKey, baseURL: process.env.ANTHROPIC_BASE_URL || undefined, timeout: 15_000, maxRetries: 1 })
@@ -39,13 +40,19 @@ async function readJson(req: http.IncomingMessage): Promise<any> {
 async function bulletin(stats: RunStats) {
   if (!client) return { ok: false, reason: 'no-key' };
   const t0 = Date.now();
-  const msg = await client.messages.create({
+  // Opus 5.5: thinking is always on (adaptive) and sampling params are rejected, so depth is set via effort.
+  // Server-side refusal fallback keeps a declined request from silently failing; if the whole chain declines
+  // we return not-ok and the client shows canned copy.
+  const msg = await client.beta.messages.create({
     model: MODEL,
-    max_tokens: 400,
-    temperature: 1,
+    max_tokens: 4000,
+    output_config: { effort: EFFORT },
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: buildUserPrompt(stats) }],
   });
+  if (msg.stop_reason === 'refusal') return { ok: false, reason: 'refusal' };
   const text = msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
   const parsed = parseBulletin(text);
   const ms = Date.now() - t0;
@@ -58,7 +65,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/api/health') {
-      return send(res, 200, { ok: true, hasKey: !!client, model: MODEL });
+      return send(res, 200, { ok: true, hasKey: !!client, model: MODEL, effort: EFFORT });
     }
     if (req.method === 'POST' && url.pathname === '/api/bulletin') {
       const body = await readJson(req);
@@ -73,5 +80,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[narration] listening on :${PORT} · model ${MODEL} · ${client ? 'API key loaded' : 'no ANTHROPIC_API_KEY → client uses canned bulletins'}`);
+  console.log(`[narration] listening on :${PORT} · model ${MODEL} (effort ${EFFORT}) · ${client ? 'API key loaded' : 'no ANTHROPIC_API_KEY → client uses canned bulletins'}`);
 });

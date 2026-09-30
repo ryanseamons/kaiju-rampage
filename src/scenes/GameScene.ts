@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  BULLETIN_PREFETCH_AT, LAND_H, REWARDS, SEED, START_WAVE, TIERS, TIME_SCALE, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL,
+  BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, LAND_H, REWARDS, SEED, START_WAVE, TIERS, TIME_SCALE, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL,
 } from '../config';
 import { City, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
@@ -291,7 +291,8 @@ export class GameScene extends Phaser.Scene {
       const b = this.enemies.boss;
       if (b && b.hp < b.maxHp * 0.35 && this.news.prefetchedFor !== w.wave) this.news.prefetch(this.snapshot('victory'));
     } else {
-      if (this.waveTime >= this.waveDuration * BULLETIN_PREFETCH_AT && this.news.prefetchedFor !== w.wave)
+      const prefetchAt = Math.max(this.waveDuration * BULLETIN_MIN_FRACTION, this.waveDuration - BULLETIN_LEAD_S);
+      if (this.waveTime >= prefetchAt && this.news.prefetchedFor !== w.wave)
         this.news.prefetch(this.snapshot('wave-cleared'));
       if (this.waveTime >= this.waveDuration) this.endWave('wave-cleared');
     }
@@ -534,7 +535,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.dust(p.x, p.y, 20);
     // Growth shockwave flattens the neighbourhood.
     this.tmp.length = 0;
-    for (const d of this.city.grid.query(p.x, p.y, 50 * p.scale, this.tmp)) if (d.sizeClass <= t.tier) this.destroyDestructible(d, true);
+    for (const d of this.city.grid.query(p.x, p.y, 30 * p.scale, this.tmp)) if (d.sizeClass <= t.tier) this.destroyDestructible(d, true);
     const [name, sub] = TIER_COPY[t.tier] ?? [t.name, ''];
     this.ui.banner(`GROWTH SPURT: ${name}`, sub);
   }

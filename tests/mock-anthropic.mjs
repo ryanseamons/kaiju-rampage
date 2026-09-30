@@ -20,7 +20,7 @@ http
       const buildings = /Destruction: (\d+) buildings/.exec(text)?.[1] ?? '?';
       const district = /Hardest-hit district this wave: ([^.\n]+)/.exec(text)?.[1] ?? '?';
       const wave = /after wave (\d+)/i.exec(text)?.[1] ?? '?';
-      requests.push({ model: body.model, keyOk: req.headers['x-api-key'] === 'sk-test-fake', system: !!body.system, wave, buildings, district });
+      requests.push({ model: body.model, effort: body.output_config?.effort, hasTemperature: 'temperature' in body, keyOk: req.headers['x-api-key'] === 'sk-test-fake', system: !!body.system, wave, buildings, district });
       const bulletin = {
         headline: `MOCK DESK: ${buildings} BUILDINGS DOWN`,
         anchor: `[MOCK MODEL] After wave ${wave}, ${district} bears the scars of ${buildings} flattened buildings, and our reporter is hiding under a desk.`,

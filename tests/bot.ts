@@ -14,6 +14,7 @@ export type KState = {
   stompReady: boolean;
   player: { x: number; y: number; r: number; scale: number };
   world: { w: number; h: number };
+  view: { x: number; y: number; w: number; h: number };
   enemies: { type: string; x: number; y: number; hp: number }[];
   enemyTypesSpawned: string[];
   enemyRoster: string[];
@@ -23,7 +24,7 @@ export type KState = {
   upgradePoolSize: number;
   levelUpsShown: number;
   bulletinsShown: number;
-  lastBulletin: { headline: string; anchor: string; ticker: string[]; source: 'ai' | 'fallback' } | null;
+  lastBulletin: { headline: string; anchor: string; ticker: string[]; source: 'ai' | 'bank' } | null;
   fps: number;
   destroyed: number;
 };
@@ -74,7 +75,10 @@ export class Bot {
       const d = Math.hypot(dx, dy) || 1;
       if (d < 70 * Math.max(1, k)) close++;
       if (e.type === 'soldier') {
-        if (d < 220 * Math.max(1, k * 0.6)) { fx -= (dx / d) * 0.5; fy -= (dy / d) * 0.5; }
+        // Soldiers are food once we're big or healthy; at tier 1 on low HP, keep away from rifle range.
+        if (s.tier >= 2 || hpPct > 60) {
+          if (d < 220 * Math.max(1, k * 0.6)) { fx -= (dx / d) * 0.5; fy -= (dy / d) * 0.5; }
+        } else if (d < 160) { fx += (dx / d) * 0.6; fy += (dy / d) * 0.6; }
         continue;
       }
       const crushable = e.type === 'tank' && s.tier >= 3;

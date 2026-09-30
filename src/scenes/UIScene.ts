@@ -283,7 +283,7 @@ export class UIScene extends Phaser.Scene {
     ];
     ch.push(this.add.text(sx + 14, sy + 12, lines.join('\n'), txt(14, '#dfe6ff', { strokeThickness: 0, lineSpacing: 2, wordWrap: { width: 276 } })));
     // source tag (honest about AI vs canned)
-    const src = b.source === 'ai' ? `AI DESK · ${DEFAULT_MODEL}` : 'WIRE ARCHIVE · offline canned copy';
+    const src = b.source === 'ai' ? `AI DESK · ${DEFAULT_MODEL} (optional live path)` : 'KBN-7 WIRE DESK';
     ch.push(this.add.text(x0 + 24, y0 + H - 118, src, txt(12, b.source === 'ai' ? '#7ef0ff' : '#aa9977', { strokeThickness: 0 })));
     // ticker
     const tickY = y0 + H - 96;

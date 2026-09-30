@@ -8,7 +8,7 @@ const KEYED = 'http://localhost:8792';
 
 test('wave-end bulletin comes from the model when a key is configured', async ({ page }) => {
   const health = await (await page.request.get(`${KEYED}/api/health`)).json();
-  expect(health).toMatchObject({ ok: true, hasKey: true, model: 'claude-haiku-4-5-20251001' });
+  expect(health).toMatchObject({ ok: true, hasKey: true, model: 'claude-opus-5-5', effort: 'medium' });
 
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
@@ -42,5 +42,5 @@ test('wave-end bulletin comes from the model when a key is configured', async ({
 
   const reqs = await (await page.request.get('http://localhost:8790/__requests')).json();
   expect(reqs.length).toBeGreaterThan(0);
-  expect(reqs[0]).toMatchObject({ model: 'claude-haiku-4-5-20251001', keyOk: true, system: true, wave: '1' });
+  expect(reqs[0]).toMatchObject({ model: 'claude-opus-5-5', effort: 'medium', keyOk: true, system: true, wave: '1' });
 });

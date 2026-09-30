@@ -5,16 +5,21 @@
 //  • describeStats()   – the stats → prompt mapping (what the model is told)
 //  • SYSTEM_PROMPT     – the anchor-desk persona and output contract
 //  • parseBulletin()   – validates the model's JSON
-//  • cannedBulletin()  – offline fallback filled in from the same stats
+//  • bankBulletin()    – the DEFAULT: a large templated bank (./bank.ts) filled in from the same stats
+//  • SYSTEM_PROMPT / describeStats() – only used by the optional live-model path (needs a key)
 //
 // Imported by both the local server (server/index.ts) and the client
 // (src/news.ts). It contains no secrets; the API key only exists server-side.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { ANCHORS as ANCHORS_, HEADLINES as HEADLINES_, TICKERS as TICKERS_, eligible, render, slotsFor, type Template } from './bank';
+
 export const CITY = 'Shiokaze Bay';
 export const CHANNEL = 'KBN-7 NIGHT DESK';
 export const KAIJU_NAME = 'TIDEMAW';
-export const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+// Ryan's call (overrides BRIEF.md's Haiku default): Opus 5.5 at medium effort. Override with NARRATION_MODEL / NARRATION_EFFORT.
+export const DEFAULT_MODEL = 'claude-opus-5-5';
+export const DEFAULT_EFFORT = 'medium';
 
 export type Tier = 1 | 2 | 3;
 
@@ -51,7 +56,7 @@ export interface Bulletin {
   headline: string;
   anchor: string;
   ticker: string[];
-  source: 'ai' | 'fallback';
+  source: 'ai' | 'bank';
 }
 
 // ── Stats → prompt mapping ───────────────────────────────────────────────────
@@ -132,68 +137,37 @@ export function parseBulletin(text: string): Omit<Bulletin, 'source'> | null {
   }
 }
 
-// ── Offline fallback ─────────────────────────────────────────────────────────
+// ── Shipped bank (default, no key) ───────────────────────────────────────────
+// The templates themselves live in ./bank.ts; selection lives here with the rest of the tuning.
+export { ANCHORS, HEADLINES, TICKERS } from './bank';
 
-type Fill = (s: RunStats) => string;
-const pick = <T>(arr: T[], r: () => number): T => arr[Math.floor(r() * arr.length) % arr.length];
-
-const HEADLINES: Fill[] = [
-  (s) => `${KAIJU_NAME} LEVELS ${s.hardestHitDistrict.toUpperCase()}`,
-  (s) => `${s.buildingsDestroyed} BUILDINGS AND COUNTING`,
-  () => `MILITARY "REGROUPING," SOURCES SAY`,
-  (s) => (s.tier === 3 ? 'SKYLINE REPORTED MISSING' : s.tier === 2 ? 'IT IS GETTING BIGGER' : 'SMALL MONSTER, BIG PROBLEM'),
-  (s) => `WAVE ${s.wave}: CITY STILL STANDING (MOSTLY)`,
-];
-
-const ANCHORS: Fill[] = [
-  (s) => `Good evening. ${KAIJU_NAME} has now destroyed ${s.buildingsDestroyed} buildings, and residents of ${s.hardestHitDistrict} are asking whether "regrouping" is a military term for running.`,
-  (s) => `We go live to ${s.district}, where the creature — now ${TIER_FLAVOR[s.tier].size} — appears to be enjoying itself.`,
-  (s) => `Officials insist the situation is under control, though ${s.tanksDestroyed} tanks and ${s.soldiersDefeated} soldiers might disagree.`,
-  (s) => `Breaking tonight: ${s.carsCrushed} vehicles crushed, ${s.housesDestroyed} homes flattened, and the mayor has stopped answering the phone.`,
-  (s) =>
-    s.nearDeathMoments > 0
-      ? `For a moment the creature was down to ${s.lowestHpPct}% strength. Then, witnesses say, it got angry.`
-      : `After wave ${s.wave}, the military has yet to leave a scratch. Experts recommend "being somewhere else."`,
-];
-
-const TICKERS: Fill[] = [
-  (s) => `${s.hardestHitDistrict.toUpperCase()} RESIDENTS URGED TO EVACUATE "IMMEDIATELY, OR SOONER"`,
-  (s) => `DEFENSE MINISTRY: ${s.soldiersDefeated} INFANTRY "REASSIGNED TO RUNNING AWAY"`,
-  (s) => `SEISMOLOGISTS LOG ${s.stompsUsed} STOMP EVENTS; RICHTER SCALE FILES COMPLAINT`,
-  () => `INSURERS REDEFINE "ACT OF GOD" TO INCLUDE ${KAIJU_NAME}`,
-  (s) => `TRAFFIC UPDATE: ${s.carsCrushed} CARS NOW SIGNIFICANTLY FLATTER`,
-  (s) => `CITY PLANNERS CALL ${s.towersDestroyed} LOST TOWERS "AN OPPORTUNITY"`,
-  () => `SHIOKAZE BAY FERRY SERVICE SUSPENDED, FERRY ALSO SUSPENDED IN A BUILDING`,
-  () => `LOCAL NOODLE SHOP STAYS OPEN, "WE'VE SEEN WORSE"`,
-  (s) => `SIZE ESTIMATE REVISED: ${TIER_FLAVOR[s.tier].size.toUpperCase()}`,
-  (s) => `ARMORED DIVISIONS REPORT ${s.tanksDestroyed} TANKS "TEMPORARILY UPSIDE DOWN"`,
-  () => `WEATHER: CLEAR SKIES, SCATTERED DEBRIS, CHANCE OF ROAR`,
-];
-
-const UPGRADE_TICKERS: Fill[] = [
-  (s) => `EYEWITNESSES DESCRIBE NEW ABILITY: "${s.newUpgradesThisWave[0]?.toUpperCase()}"`,
-  (s) => `SCIENTISTS BAFFLED BY CREATURE'S ${s.newUpgradesThisWave[0]?.toUpperCase()}`,
-];
-
-/** Deterministic-ish fallback: same stats + seed produce the same bulletin. */
-export function cannedBulletin(s: RunStats, seed = s.wave * 7919 + s.buildingsDestroyed): Bulletin {
+/**
+ * Builds a bulletin from the shipped bank. Deterministic for (stats, seed); `used` carries the lines
+ * already shown this run so five waves never repeat one. Stat-reactive (gated) lines are preferred.
+ */
+export function bankBulletin(s: RunStats, used: Set<string> = new Set(), seed = s.wave * 7919 + s.buildingsDestroyed * 31 + s.soldiersDefeated): Bulletin {
   let x = seed >>> 0 || 1;
   const r = () => {
     x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0;
     return x / 4294967296;
   };
-  let headline = pick(HEADLINES, r)(s);
-  if (s.outcome === 'victory') headline = `${KAIJU_NAME} DEFEATS FLAGSHIP MECH`;
-  if (s.outcome === 'defeat') headline = `${KAIJU_NAME} DOWN — CITY EXHALES`;
-  if (headline === s.previousHeadline) headline = HEADLINES[s.wave % HEADLINES.length](s);
-
-  const pool = [...TICKERS];
-  const ticker: string[] = [];
-  if (s.newUpgradesThisWave.length) ticker.push(pick(UPGRADE_TICKERS, r)(s));
-  if (s.nearDeathMoments > 0) ticker.push(`MILITARY BRIEFLY DECLARES VICTORY AT ${s.lowestHpPct}% — RETRACTS STATEMENT`);
-  while (ticker.length < 4 && pool.length) {
-    const i = Math.floor(r() * pool.length);
-    ticker.push(pool.splice(i, 1)[0](s));
-  }
-  return { headline: headline.slice(0, 60), anchor: pick(ANCHORS, r)(s), ticker, source: 'fallback' };
+  const slots = slotsFor(s, { kaiju: 'Tidemaw', size: TIER_FLAVOR[s.tier].size, threat: TIER_FLAVOR[s.tier].threat });
+  const take = (list: Template[], n: number, preferReactive: number): string[] => {
+    const el = eligible(list, s);
+    const fresh = el.filter((t) => !used.has(t.t));
+    const pool = fresh.length >= n ? fresh : el;
+    const reactive = pool.filter((t) => t.when || t.tiers);
+    const out: Template[] = [];
+    while (out.length < n && out.length < pool.length) {
+      const src = reactive.some((t) => !out.includes(t)) && r() < preferReactive ? reactive : pool;
+      const cand = src.filter((t) => !out.includes(t));
+      out.push(cand[Math.floor(r() * cand.length) % cand.length]);
+    }
+    for (const t of out) used.add(t.t);
+    return out.map((t) => render(t.t, slots));
+  };
+  const [headline] = take(HEADLINES_, 1, 0.75);
+  const [anchor] = take(ANCHORS_, 1, 0.8);
+  const ticker = take(TICKERS_, 4, 0.7);
+  return { headline: headline.toUpperCase().slice(0, 60), anchor, ticker: ticker.map((t) => t.toUpperCase()), source: 'bank' };
 }

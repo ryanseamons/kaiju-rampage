@@ -2,9 +2,9 @@
 // and capture each tier, a level-up choice and the (canned) news bulletin.
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { Bot, type KState } from './bot';
+import { Bot, getState, type KState } from './bot';
 
-test('scripted run reaches wave 3 and tier 3 (no API key → canned bulletin)', async ({ page }) => {
+test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)', async ({ page }) => {
   const health = await (await page.request.get('/api/health')).json();
   expect(health).toMatchObject({ ok: true, hasKey: false });
 
@@ -29,9 +29,11 @@ test('scripted run reaches wave 3 and tier 3 (no API key → canned bulletin)', 
         for (const t of [1, 2, 3]) {
           const key = `tier${t}`;
           const settled = t === 1 ? Date.now() - tier1Time > 6000 : tierSeenAt[t] && Date.now() - tierSeenAt[t] > 2500;
-          if (!shots.has(key) && s.tier === t && settled) {
+          if (!shots.has(key) && s.tier === t && settled && !s.modal) {
             await page.screenshot({ path: `screenshots/${key}.png` });
-            shots.add(key);
+            // Only keep it if no modal popped up while we were capturing.
+            const after = await getState(page);
+            if (after && after.phase === 'playing' && !after.modal) shots.add(key);
           }
         }
         return s.wave >= 3 && s.maxTierReached >= 3 && shots.has('tier3') && s.bulletinsShown >= 2;
@@ -45,7 +47,7 @@ test('scripted run reaches wave 3 and tier 3 (no API key → canned bulletin)', 
       onBulletin: async (s) => {
         if (!shots.has('bulletin')) {
           await page.waitForTimeout(1200); // let the ticker scroll in
-          await page.screenshot({ path: 'screenshots/bulletin-offline.png' });
+          await page.screenshot({ path: 'screenshots/bulletin-bank.png' });
           shots.add('bulletin');
           bulletin = s.lastBulletin;
         }
@@ -72,7 +74,7 @@ test('scripted run reaches wave 3 and tier 3 (no API key → canned bulletin)', 
   expect(last.enemyTypesSpawned).toEqual(expect.arrayContaining(['soldier', 'tank']));
   expect(last.levelUpsShown).toBeGreaterThan(0);
   expect(bulletin).not.toBeNull();
-  expect(bulletin!.source).toBe('fallback');
+  expect(bulletin!.source).toBe('bank');
   expect(bulletin!.ticker.length).toBeGreaterThan(0);
   for (const f of ['tier1', 'tier2', 'tier3', 'levelup', 'bulletin']) expect(shots.has(f), `screenshot ${f}`).toBe(true);
 });
