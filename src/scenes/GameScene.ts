@@ -18,6 +18,7 @@ import type { UIScene } from './UIScene';
 import { Director } from '../director';
 import { Pickups, type PickupKind } from '../pickups';
 import { Score } from '../score';
+import { NavField } from '../nav';
 import { gradeFor, qualifies } from '../scores';
 
 export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory' | 'results';
@@ -50,6 +51,8 @@ export class GameScene extends Phaser.Scene {
   ui!: UIScene;
   director!: Director;
   pickups!: Pickups;
+  nav!: NavField;
+  private navT = 0;
   score = new Score();
   stats = new RunTracker();
   news = new NewsDesk();
@@ -121,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_W, LAND_H - 6);
     this.city = new City(this, SEED);
     this.city.build();
+    this.nav = new NavField(this.city);
     this.fx = new Fx(this);
     this.player = new Kaiju(this, WORLD_W / 2, LAND_H - 70);
     this.enemies = new EnemyManager(this);
@@ -358,6 +362,11 @@ export class GameScene extends Phaser.Scene {
       if (d.sizeClass <= this.tier && circleHits(d, p.x, p.y, p.radius)) this.destroyDestructible(d, true);
     }
 
+    this.navT -= dt;
+    if (this.navT <= 0) {
+      this.navT = 0.35;
+      this.nav.update(p.x, p.y);
+    }
     this.weapons.update(dt);
     this.enemies.update(dt);
     this.pickups.update(dt);
@@ -696,6 +705,7 @@ export class GameScene extends Phaser.Scene {
     if (d.zone) {
       this.city.solids.remove(d.zone, true, true);
       d.zone = undefined;
+      this.nav.unblock(d);
     }
     if (credit) this.stats.destroyed(d.kind, d.district);
     const p = this.player;

@@ -46,7 +46,7 @@ npm run build
 | 1 / 2 / 3, or ←/→ then Enter, or click (gamepad: d-pad + A) | Pick an upgrade on level-up |
 | Enter (gamepad: A) | Start, dismiss the news card |
 | P or Esc | Pause / resume |
-| M | Mute / unmute (remembered between runs) |
+| M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
 
 **The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**.
 

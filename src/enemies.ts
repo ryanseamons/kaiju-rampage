@@ -149,6 +149,11 @@ export class EnemyManager {
     return n;
   }
 
+  /** Direction to walk toward the kaiju: the flow field around buildings, or a straight line in the open. */
+  private toward(e: Enemy, ux: number, uy: number): [number, number] {
+    return this.s.nav.dir(e.x, e.y) ?? [ux, uy];
+  }
+
   private viewRadius(extra = 40) {
     const v = this.s.cameras.main.worldView;
     return Math.hypot(v.width, v.height) / 2 + extra;
@@ -310,7 +315,7 @@ export class EnemyManager {
       }
       // Blocked by a building: sidestep along the perpendicular that leans toward the kaiju, briefly.
       e.detourT -= dt;
-      if (!e.flying && e.etype !== 'mech' && e.etype !== 'walker' && e.detourT <= 0 && (!body.touching.none || !body.blocked.none)) {
+      if (!e.flying && e.etype !== 'mech' && e.etype !== 'walker' && e.detourT <= 0 && (!body.touching.none || !body.blocked.none) && !this.s.nav.dir(e.x, e.y)) {
         const v = body.velocity;
         const L = v.length() || 1;
         const px = -v.y / L, py = v.x / L;
@@ -363,8 +368,9 @@ export class EnemyManager {
     // Infantry are always slower than the kaiju, so escape is possible but never free.
     const sp = e.etype === 'rocket' ? 50 : 62;
     const rocket = e.etype === 'rocket';
+    const [ax, ay] = this.toward(e, ux, uy);
     if (tier === 1 && !rocket) {
-      if (d > 120) { vx = ux * sp; vy = uy * sp; }
+      if (d > 120) { vx = ax * sp; vy = ay * sp; }
       else if (d < 70) { vx = -ux * sp * 0.6; vy = -uy * sp * 0.6; }
       if (d < 220 && e.fireCd <= 0) {
         // Tier 1 rifles are a nuisance, not a death sentence: a stationary hatchling should last ~30s+.
@@ -374,18 +380,19 @@ export class EnemyManager {
       }
     } else {
       // Keep distance, take shots, flee when close. Rocket teams hang further back.
-      const keep = (rocket ? 240 : 150) * p.scale * 0.5;
+      // They close to within 85% of their weapon's range before circling, so they always get to shoot.
+      const range = rocket ? 560 : tier === 2 ? 320 : 480;
+      const keep = Math.min((rocket ? 240 : 150) * p.scale * 0.5, range * 0.55);
       if (d < keep) { vx = -ux * sp * 1.2; vy = -uy * sp * 1.2; }
-      else if (d > keep * 2.2) { vx = ux * sp; vy = uy * sp; }
-      else { vx = -uy * sp * 0.5; vy = ux * sp * 0.5; }
+      else if (d > range * 0.85) { vx = ax * sp; vy = ay * sp; }
+      else { vx = -uy * sp * 0.5 * e.orbitDir; vy = ux * sp * 0.5 * e.orbitDir; }
       if (rocket) {
-        if (d < 560 && e.fireCd <= 0) {
+        if (d < range && e.fireCd <= 0) {
           e.fireCd = 3.2 + Math.random();
           this.fire('rocket', e.x, e.y, Math.atan2(dy, dx), 170, 7, 4, 16, 1.4);
           sfx.shot();
         }
       } else {
-        const range = tier === 2 ? 320 : 480;
         if (d < range && e.fireCd <= 0) {
           e.fireCd = (tier === 2 ? 2 : 3.5) + Math.random() * 1.5;
           this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 240, tier === 2 ? 3 : 2, 2.4);
@@ -402,8 +409,9 @@ export class EnemyManager {
     const body = e.body as Phaser.Physics.Arcade.Body;
     const keep = tier === 1 ? 170 : tier === 2 ? 260 : 420;
     const sp = 48;
+    const [ax, ay] = this.toward(e, ux, uy);
     if (e.detourT > 0) body.setVelocity(e.detourX * sp, e.detourY * sp);
-    else if (d > keep + 40) body.setVelocity(ux * sp, uy * sp);
+    else if (d > keep + 40) body.setVelocity(ax * sp, ay * sp);
     else if (d < keep - 40) body.setVelocity(-ux * sp, -uy * sp);
     else body.setVelocity(-uy * sp * 0.6, ux * sp * 0.6);
     if (body.velocity.lengthSq() > 1) e.setRotation(Math.atan2(body.velocity.y, body.velocity.x));
@@ -453,8 +461,9 @@ export class EnemyManager {
     const keep = 520;
     if (e.mode !== 'charge') {
       const sp = 44;
+      const [ax, ay] = this.toward(e, ux, uy);
       if (e.detourT > 0) body.setVelocity(e.detourX * sp, e.detourY * sp);
-      else if (d > keep + 60) body.setVelocity(ux * sp, uy * sp);
+      else if (d > keep + 60) body.setVelocity(ax * sp, ay * sp);
       else if (d < keep - 80) body.setVelocity(-ux * sp, -uy * sp);
       else body.setVelocity(0, 0);
       if (body.velocity.lengthSq() > 1) e.setRotation(Math.atan2(body.velocity.y, body.velocity.x));
