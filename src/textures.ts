@@ -368,5 +368,18 @@ export function generateTextures(scene: Phaser.Scene) {
     rect(c, 0, 23, 26, 2, '#6a5a7a');
     rect(c, 18, 21, 5, 3, '#e8e8f0'); // papers
   });
+  softTex(scene, 'searchlight', 256, 96, (c) => {
+    const g = c.createLinearGradient(0, 0, 256, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0.9)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(0, 46);
+    c.lineTo(256, 0);
+    c.lineTo(256, 96);
+    c.lineTo(0, 50);
+    c.closePath();
+    c.fill();
+  });
   softTex(scene, 'white', 4, 4, (c) => { c.fillStyle = '#fff'; c.fillRect(0, 0, 4, 4); });
 }

@@ -1,20 +1,30 @@
-// HUD + modal overlays (title, level-up, breaking-news card). Renders unzoomed on top of the game.
+// HUD + in-game overlays (level-up, breaking-news card, pause). The title and menus are HTML
+// (src/ui/overlay.ts); this scene renders unzoomed on top of the game.
 import Phaser from 'phaser';
-import { TIERS, VIEW_H, VIEW_W, WAVES, XP_TO_LEVEL } from '../config';
+import { VIEW_H, VIEW_W, WAVES, XP_TO_LEVEL } from '../config';
 import { districtAt } from '../city';
-import { CHANNEL, DEFAULT_MODEL, KAIJU_NAME, TIER_FLAVOR, type Bulletin, type RunStats } from '../shared/narration';
-import type { UpgradeDef } from '../upgrades';
-import { loadBest, type GameScene } from './GameScene';
+import { CHANNEL, DEFAULT_MODEL, type Bulletin, type RunStats } from '../shared/narration';
+import { UPGRADES, type UpgradeDef } from '../upgrades';
+import type { GameScene } from './GameScene';
 import { sfx } from '../sfx';
+import { districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
+import { overlay } from '../ui/overlay';
 
-const FONT = '"Courier New", Courier, monospace';
-const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => ({
-  fontFamily: FONT, fontStyle: 'bold', fontSize: `${size}px`, color, stroke: '#05060d', strokeThickness: Math.max(2, Math.round(size / 6)), ...extra,
-});
+const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
+  const ja = getLang() === 'ja';
+  const style: Phaser.Types.GameObjects.Text.TextStyle = {
+    fontFamily: gameFont(), fontStyle: 'bold', fontSize: `${ja ? Math.round(size * 0.92) : size}px`, color, stroke: '#05060d',
+    strokeThickness: Math.max(2, Math.round(size / 6)), ...extra,
+  };
+  // Japanese has no spaces to break on.
+  if (ja && style.wordWrap) style.wordWrap = { ...style.wordWrap, useAdvancedWrap: true };
+  return style;
+};
 
 type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused';
 
 const KIND_COLOR: Record<UpgradeDef['kind'], number> = { weapon: 0xff7a2a, body: 0x56c46a, stomp: 0x5ff6ff, growth: 0xff5fd2 };
+const up = (s: string) => (getLang() === 'ja' ? s : s.toUpperCase());
 
 export class UIScene extends Phaser.Scene {
   private gs!: GameScene;
@@ -25,7 +35,7 @@ export class UIScene extends Phaser.Scene {
   private onContinue?: () => void;
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
-  private pad = { left: false, right: false, a: false };
+  private pad = { left: false, right: false, up: false, down: false, a: false };
 
   // HUD
   private hpBar!: Phaser.GameObjects.Rectangle;
@@ -38,11 +48,15 @@ export class UIScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private districtText!: Phaser.GameObjects.Text;
   private destroyedText!: Phaser.GameObjects.Text;
+  private stompBox!: Phaser.GameObjects.Rectangle;
   private stompBar!: Phaser.GameObjects.Rectangle;
   private stompText!: Phaser.GameObjects.Text;
+  private stompHint!: Phaser.GameObjects.Text;
   private fpsText!: Phaser.GameObjects.Text;
   private bossRoot!: Phaser.GameObjects.Container;
   private bossBarFill!: Phaser.GameObjects.Rectangle;
+  private chips!: Phaser.GameObjects.Container;
+  private chipSig = '';
   private hud!: Phaser.GameObjects.Container;
   private hurt!: Phaser.GameObjects.Rectangle;
   private bannerRoot?: Phaser.GameObjects.Container;
@@ -57,19 +71,23 @@ export class UIScene extends Phaser.Scene {
     this.add.image(VIEW_W / 2, VIEW_H / 2, 'vignette').setDisplaySize(VIEW_W, VIEW_H).setAlpha(0.9);
     this.hurt = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0xff0022, 0).setDepth(5);
     this.whiteFlash = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0xffffff, 0).setDepth(60);
-    this.mutedTag = this.add.text(VIEW_W - 10, VIEW_H - 30, 'MUTED [M]', txt(12, '#8888aa')).setOrigin(1, 1).setDepth(10).setVisible(sfx.isMuted());
     this.buildHud();
     const kb = this.input.keyboard!;
     kb.on('keydown', (ev: KeyboardEvent) => this.onKey(ev.code));
+    overlay.init(() => this.gs?.startRun());
+    onLang(() => this.rebuildHud());
   }
 
-  get currentModal() {
-    return this.modal;
+  get currentModal(): Modal {
+    return overlay.isOpen() ? 'title' : this.modal;
   }
 
   onGameReady(gs: GameScene) {
     this.gs = gs;
-    this.showTitle();
+    this.chipSig = '';
+    const src = gs.textures.get('kaiju0').getSourceImage() as HTMLCanvasElement;
+    overlay.setMonster(src);
+    overlay.show();
   }
 
   reset() {
@@ -79,6 +97,15 @@ export class UIScene extends Phaser.Scene {
   }
 
   // ── HUD ──────────────────────────────────────────────────────────────────
+  private rebuildHud() {
+    const vis = this.hud?.visible ?? false;
+    this.hud?.destroy();
+    this.mutedTag?.destroy();
+    this.chipSig = '';
+    this.buildHud();
+    this.hud.setVisible(vis);
+  }
+
   private buildHud() {
     const c = (this.hud = this.add.container(0, 0).setDepth(10));
     const panel = this.add.rectangle(12, 12, 300, 66, 0x05060d, 0.55).setOrigin(0).setStrokeStyle(2, 0x2a2d42);
@@ -88,6 +115,7 @@ export class UIScene extends Phaser.Scene {
     const gBg = this.add.rectangle(22, 46, 280, 10, 0x0a2a2e).setOrigin(0);
     this.growBar = this.add.rectangle(22, 46, 0, 10, 0x5ff6ff).setOrigin(0);
     this.growText = this.add.text(22, 58, '', txt(12, '#9ffcff'));
+    this.chips = this.add.container(12, 86);
     this.waveText = this.add.text(VIEW_W / 2, 14, '', txt(24, '#ffe14a')).setOrigin(0.5, 0);
     this.timerText = this.add.text(VIEW_W / 2, 44, '', txt(16, '#ffffff')).setOrigin(0.5, 0);
     this.districtText = this.add.text(VIEW_W - 16, 14, '', txt(16, '#ffb0e8')).setOrigin(1, 0);
@@ -95,17 +123,42 @@ export class UIScene extends Phaser.Scene {
     const xpBg = this.add.rectangle(0, VIEW_H - 10, VIEW_W, 10, 0x0a1a12).setOrigin(0);
     this.xpBar = this.add.rectangle(0, VIEW_H - 10, 0, 10, 0x4dffb0).setOrigin(0);
     this.lvText = this.add.text(VIEW_W / 2, VIEW_H - 14, '', txt(14, '#4dffb0')).setOrigin(0.5, 1);
-    const sBg = this.add.rectangle(16, VIEW_H - 50, 170, 26, 0x05060d, 0.6).setOrigin(0).setStrokeStyle(2, 0x2a2d42);
-    this.stompBar = this.add.rectangle(18, VIEW_H - 48, 166, 22, 0x2a6a8a).setOrigin(0);
-    this.stompText = this.add.text(101, VIEW_H - 37, '', txt(13)).setOrigin(0.5);
+    this.stompBox = this.add.rectangle(16, VIEW_H - 50, 190, 26, 0x05060d, 0.6).setOrigin(0).setStrokeStyle(2, 0x2a2d42);
+    this.stompBar = this.add.rectangle(18, VIEW_H - 48, 186, 22, 0x2a6a8a).setOrigin(0);
+    this.stompText = this.add.text(111, VIEW_H - 37, '', txt(13)).setOrigin(0.5);
+    this.stompHint = this.add.text(16, VIEW_H - 60, '', txt(16, '#ffe14a')).setOrigin(0, 1).setVisible(false);
+    this.tweens.add({ targets: this.stompHint, alpha: 0.35, yoyo: true, repeat: -1, duration: 380 });
     this.fpsText = this.add.text(VIEW_W - 10, VIEW_H - 14, '', txt(11, '#8888aa')).setOrigin(1, 1);
     const bossBg = this.add.rectangle(0, 0, 560, 16, 0x2a0a12).setStrokeStyle(2, 0xff3355);
     this.bossBarFill = this.add.rectangle(-278, 0, 556, 12, 0xff3355).setOrigin(0, 0.5);
-    const bossLabel = this.add.text(0, -20, 'M-01 SHIOKAZE GUARDIAN', txt(14, '#ff8899')).setOrigin(0.5);
+    const bossLabel = this.add.text(0, -20, t('bossName'), txt(14, '#ff8899')).setOrigin(0.5);
     this.bossRoot = this.add.container(VIEW_W / 2, 92, [bossBg, this.bossBarFill, bossLabel]).setVisible(false);
-    c.add([panel, hpBg, this.hpBar, this.hpText, gBg, this.growBar, this.growText, this.waveText, this.timerText, this.districtText,
-      this.destroyedText, xpBg, this.xpBar, this.lvText, sBg, this.stompBar, this.stompText, this.fpsText, this.bossRoot]);
+    c.add([panel, hpBg, this.hpBar, this.hpText, gBg, this.growBar, this.growText, this.chips, this.waveText, this.timerText, this.districtText,
+      this.destroyedText, xpBg, this.xpBar, this.lvText, this.stompBox, this.stompBar, this.stompText, this.stompHint, this.fpsText, this.bossRoot]);
     c.setVisible(false);
+    this.mutedTag = this.add.text(VIEW_W - 10, VIEW_H - 30, t('muted'), txt(12, '#8888aa')).setOrigin(1, 1).setDepth(10).setVisible(sfx.isMuted());
+  }
+
+  /** One chip per owned mutation: its kanji, coloured by kind, with the level. */
+  private refreshChips() {
+    const levels = this.gs.player.upgradeLevels;
+    const sig = UPGRADES.map((u) => levels[u.id] ?? 0).join('');
+    if (sig === this.chipSig) return;
+    this.chipSig = sig;
+    this.chips.removeAll(true);
+    let x = 0;
+    for (const u of UPGRADES) {
+      const lv = levels[u.id];
+      if (!lv) continue;
+      const col = KIND_COLOR[u.kind];
+      const bg = this.add.rectangle(x, 0, 30, 30, 0x05060d, 0.75).setOrigin(0).setStrokeStyle(2, col);
+      const glyph = this.add
+        .text(x + 15, 14, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '17px', color: Phaser.Display.Color.IntegerToColor(col).rgba })
+        .setOrigin(0.5);
+      const lvT = this.add.text(x + 28, 29, String(lv), txt(10, '#ffffff', { strokeThickness: 3 })).setOrigin(1, 1);
+      this.chips.add([bg, glyph, lvT]);
+      x += 34;
+    }
   }
 
   update() {
@@ -117,29 +170,35 @@ export class UIScene extends Phaser.Scene {
     const hpF = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBar.width = 280 * hpF;
     this.hpBar.fillColor = hpF < 0.25 ? (Math.floor(this.time.now / 200) % 2 ? 0xff3355 : 0xffffff) : 0xff3355;
-    this.hpText.setText(`HP ${Math.ceil(Math.max(0, p.hp))}/${p.maxHp}`);
+    this.hpText.setText(`${t('hp')} ${Math.ceil(Math.max(0, p.hp))}/${p.maxHp}`);
     this.growBar.width = 280 * p.growth;
     const next = p.nextTier;
-    this.growText.setText(next ? `${p.tier.name} ▸ ${next.name}  ${Math.floor(p.growth * 100)}%` : `${p.tier.name} — MAX SIZE`);
+    const cur = tierName(p.tier.tier);
+    this.growText.setText(next ? `${cur} ▸ ${tierName(next.tier)}  ${Math.floor(p.growth * 100)}%` : t('maxSize', { a: cur }));
     const w = gs.wave;
-    this.waveText.setText(`WAVE ${w.wave}/${WAVES.length}`);
-    if (w.boss) this.timerText.setText(gs.enemies.boss ? 'DESTROY THE MECH' : 'SOMETHING IS COMING…');
+    this.waveText.setText(t('wave', { n: w.wave, total: WAVES.length }));
+    if (w.boss) this.timerText.setText(gs.enemies.boss ? t('destroyMech') : t('somethingComing'));
     else {
       const left = Math.max(0, gs.waveDuration - gs.waveTime);
-      this.timerText.setText(`${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')} until the army regroups`);
+      this.timerText.setText(t('timer', { t: `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}` }));
     }
-    this.districtText.setText(districtAt(p.x, p.y).toUpperCase());
-    this.destroyedText.setText(`BUILDINGS FLATTENED: ${gs.stats.buildings}`);
+    this.districtText.setText(up(districtName(districtAt(p.x, p.y))));
+    this.destroyedText.setText(t('flattened', { n: gs.stats.buildings }));
     this.xpBar.width = VIEW_W * Phaser.Math.Clamp(p.xp / XP_TO_LEVEL(p.level), 0, 1);
     this.lvText.setText(`LV ${p.level}`);
     const ready = p.stompCd <= 0;
-    this.stompBar.width = 166 * (ready ? 1 : 1 - p.stompCd / (5 * p.mods.stompCd));
+    this.stompBar.width = 186 * (ready ? 1 : 1 - p.stompCd / (5 * p.mods.stompCd));
     this.stompBar.fillColor = ready ? 0x5ff6ff : 0x2a4a5a;
-    this.stompText.setText(ready ? '[SPACE] STOMP!' : 'STOMP…');
+    this.stompText.setText(ready ? t('stompReady') : t('stompCharging'));
+    const hint = gs.stompHint;
+    this.stompHint.setVisible(!!hint);
+    if (hint) this.stompHint.setText(`▼ ${t(hint)}`);
+    this.stompBox.setStrokeStyle(2, hint ? 0xffe14a : 0x2a2d42);
     this.fpsText.setText(`${Math.round(this.game.loop.actualFps)} FPS`);
     const b = gs.enemies.boss;
     this.bossRoot.setVisible(!!b && !b.dead);
     if (b) this.bossBarFill.width = 556 * Phaser.Math.Clamp(b.hp / b.maxHp, 0, 1);
+    this.refreshChips();
   }
 
   flashWhite() {
@@ -159,9 +218,9 @@ export class UIScene extends Phaser.Scene {
     const bg = this.add.rectangle(0, 0, VIEW_W, 96, danger ? 0x3a0010 : 0x05060d, 0.78);
     const stripe = this.add.rectangle(0, -48, VIEW_W, 4, danger ? 0xff3355 : 0xffe14a);
     const stripe2 = this.add.rectangle(0, 48, VIEW_W, 4, danger ? 0xff3355 : 0xffe14a);
-    const t = this.add.text(0, -16, title, txt(40, danger ? '#ff5577' : '#ffe14a')).setOrigin(0.5);
+    const tt = this.add.text(0, -16, title, txt(40, danger ? '#ff5577' : '#ffe14a')).setOrigin(0.5);
     const s = this.add.text(0, 24, sub, txt(18, '#ffffff')).setOrigin(0.5);
-    const root = (this.bannerRoot = this.add.container(VIEW_W / 2, 210, [bg, stripe, stripe2, t, s]).setDepth(20));
+    const root = (this.bannerRoot = this.add.container(VIEW_W / 2, 210, [bg, stripe, stripe2, tt, s]).setDepth(20));
     root.setScale(1, 0);
     this.tweens.add({ targets: root, scaleY: 1, duration: 180, ease: 'Back.easeOut' });
     this.tweens.add({
@@ -185,47 +244,26 @@ export class UIScene extends Phaser.Scene {
     this.cards = [];
   }
 
-  private showTitle() {
-    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.55);
-    const t = this.add.text(VIEW_W / 2, 170, 'KAIJU RAMPAGE', txt(84, '#5ff6ff', { strokeThickness: 10 })).setOrigin(0.5);
-    const t2 = this.add.text(VIEW_W / 2, 250, `${KAIJU_NAME} vs. SHIOKAZE BAY · 5 WAVES · 3 SIZES`, txt(22, '#ffe14a')).setOrigin(0.5);
-    const lines = [
-      'WASD / ARROWS ...... move (gamepad: left stick)',
-      'auto ............... claw swipe + unlocked weapons',
-      'SPACE .............. STOMP shockwave (gamepad: A)',
-      '1 / 2 / 3 .......... pick an upgrade on level-up',
-      '',
-      'Crush the city to GROW. Kill the military to LEVEL UP.',
-      'Bigger kaiju crush bigger things: cars → houses → towers.',
-    ];
-    const body = this.add.text(VIEW_W / 2, 400, lines.join('\n'), txt(18, '#e8e8f0', { align: 'left', lineSpacing: 6 })).setOrigin(0.5);
-    const go = this.add.text(VIEW_W / 2, 580, 'PRESS ENTER TO RAMPAGE', txt(30, '#ffffff')).setOrigin(0.5);
-    this.tweens.add({ targets: go, alpha: 0.25, yoyo: true, repeat: -1, duration: 500 });
-    const best = loadBest();
-    const bestText = this.add
-      .text(VIEW_W / 2, 640, best ? `BEST RUN: ${best.victory ? 'MECH DESTROYED' : `WAVE ${best.wave}`} · ${best.buildings} BUILDINGS FLATTENED` : 'P pauses · M mutes', txt(16, '#9ffcff'))
-      .setOrigin(0.5);
-    this.openModal('title', [dim, t, t2, body, go, bestText]);
-  }
-
   showLevelUp(offer: UpgradeDef[], levels: Record<string, number>, onPick: (i: number) => void) {
     this.onPick = onPick;
     this.sel = 0;
     const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.7);
-    const title = this.add.text(VIEW_W / 2, 150, 'LEVEL UP!', txt(56, '#4dffb0', { strokeThickness: 8 })).setOrigin(0.5);
-    const sub = this.add.text(VIEW_W / 2, 200, 'Choose a mutation  ·  [1] [2] [3]  or ←/→ + ENTER', txt(18, '#e8e8f0')).setOrigin(0.5);
+    const title = this.add.text(VIEW_W / 2, 150, t('levelUp'), txt(56, '#4dffb0', { strokeThickness: 8 })).setOrigin(0.5);
+    const sub = this.add.text(VIEW_W / 2, 200, t('chooseMutation'), txt(18, '#e8e8f0')).setOrigin(0.5);
     const children: Phaser.GameObjects.GameObject[] = [dim, title, sub];
     this.cards = offer.map((u, i) => {
       const x = VIEW_W / 2 + (i - (offer.length - 1) / 2) * 340;
       const lv = levels[u.id] ?? 0;
       const col = KIND_COLOR[u.kind];
-      const bg = this.add.rectangle(0, 0, 310, 230, 0x10121e, 0.96).setStrokeStyle(4, col);
-      const key = this.add.text(-140, -100, `[${i + 1}]`, txt(20, '#ffffff'));
-      const tag = this.add.text(140, -100, lv === 0 ? 'NEW!' : `LV ${lv}→${lv + 1}`, txt(16, lv === 0 ? '#ffe14a' : '#9ffcff')).setOrigin(1, 0);
-      const name = this.add.text(0, -40, u.name.toUpperCase(), txt(24, Phaser.Display.Color.IntegerToColor(col).rgba, { align: 'center', wordWrap: { width: 280 } })).setOrigin(0.5);
-      const desc = this.add.text(0, 30, u.desc(lv + 1), txt(17, '#e8e8f0', { align: 'center', wordWrap: { width: 270 }, strokeThickness: 2 })).setOrigin(0.5, 0);
-      const kind = this.add.text(0, 92, u.kind.toUpperCase(), txt(12, '#8888aa')).setOrigin(0.5);
-      const card = this.add.container(x, 400, [bg, key, tag, name, desc, kind]).setSize(310, 230);
+      const colS = Phaser.Display.Color.IntegerToColor(col).rgba;
+      const bg = this.add.rectangle(0, 0, 310, 250, 0x10121e, 0.96).setStrokeStyle(4, col);
+      const key = this.add.text(-140, -110, `[${i + 1}]`, txt(20, '#ffffff'));
+      const tag = this.add.text(140, -110, lv === 0 ? t('new') : `LV ${lv}→${lv + 1}`, txt(16, lv === 0 ? '#ffe14a' : '#9ffcff')).setOrigin(1, 0);
+      const glyph = this.add.text(0, -62, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '40px', color: colS, stroke: '#05060d', strokeThickness: 6 }).setOrigin(0.5);
+      const name = this.add.text(0, -12, up(upName(u.id)), txt(22, colS, { align: 'center', wordWrap: { width: 280 } })).setOrigin(0.5);
+      const desc = this.add.text(0, 24, upDesc(u.id, lv + 1), txt(16, '#e8e8f0', { align: 'center', wordWrap: { width: 270 }, strokeThickness: 2 })).setOrigin(0.5, 0);
+      const kind = this.add.text(0, 104, t(`kind_${u.kind}` as 'kind_weapon'), txt(12, '#8888aa')).setOrigin(0.5);
+      const card = this.add.container(x, 410, [bg, key, tag, glyph, name, desc, kind]).setSize(310, 250);
       card.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.pick(i)).on('pointerover', () => this.select(i));
       card.setScale(0.6).setAlpha(0);
       this.tweens.add({ targets: card, scale: 1, alpha: 1, duration: 200, delay: i * 70, ease: 'Back.easeOut' });
@@ -251,11 +289,11 @@ export class UIScene extends Phaser.Scene {
 
   showNewsLoading(outcome: RunStats['outcome']) {
     const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.8);
-    const label = outcome === 'wave-cleared' ? 'WAVE CLEARED — THE ARMY PULLS BACK' : outcome === 'victory' ? 'THE MECH IS DOWN' : `${KAIJU_NAME} HAS FALLEN`;
-    const t = this.add.text(VIEW_W / 2, VIEW_H / 2 - 30, label, txt(38, '#ffe14a')).setOrigin(0.5);
-    const s = this.add.text(VIEW_W / 2, VIEW_H / 2 + 30, `switching to ${CHANNEL}…`, txt(20, '#9ffcff')).setOrigin(0.5);
+    const label = outcome === 'wave-cleared' ? t('waveCleared') : outcome === 'victory' ? t('mechDown') : t('kaijuFallen', { kaiju: t('kaijuName') });
+    const tt = this.add.text(VIEW_W / 2, VIEW_H / 2 - 30, label, txt(38, '#ffe14a')).setOrigin(0.5);
+    const s = this.add.text(VIEW_W / 2, VIEW_H / 2 + 30, t('switching', { ch: CHANNEL }), txt(20, '#9ffcff')).setOrigin(0.5);
     this.tweens.add({ targets: s, alpha: 0.3, yoyo: true, repeat: -1, duration: 250 });
-    this.openModal('loading', [dim, t, s]);
+    this.openModal('loading', [dim, tt, s]);
   }
 
   showBulletin(b: Bulletin, st: RunStats, onContinue: () => void) {
@@ -264,59 +302,53 @@ export class UIScene extends Phaser.Scene {
     const ch: Phaser.GameObjects.GameObject[] = [];
     ch.push(this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.82));
     ch.push(this.add.rectangle(VIEW_W / 2, VIEW_H / 2, W, H, 0x0c1330).setStrokeStyle(4, 0x2a3a6a));
-    // red header
     ch.push(this.add.rectangle(x0, y0, W, 64, 0xc8102e).setOrigin(0));
-    ch.push(this.add.text(x0 + 24, y0 + 12, 'BREAKING NEWS', txt(38, '#ffffff', { strokeThickness: 0 })));
-    const live = this.add.text(x0 + W - 24, y0 + 10, '● LIVE', txt(20, '#ffffff', { strokeThickness: 0 })).setOrigin(1, 0);
+    ch.push(this.add.text(x0 + 24, y0 + 12, t('breaking'), txt(38, '#ffffff', { strokeThickness: 0 })));
+    const live = this.add.text(x0 + W - 24, y0 + 10, t('live'), txt(20, '#ffffff', { strokeThickness: 0 })).setOrigin(1, 0);
     this.tweens.add({ targets: live, alpha: 0.2, yoyo: true, repeat: -1, duration: 450 });
     ch.push(live, this.add.text(x0 + W - 24, y0 + 36, CHANNEL, txt(14, '#ffd0d8', { strokeThickness: 0 })).setOrigin(1, 0));
-    // headline
     ch.push(this.add.rectangle(x0, y0 + 64, W, 84, 0x10204a).setOrigin(0));
     ch.push(this.add.text(x0 + 24, y0 + 106, b.headline, txt(36, '#ffe14a', { wordWrap: { width: W - 48 } })).setOrigin(0, 0.5));
-    // anchor
     const portrait = this.add.image(x0 + 110, y0 + 270, 'anchor').setScale(5);
     const glow = this.add.image(x0 + 110, y0 + 250, 'glow').setScale(4).setTint(0x3a5aff).setAlpha(0.35);
     ch.push(glow, portrait);
-    ch.push(this.add.text(x0 + 30, y0 + 360, 'ANCHOR DESK', txt(13, '#8899cc')));
-    ch.push(this.add.text(x0 + 230, y0 + 180, `“${b.anchor}”`, txt(22, '#ffffff', { wordWrap: { width: 470 }, lineSpacing: 6, strokeThickness: 2 })));
-    // stats box
+    ch.push(this.add.text(x0 + 30, y0 + 360, t('anchorDesk'), txt(13, '#8899cc')));
+    const q = getLang() === 'ja' ? ['「', '」'] : ['“', '”'];
+    ch.push(this.add.text(x0 + 230, y0 + 180, `${q[0]}${b.anchor}${q[1]}`, txt(22, '#ffffff', { wordWrap: { width: 470 }, lineSpacing: 6, strokeThickness: 2 })));
     const sx = x0 + 730, sy = y0 + 170;
     ch.push(this.add.rectangle(sx, sy, 300, 250, 0x081028).setOrigin(0).setStrokeStyle(2, 0x2a3a6a));
+    const row = (k: Parameters<typeof t>[0], v: string) => `${t(k).padEnd(getLang() === 'ja' ? 10 : 20, getLang() === 'ja' ? '　' : ' ')} ${v}`;
     const lines = [
-      `WAVE ${st.wave} OF ${st.totalWaves} REPORT`,
+      t('report', { n: st.wave, t: st.totalWaves }),
       '',
-      `Buildings flattened  ${st.buildingsDestroyed} (+${st.waveBuildingsDestroyed})`,
-      `Towers toppled       ${st.towersDestroyed}`,
-      `Vehicles crushed     ${st.carsCrushed}`,
-      `Infantry routed      ${st.soldiersDefeated}`,
-      `Tanks destroyed      ${st.tanksDestroyed}`,
-      `Near-death moments   ${st.nearDeathMoments}`,
+      row('st_buildings', `${st.buildingsDestroyed} (+${st.waveBuildingsDestroyed})`),
+      row('st_towers', String(st.towersDestroyed)),
+      row('st_cars', String(st.carsCrushed)),
+      row('st_soldiers', String(st.soldiersDefeated)),
+      row('st_tanks', String(st.tanksDestroyed)),
+      row('st_near', String(st.nearDeathMoments)),
       '',
-      `SIZE: ${TIERS[st.tier - 1].name}`,
-      `(${TIER_FLAVOR[st.tier].size})`,
-      `Last seen: ${st.district}`,
+      t('size', { x: tierName(st.tier) }),
+      `(${t((['size1', 'size2', 'size3'] as const)[st.tier - 1])})`,
+      t('lastSeen', { d: districtName(st.district) }),
     ];
     ch.push(this.add.text(sx + 14, sy + 12, lines.join('\n'), txt(14, '#dfe6ff', { strokeThickness: 0, lineSpacing: 2, wordWrap: { width: 276 } })));
-    // source tag (honest about AI vs canned)
-    const src = b.source === 'ai' ? `AI DESK · ${DEFAULT_MODEL} (optional live path)` : 'KBN-7 WIRE DESK';
+    const src = b.source === 'ai' ? t('srcAi', { model: DEFAULT_MODEL }) : t('srcBank');
     ch.push(this.add.text(x0 + 24, y0 + H - 118, src, txt(12, b.source === 'ai' ? '#7ef0ff' : '#aa9977', { strokeThickness: 0 })));
-    // ticker
     const tickY = y0 + H - 96;
     ch.push(this.add.rectangle(x0, tickY, W, 40, 0xffe14a).setOrigin(0));
     ch.push(this.add.rectangle(x0, tickY, 130, 40, 0xc8102e).setOrigin(0));
-    const tickerStr = b.ticker.map((t) => t.toUpperCase()).join('   ◆   ');
+    const tickerStr = b.ticker.map((s) => up(s)).join('   ◆   ');
     const tick = this.add.text(x0 + W, tickY + 20, tickerStr + '   ◆   ' + tickerStr, txt(20, '#0c1330', { strokeThickness: 0 })).setOrigin(0, 0.5);
     const mask = this.make.graphics({}).fillRect(x0 + 130, tickY, W - 130, 40);
     tick.setMask(mask.createGeometryMask());
     const dist = tick.width / 2 + W;
     this.tweens.add({ targets: tick, x: x0 + W - dist, duration: dist * 9, repeat: -1 });
-    ch.push(tick, this.add.text(x0 + 16, tickY + 20, 'TICKER', txt(18, '#ffffff', { strokeThickness: 0 })).setOrigin(0, 0.5));
-    // footer
-    const nextLabel = st.outcome === 'wave-cleared' ? `PRESS ENTER — WAVE ${st.wave + 1}` : st.outcome === 'victory' ? 'YOU WIN! PRESS ENTER FOR A NEW RUN' : 'GAME OVER · PRESS ENTER TO TRY AGAIN';
+    ch.push(tick, this.add.text(x0 + 16, tickY + 20, t('ticker'), txt(18, '#ffffff', { strokeThickness: 0 })).setOrigin(0, 0.5));
+    const nextLabel = st.outcome === 'wave-cleared' ? t('nextWave', { n: st.wave + 1 }) : st.outcome === 'victory' ? t('youWin') : t('gameOver');
     const foot = this.add.text(VIEW_W / 2, y0 + H - 26, nextLabel, txt(22, '#ffffff')).setOrigin(0.5);
     this.tweens.add({ targets: foot, alpha: 0.35, yoyo: true, repeat: -1, duration: 550 });
     ch.push(foot);
-    // scanlines
     const scan = this.add.graphics();
     scan.fillStyle(0x000000, 0.12);
     for (let y = y0; y < y0 + H; y += 3) scan.fillRect(x0, y, W, 1);
@@ -324,15 +356,30 @@ export class UIScene extends Phaser.Scene {
     this.openModal('bulletin', ch);
     this.modalRoot!.setAlpha(0);
     this.tweens.add({ targets: this.modalRoot!, alpha: 1, duration: 200 });
-    // keep the mask graphics alive with the modal
     this.modalRoot!.once(Phaser.GameObjects.Events.DESTROY, () => mask.destroy());
   }
 
   private showPaused() {
-    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.6);
-    const t = this.add.text(VIEW_W / 2, VIEW_H / 2 - 30, 'PAUSED', txt(56, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
-    const s = this.add.text(VIEW_W / 2, VIEW_H / 2 + 34, 'P / ESC to resume  ·  M to mute', txt(20, '#9ffcff')).setOrigin(0.5);
-    this.openModal('paused', [dim, t, s]);
+    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.72);
+    const tt = this.add.text(VIEW_W / 2, 110, t('paused'), txt(56, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
+    const s = this.add.text(VIEW_W / 2, 160, t('pauseHint'), txt(18, '#9ffcff')).setOrigin(0.5);
+    const head = this.add.text(VIEW_W / 2, 214, t('yourMutations'), txt(20, '#ffe14a')).setOrigin(0.5);
+    const children: Phaser.GameObjects.GameObject[] = [dim, tt, s, head];
+    const owned = UPGRADES.filter((u) => this.gs.player.upgradeLevels[u.id]);
+    if (!owned.length) children.push(this.add.text(VIEW_W / 2, 260, t('noMutations'), txt(16, '#c9d0ea')).setOrigin(0.5));
+    owned.forEach((u, i) => {
+      const col = i % 2, rowI = Math.floor(i / 2);
+      const x = VIEW_W / 2 - 520 + col * 540, y = 250 + rowI * 58;
+      const lv = this.gs.player.upgradeLevels[u.id];
+      const c = KIND_COLOR[u.kind];
+      children.push(
+        this.add.rectangle(x, y, 500, 50, 0x10121e, 0.92).setOrigin(0).setStrokeStyle(2, c),
+        this.add.text(x + 26, y + 25, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '26px', color: Phaser.Display.Color.IntegerToColor(c).rgba }).setOrigin(0.5),
+        this.add.text(x + 52, y + 6, `${up(upName(u.id))}  LV ${lv}/${u.max}`, txt(15, '#ffffff', { strokeThickness: 2 })),
+        this.add.text(x + 52, y + 27, upDesc(u.id, Math.min(lv, 2)), txt(13, '#c9d0ea', { strokeThickness: 0, wordWrap: { width: 430 } })),
+      );
+    });
+    this.openModal('paused', children);
   }
 
   private continueFromBulletin() {
@@ -348,6 +395,7 @@ export class UIScene extends Phaser.Scene {
       this.mutedTag.setVisible(sfx.toggleMute());
       return;
     }
+    if (overlay.isOpen()) return; // the HTML front page handles its own keys
     if (code === 'KeyP' || code === 'Escape') {
       if (this.modal === null && this.gs.phase === 'playing') {
         this.gs.pauseGame();
@@ -358,11 +406,7 @@ export class UIScene extends Phaser.Scene {
       }
       return;
     }
-    if (this.modal === 'title' && (code === 'Enter' || code === 'Space')) {
-      if (this.time.now - this.modalOpenedAt < 200) return;
-      this.closeModal();
-      this.gs.startRun();
-    } else if (this.modal === 'levelup') {
+    if (this.modal === 'levelup') {
       if (code === 'Digit1' || code === 'Numpad1') this.pick(0);
       else if (code === 'Digit2' || code === 'Numpad2') this.pick(1);
       else if (code === 'Digit3' || code === 'Numpad3') this.pick(2);
@@ -377,10 +421,19 @@ export class UIScene extends Phaser.Scene {
   private pollPad() {
     const pad = this.input.gamepad?.pad1;
     if (!pad) return;
-    const now = { left: pad.left || pad.leftStick.x < -0.5, right: pad.right || pad.leftStick.x > 0.5, a: pad.A };
-    if (now.left && !this.pad.left) this.onKey('ArrowLeft');
-    if (now.right && !this.pad.right) this.onKey('ArrowRight');
-    if (now.a && !this.pad.a) this.onKey(this.modal === 'title' ? 'Enter' : 'Enter');
+    const now = {
+      left: pad.left || pad.leftStick.x < -0.5, right: pad.right || pad.leftStick.x > 0.5,
+      up: pad.up || pad.leftStick.y < -0.5, down: pad.down || pad.leftStick.y > 0.5, a: pad.A,
+    };
+    if (overlay.isOpen()) {
+      if (now.up && !this.pad.up) overlay.press('ArrowUp');
+      if (now.down && !this.pad.down) overlay.press('ArrowDown');
+      if (now.a && !this.pad.a) overlay.press('Enter');
+    } else {
+      if (now.left && !this.pad.left) this.onKey('ArrowLeft');
+      if (now.right && !this.pad.right) this.onKey('ArrowRight');
+      if (now.a && !this.pad.a) this.onKey('Enter');
+    }
     this.pad = now;
   }
 }

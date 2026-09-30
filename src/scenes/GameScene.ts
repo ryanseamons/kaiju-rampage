@@ -11,26 +11,15 @@ import { RunTracker } from '../stats';
 import { NewsDesk } from '../news';
 import { UPGRADES, rollOffer, type UpgradeDef } from '../upgrades';
 import { mulberry32 } from '../rng';
-import { music, sfx } from '../sfx';
+import { sfx } from '../sfx';
+import { music } from '../audio/music';
+import { duckMusic } from '../audio/core';
+import { t, t as tr, tierName } from '../i18n';
 import type { Bulletin, RunStats, Tier } from '../shared/narration';
 import type { UIScene } from './UIScene';
+import { recordBest } from '../scores';
 
 export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory';
-
-export interface BestRun {
-  wave: number;
-  buildings: number;
-  victory: boolean;
-}
-const BEST_KEY = 'kaiju.best';
-export function loadBest(): BestRun | null {
-  try {
-    const raw = localStorage.getItem(BEST_KEY);
-    return raw ? (JSON.parse(raw) as BestRun) : null;
-  } catch {
-    return null;
-  }
-}
 
 interface Pickup {
   img: Phaser.GameObjects.Image;
@@ -43,11 +32,6 @@ interface Pickup {
 }
 
 type Keys = Record<'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'SPACE' | 'SHIFT', Phaser.Input.Keyboard.Key>;
-
-const TIER_COPY: Record<number, [string, string]> = {
-  2: ['BEHEMOTH', 'Houses crumble underfoot. The tanks take you seriously now.'],
-  3: ['CITY-ENDER', 'Towers crumble underfoot. Tanks are just speed bumps.'],
-};
 
 export class GameScene extends Phaser.Scene {
   city!: City;
@@ -83,6 +67,10 @@ export class GameScene extends Phaser.Scene {
   private padA = false;
   private tmp: Destructible[] = [];
   private bumpCd = 0;
+  /** Which stomp hint the HUD should show right now (i18n key), if any. */
+  stompHint: 'stompPrompt' | 'stompTip' | null = null;
+  private titleFx: Phaser.GameObjects.Image[] = [];
+  private titleT = 0;
 
   constructor() {
     super('Game');
@@ -139,8 +127,20 @@ export class GameScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, WORLD_W, WORLD_H);
-    cam.setZoom(TIERS[0].zoom);
-    cam.startFollow(this.player, false, 0.12, 0.12);
+    // Title backdrop: drift over the night city with searchlights; startRun() swoops down to the kaiju.
+    cam.setZoom(0.9);
+    cam.centerOn(WORLD_W / 2, LAND_H - 700);
+    this.titleT = 0;
+    this.titleFx = [0.3, 0.52, 0.74].map((fx, i) =>
+      this.add
+        .image(WORLD_W * fx, LAND_H - 260 - i * 120, 'searchlight')
+        .setOrigin(0, 0.5)
+        .setScale(7, 2.6)
+        .setAlpha(0.22)
+        .setTint(i === 1 ? 0xbfe8ff : 0xfff1c8)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(9600),
+    );
     cam.setBackgroundColor('#05060d');
 
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT') as Keys;
@@ -153,6 +153,9 @@ export class GameScene extends Phaser.Scene {
 
   // ── Run flow ───────────────────────────────────────────────────────────────
   startRun() {
+    if (this.phase !== 'title') return;
+    for (const f of this.titleFx) f.destroy();
+    this.titleFx = [];
     sfx.unlock();
     this.waveIdx = START_WAVE - 1;
     if (START_WAVE > 1) {
@@ -165,9 +168,12 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.setZoom(TIERS[t].zoom);
       this.maxTierReached = t + 1;
     }
+    const cam = this.cameras.main;
+    cam.startFollow(this.player, false, 0.08, 0.08);
+    cam.zoomTo(TIERS[this.player.tierIdx].zoom, 1100, 'Sine.easeInOut');
     this.phase = 'playing';
-    music.duck(false);
-    music.start(this.tier, false);
+    duckMusic(false);
+    music.play(`tier${this.tier}` as 'tier1');
     this.startWave();
   }
 
@@ -178,14 +184,8 @@ export class GameScene extends Phaser.Scene {
     this.stats.startWave();
     const w = this.wave;
     this.bossSpawnAt = w.boss ? 4 : -1;
-    const sub = [
-      'Hatched in the bay. Hungry. Crush cars, eat the city.',
-      'The army has brought tanks.',
-      'Evacuation sirens across Shiokaze Bay.',
-      'Armored divisions converge on Downtown.',
-      'Final wave. Something big is coming.',
-    ][this.waveIdx];
-    this.ui.banner(`WAVE ${w.wave}`, sub);
+    const sub = t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[this.waveIdx]);
+    this.ui.banner(t('waveTitle', { n: w.wave }), sub);
   }
 
   pauseGame() {
@@ -193,28 +193,19 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'paused';
     this.player.setVelocity(0, 0);
     this.scene.pause();
-    music.duck(true);
+    duckMusic(true);
   }
 
   resumeGame() {
     if (this.phase !== 'paused') return;
     this.phase = 'playing';
     this.scene.resume();
-    music.duck(false);
+    duckMusic(false);
   }
 
   private recordBest(outcome: RunStats['outcome']) {
-    if (outcome === 'wave-cleared' || START_WAVE > 1) return; // debug starts don't count
-    const run: BestRun = { wave: this.wave.wave, buildings: this.stats.buildings, victory: outcome === 'victory' };
-    const best = loadBest();
-    const better = !best || (run.victory && !best.victory) || (run.victory === best.victory && (run.wave > best.wave || (run.wave === best.wave && run.buildings > best.buildings)));
-    if (better) {
-      try {
-        localStorage.setItem(BEST_KEY, JSON.stringify(run));
-      } catch {
-        /* private mode etc. */
-      }
-    }
+    if (outcome === 'wave-cleared') return;
+    recordBest({ wave: this.wave.wave, buildings: this.stats.buildings, victory: outcome === 'victory' });
   }
 
   private endWave(outcome: RunStats['outcome']) {
@@ -222,7 +213,8 @@ export class GameScene extends Phaser.Scene {
     if (this.phase !== 'playing' && this.phase !== 'dying') return;
     if (this.phase === 'dying' && outcome !== 'defeat') return;
     this.recordBest(outcome);
-    music.duck(true);
+    duckMusic(true);
+    if (outcome !== 'wave-cleared') music.play(outcome === 'victory' ? 'victory' : 'defeat');
     this.phase = outcome === 'wave-cleared' ? 'bulletin' : outcome === 'victory' ? 'victory' : 'gameover';
     if (outcome === 'wave-cleared') this.enemies.clearAll();
     this.player.setVelocity(0, 0);
@@ -241,7 +233,6 @@ export class GameScene extends Phaser.Scene {
 
   private afterBulletin(outcome: RunStats['outcome']) {
     if (outcome !== 'wave-cleared') {
-      music.stop();
       this.scene.restart();
       this.ui.reset();
       return;
@@ -249,7 +240,7 @@ export class GameScene extends Phaser.Scene {
     this.waveIdx = Math.min(this.waveIdx + 1, WAVES.length - 1);
     this.phase = 'playing';
     this.scene.resume();
-    music.duck(false);
+    duckMusic(false);
     this.startWave();
   }
 
@@ -262,6 +253,14 @@ export class GameScene extends Phaser.Scene {
 
   // ── Main loop ──────────────────────────────────────────────────────────────
   update(_time: number, delta: number) {
+    if (this.phase === 'title') {
+      this.titleT += delta;
+      const cam = this.cameras.main;
+      cam.centerOn(WORLD_W / 2 + Math.sin(this.titleT / 21000) * 900, LAND_H - 700 + Math.sin(this.titleT / 13000) * 160);
+      this.titleFx.forEach((f, i) => f.setRotation(-Math.PI / 2 + Math.sin(this.titleT / (2600 + i * 700) + i * 1.7) * 0.75));
+      this.player?.syncDecor(this.gameTime);
+      return;
+    }
     if (this.phase !== 'playing') {
       this.player?.syncDecor(this.gameTime);
       return;
@@ -317,6 +316,12 @@ export class GameScene extends Phaser.Scene {
     this.updateDirector(dt);
     p.syncDecor(this.gameTime);
     this.stats.hp((p.hp / p.maxHp) * 100);
+    // Teach the stomp: prompt when crowded until it has been used a few times, and nudge once if never used.
+    let crowd = 0;
+    const cr = 90 * p.scale;
+    for (const e of this.enemies.list) if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < cr * cr) crowd++;
+    this.stompHint =
+      p.stompCd <= 0 && this.stats.stomps < 3 && crowd >= 4 ? 'stompPrompt' : p.stompCd <= 0 && this.stats.stomps === 0 && this.stats.elapsed > 15 ? 'stompTip' : null;
 
     if (p.hp <= 0) return this.die();
     if (this.pendingLevelUps > 0) this.openLevelUp();
@@ -346,9 +351,9 @@ export class GameScene extends Phaser.Scene {
       if (this.bossSpawnAt >= 0 && this.waveTime >= this.bossSpawnAt) {
         this.bossSpawnAt = -1;
         this.enemies.spawnOffscreen('mech');
-        this.ui.banner('WARNING', 'Flagship mech M-01 "SHIOKAZE GUARDIAN" inbound', true);
+        this.ui.banner(t('warning'), t('mechInbound'), true);
         sfx.alarm();
-        music.start(this.tier, true);
+        music.play('boss');
       }
       const b = this.enemies.boss;
       if (b && b.hp < b.maxHp * 0.35 && this.news.prefetchedFor !== w.wave) this.news.prefetch(this.snapshot('victory'));
@@ -380,7 +385,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpsShown++;
     sfx.levelup();
     this.scene.pause();
-    music.duck(true);
+    duckMusic(true);
     this.ui.showLevelUp(this.offer, this.player.upgradeLevels, (i) => this.pickUpgrade(i));
   }
 
@@ -399,7 +404,7 @@ export class GameScene extends Phaser.Scene {
     this.offer = [];
     this.phase = 'playing';
     this.scene.resume();
-    music.duck(false);
+    duckMusic(false);
   }
 
   // ── Combat & destruction ───────────────────────────────────────────────────
@@ -459,7 +464,7 @@ export class GameScene extends Phaser.Scene {
     } else if (e.etype === 'tank') {
       this.stats.tanks++;
       this.fx.explode(e.x, e.y, 40);
-      this.fx.word(e.x, e.y - 10, 'KA-BOOM!', '#ffb13b', 1 + this.player.tierIdx * 0.6);
+      this.fx.word(e.x, e.y - 10, t('w_kaboom'), '#ffb13b', 1 + this.player.tierIdx * 0.6);
       this.shake(0.008, 160);
       this.hitStop(50);
       sfx.collapse(false);
@@ -487,7 +492,7 @@ export class GameScene extends Phaser.Scene {
         sfx.collapse(true);
       });
     }
-    this.fx.word(e.x, e.y - 160, 'MECH DOWN!', '#ff5fd2', 4);
+    this.fx.word(e.x, e.y - 160, t('w_mechDown'), '#ff5fd2', 4);
     this.time.delayedCall(1600, () => {
       if (this.phase !== 'playing') return;
       this.fx.ring(e.x, e.y, 500, 0xffffff, 700);
@@ -570,7 +575,7 @@ export class GameScene extends Phaser.Scene {
       if (credit) this.hitStop(tower ? 70 : 25);
       sfx.collapse(tower);
       if (credit && (tower || Math.random() < 0.25))
-        this.fx.word(d.x, d.y - d.h, tower ? Phaser.Utils.Array.GetRandom(['KRAKOOM!', 'DOOOOM!', 'KRA-TOOM!']) : 'CRUNCH!', tower ? '#ff7a2a' : '#ffe14a', 1 + p.tierIdx * 0.7);
+        this.fx.word(d.x, d.y - d.h, tower ? t(Phaser.Utils.Array.GetRandom(['w_tower1', 'w_tower2', 'w_tower3'] as const)) : t('w_crunch'), tower ? '#ff7a2a' : '#ffe14a', 1 + p.tierIdx * 0.7);
       const spr = d.sprite;
       spr.setTint(0x9090a0);
       this.tweens.add({
@@ -600,7 +605,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.level = p.tierIdx;
     this.cameras.main.zoomTo(t.zoom, 1400, 'Sine.easeInOut');
     this.ui.flashWhite();
-    music.start(this.tier, !!this.enemies.boss);
+    if (!this.enemies.boss) music.play(`tier${t.tier}` as 'tier1');
     this.hitStop(160);
     this.shake(0.02, 400);
     sfx.roar();
@@ -613,8 +618,7 @@ export class GameScene extends Phaser.Scene {
     // Growth shockwave flattens the neighbourhood.
     this.tmp.length = 0;
     for (const d of this.city.grid.query(p.x, p.y, 30 * p.scale, this.tmp)) if (d.sizeClass <= t.tier) this.destroyDestructible(d, true);
-    const [name, sub] = TIER_COPY[t.tier] ?? [t.name, ''];
-    this.ui.banner(`GROWTH SPURT: ${name}`, sub);
+    this.ui.banner(tr('growth', { name: tierName(t.tier) }), tr(t.tier === 2 ? 'tierCopy2' : 'tierCopy3'));
   }
 
   private dropPickup(x: number, y: number, kind: Pickup['kind'], value: number) {

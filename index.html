@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kaiju Rampage</title>
+    <title>Kaiju Rampage · 怪獣大暴れ</title>
+    <meta name="description" content="Grow from a tiny kaiju into a city-ender while the city's news desk reacts to your run. 怪獣になって街を踏み潰せ。" />
+    <meta name="theme-color" content="#05060d" />
     <style>
       html, body { margin: 0; height: 100%; background: #05060d; overflow: hidden; }
       #game { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -12,6 +14,7 @@
   </head>
   <body>
     <div id="game"></div>
+    <div id="overlay" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

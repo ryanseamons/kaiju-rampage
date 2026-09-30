@@ -1,5 +1,6 @@
 // Juice: particles, shockwaves, impact words, flashes. Screen shake / hit-stop live on GameScene.
 import Phaser from 'phaser';
+import { gameFont } from './i18n';
 
 type Emitter = Phaser.GameObjects.Particles.ParticleEmitter;
 
@@ -171,7 +172,7 @@ export class Fx {
   word(x: number, y: number, text: string, color = '#ffe14a', size = 1) {
     const t = this.scene.add
       .text(x, y, text, {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: gameFont(),
         fontStyle: 'bold',
         fontSize: `${Math.round(12 * size)}px`,
         color,

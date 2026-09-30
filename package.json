@@ -10,7 +10,8 @@
     "server": "tsx server/index.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "playwright test"
+    "test": "playwright test",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name kaiju-rampage --branch main --commit-dirty=true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
@@ -22,6 +23,7 @@
     "concurrently": "^10.0.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "wrangler": "^3.114.17"
   }
 }
