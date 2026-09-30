@@ -389,8 +389,9 @@ class Overlay {
     }
     pl.classList.remove('silent');
     const ja = getLang() === 'ja';
-    title.innerHTML = ja ? `<span class="jp" style="margin:0">${esc(np.ja)}</span><span class="alt">${esc(np.en)}</span>` : `${esc(np.en)}<span class="jp">${esc(np.ja)}</span>`;
-    meta.textContent = `${np.key} ${ja ? np.scaleJa : np.scale} · ${np.bpm} bpm`;
+    if (np.kind === 'track') title.textContent = np.en;
+    else title.innerHTML = ja ? `<span class="jp" style="margin:0">${esc(np.ja)}</span><span class="alt">${esc(np.en)}</span>` : `${esc(np.en)}<span class="jp">${esc(np.ja)}</span>`;
+    meta.textContent = ja ? np.metaJa : np.meta;
     bar.style.width = `${Math.round(np.progress * 100)}%`;
   }
 }

@@ -1,36 +1,65 @@
-// Music engine: plays composed pieces with a lookahead scheduler and crossfades between contexts.
-// Timing runs on AudioContext time (25 ms tick, 0.2 s lookahead), as in the tavern project.
+// Music engine. Two sources behind one API:
+//  - recorded tracks from public/music/tracks.json (licensed for the deployed site, kept out of the
+//    repository), streamed through the music bus and rotated per context with crossfades;
+//  - the procedural composer (lookahead scheduler: 25 ms tick, 0.2 s lookahead, as in the tavern
+//    project) when there is no track list, e.g. in a fresh clone.
 import { audio, onAudioReady, prefs, type Graph } from './core';
-import { compose, type MusicContext, type Piece, type PieceInfo } from './composer';
+import { compose, type MusicContext, type Piece } from './composer';
 import { Voices } from './instruments';
+import { tracks, type TrackInfo } from './tracks';
 
 const TICK_MS = 25;
 const LOOKAHEAD = 0.2;
 const FADE_SEC = 2.5;
+/** Recorded tracks are mastered hot (normalised to -16 LUFS); this sits them level with the composer. */
+const TRACK_LEVEL = 1;
 
-interface Playing {
-  piece: Piece;
+export interface NowPlaying {
+  context: MusicContext;
+  kind: 'track' | 'composed';
+  en: string;
+  ja: string;
+  /** Composer: key, scale and tempo. Track: artist. */
+  meta: string;
+  metaJa: string;
+  progress: number;
+}
+
+interface Base {
+  context: MusicContext;
   bus: GainNode;
+  stopAt: number | null;
+}
+interface Composed extends Base {
+  kind: 'composed';
+  piece: Piece;
   voices: Voices;
   nextTime: number;
   step: number; // absolute step index
   startedAt: number;
-  stopAt: number | null;
 }
+interface Streamed extends Base {
+  kind: 'track';
+  track: TrackInfo;
+  el: HTMLAudioElement;
+  node: MediaElementAudioSourceNode;
+  advancing: boolean;
+}
+type Playing = Composed | Streamed;
 
 const sessionSeed = (Math.random() * 2 ** 31) >>> 0;
 let current: Playing | null = null;
 let fading: Playing[] = [];
 let wanted: MusicContext | null = null;
 let timer: number | null = null;
-const listeners = new Set<(p: PieceInfo | null) => void>();
+const listeners = new Set<(p: NowPlaying | null) => void>();
 
 function seedFor(ctx: MusicContext) {
   // One tune per context per page load, so a run keeps a consistent soundtrack.
   return (sessionSeed ^ (['title', 'tier1', 'tier2', 'tier3', 'boss', 'victory', 'defeat'].indexOf(ctx) * 0x9e3779b1)) >>> 0;
 }
 
-function schedule(p: Playing, until: number) {
+function schedule(p: Composed, until: number) {
   const { piece, voices } = p;
   const stepsPerLoop = piece.bars.length * piece.stepsPerBar;
   while (p.nextTime < until) {
@@ -63,80 +92,149 @@ function schedule(p: Playing, until: number) {
   }
 }
 
+function release(p: Playing) {
+  p.bus.disconnect();
+  if (p.kind === 'track') {
+    p.el.pause();
+    p.node.disconnect();
+    p.el.removeAttribute('src');
+    p.el.load();
+  }
+}
+
 function tick() {
   const g = audio();
   if (!g || g.ctx.state !== 'running') return;
   const now = g.ctx.currentTime;
-  if (current) schedule(current, now + LOOKAHEAD);
+  if (current?.kind === 'composed') schedule(current, now + LOOKAHEAD);
+  else if (current?.kind === 'track') {
+    const p = current, el = p.el;
+    // Autoplay can refuse play() before the first gesture; retry once audio is running.
+    if (el.paused && !el.ended && el.readyState >= 2) void el.play().catch(() => {});
+    // Roll into the next track for this context shortly before the end, so the fade overlaps it.
+    if (!p.advancing && el.duration > 0 && el.duration - el.currentTime < FADE_SEC + 0.3) {
+      p.advancing = true;
+      start(g, p.context);
+    }
+  }
   fading = fading.filter((f) => {
     if (f.stopAt !== null && now >= f.stopAt) {
-      f.bus.disconnect();
+      release(f);
       return false;
     }
-    schedule(f, Math.min(now + LOOKAHEAD, f.stopAt ?? Infinity));
+    if (f.kind === 'composed') schedule(f, Math.min(now + LOOKAHEAD, f.stopAt ?? Infinity));
     return true;
   });
 }
 
-function startPiece(g: Graph, ctx: MusicContext) {
-  const piece = compose(seedFor(ctx), ctx);
+function fadeOut(p: Playing, g: Graph, sec: number) {
+  const now = g.ctx.currentTime;
+  p.bus.gain.cancelScheduledValues(now);
+  p.bus.gain.setValueAtTime(p.bus.gain.value, now);
+  p.bus.gain.linearRampToValueAtTime(0.0001, now + sec);
+  p.stopAt = now + sec;
+  fading.push(p);
+}
+
+function newBus(g: Graph, level: number) {
   const bus = g.ctx.createGain();
   const now = g.ctx.currentTime;
   bus.gain.setValueAtTime(0.0001, now);
-  bus.gain.linearRampToValueAtTime(1, now + (current ? FADE_SEC : 1.2));
+  bus.gain.linearRampToValueAtTime(level, now + (current ? FADE_SEC : 1.2));
   bus.connect(g.music);
-  const p: Playing = { piece, bus, voices: new Voices(g, bus), nextTime: now + 0.08, step: 0, startedAt: now + 0.08, stopAt: null };
-  if (current) {
-    const old = current;
-    old.bus.gain.cancelScheduledValues(now);
-    old.bus.gain.setValueAtTime(old.bus.gain.value, now);
-    old.bus.gain.linearRampToValueAtTime(0.0001, now + FADE_SEC);
-    old.stopAt = now + FADE_SEC;
-    fading.push(old);
-  }
+  return bus;
+}
+
+function composedFor(g: Graph, ctx: MusicContext): Composed {
+  const piece = compose(seedFor(ctx), ctx);
+  const bus = newBus(g, 1);
+  const now = g.ctx.currentTime;
+  return { kind: 'composed', context: ctx, piece, bus, voices: new Voices(g, bus), nextTime: now + 0.08, step: 0, startedAt: now + 0.08, stopAt: null };
+}
+
+function streamedFor(g: Graph, ctx: MusicContext, track: TrackInfo): Streamed {
+  const el = new Audio();
+  el.crossOrigin = 'anonymous';
+  el.preload = 'auto';
+  el.src = tracks.url(track);
+  const node = g.ctx.createMediaElementSource(el);
+  const bus = newBus(g, TRACK_LEVEL);
+  node.connect(bus);
+  const p: Streamed = { kind: 'track', context: ctx, track, el, node, bus, stopAt: null, advancing: false };
+  el.addEventListener('error', () => {
+    if (current === p) {
+      console.warn('[music] track failed', track.id);
+      tracks.drop(track);
+      current = null;
+      release(p);
+      start(g, ctx);
+    }
+  });
+  void el.play().catch(() => {});
+  return p;
+}
+
+function start(g: Graph, ctx: MusicContext) {
+  const track = tracks.next(ctx);
+  const p = track ? streamedFor(g, ctx, track) : composedFor(g, ctx);
+  if (current) fadeOut(current, g, FADE_SEC);
   current = p;
-  console.info('[music]', JSON.stringify({ type: 'piece', ...piece.info }));
-  for (const fn of listeners) fn(piece.info);
+  const info = describe(p, g);
+  console.info('[music]', JSON.stringify({ type: p.kind, context: ctx, title: info.en }));
+  for (const fn of listeners) fn(info);
   if (timer === null) timer = window.setInterval(tick, TICK_MS);
 }
 
+function describe(p: Playing, g: Graph): NowPlaying {
+  if (p.kind === 'track') {
+    const d = p.el.duration;
+    return {
+      context: p.context, kind: 'track', en: p.track.title, ja: p.track.title,
+      meta: p.track.artist, metaJa: p.track.artist,
+      progress: d > 0 ? Math.min(1, p.el.currentTime / d) : 0,
+    };
+  }
+  const i = p.piece.info;
+  const loop = p.piece.bars.length * p.piece.stepsPerBar * p.piece.stepSec;
+  const progress = ((g.ctx.currentTime - p.startedAt) % loop) / loop;
+  return {
+    context: p.context, kind: 'composed', en: i.en, ja: i.ja,
+    meta: `${i.key} ${i.scale} · ${i.bpm} bpm`, metaJa: `${i.key} ${i.scaleJa} · ${i.bpm} bpm`,
+    progress: Math.max(0, progress),
+  };
+}
+
 export const music = {
-  /** Switch to the tune for this context (crossfade). Safe to call before audio is unlocked. */
+  /** Switch to the music for this context (crossfade). Safe to call before audio is unlocked. */
   play(ctx: MusicContext) {
     wanted = ctx;
     const g = audio();
     if (!g || !prefs.music) return;
-    if (current?.piece.info.context === ctx) return;
-    startPiece(g, ctx);
+    if (current?.context === ctx) return;
+    if (tracks.ready === null) {
+      // First call: fetch the track list, then start whatever is wanted by then.
+      void tracks.load().then(() => wanted && music.play(wanted));
+      return;
+    }
+    start(g, ctx);
   },
   stop() {
     wanted = null;
     const g = audio();
     if (!g || !current) return;
-    const now = g.ctx.currentTime;
-    current.bus.gain.cancelScheduledValues(now);
-    current.bus.gain.setValueAtTime(current.bus.gain.value, now);
-    current.bus.gain.linearRampToValueAtTime(0.0001, now + 1);
-    current.stopAt = now + 1;
-    fading.push(current);
+    fadeOut(current, g, 1);
     current = null;
     for (const fn of listeners) fn(null);
   },
   /** Re-apply the wanted context (after unlocking audio or turning music back on). */
   resume() {
-    if (wanted) {
-      const w = wanted;
-      if (current?.piece.info.context !== w) music.play(w);
-    }
+    if (wanted && current?.context !== wanted) music.play(wanted);
   },
-  nowPlaying(): (PieceInfo & { progress: number }) | null {
+  nowPlaying(): NowPlaying | null {
     const g = audio();
-    if (!current || !g) return null;
-    const loop = current.piece.bars.length * current.piece.stepsPerBar * current.piece.stepSec;
-    const progress = ((g.ctx.currentTime - current.startedAt) % loop) / loop;
-    return { ...current.piece.info, progress: Math.max(0, progress) };
+    return current && g ? describe(current, g) : null;
   },
-  onChange(fn: (p: PieceInfo | null) => void) {
+  onChange(fn: (p: NowPlaying | null) => void) {
     listeners.add(fn);
     return () => listeners.delete(fn);
   },
@@ -151,4 +249,8 @@ onAudioReady(() => music.resume());
 (window as unknown as { __kaijuMusic: unknown }).__kaijuMusic = {
   play: (c: MusicContext) => music.play(c),
   now: () => music.nowPlaying(),
+  /** Skip the current track to a few seconds before its end (tests the rotation). */
+  skipToEnd: () => {
+    if (current?.kind === 'track' && current.el.duration > 0) current.el.currentTime = current.el.duration - 4;
+  },
 };

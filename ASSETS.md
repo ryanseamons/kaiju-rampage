@@ -11,7 +11,8 @@ Apart from two CC0 button sounds (below), this repo contains no image, audio or 
 | Particles, glow, shockwave ring, beam, vignette, shadow | Canvas gradients and shapes in `src/textures.ts` |
 | Sound effects (crunch, collapse, stomp, roar, pickups, alarm, news sting) | Synthesized with WebAudio oscillators and filtered noise in `src/sfx.ts` |
 | Button hover and press sounds (`public/sfx/hover.mp3`, `public/sfx/press.mp3`) | Kenney Impact Sounds (soft impact) and Kenney UI Audio `click_002`, both **CC0** (kenney.nl), in the encodes auditioned for Voyage's UI sound pack |
-| Music | Composed live by `src/audio/composer.ts` and synthesized in `src/audio/instruments.ts` (Karplus–Strong strings, generated reverb); no samples |
+| Music (deployed site) | 14 tracks from **Epidemic Sound**, licensed by the site owner for web use: The Flowing Force, Dynasty of Fire, Temple of Thunder, Red Phoenix (Yi Nantiro); Ferocious Fire, Swift Wind, Ikki Uchi, Unified Forest, Immovable Mountain, Total Bliss (Isaku Kageyama); Rise of the Sun God (Dream Cave); Ninja Skills (Ava Low); Press X Twice (Lexica); No One Escapes (Dian Shuai). Loudness-normalised to -16 LUFS, 128 kbps, in `public/music/` with `tracks.json`. **Not in the repository** (gitignored; the licence does not cover redistribution) |
+| Music (fallback) | Composed live by `src/audio/composer.ts` and synthesized in `src/audio/instruments.ts` (Karplus–Strong strings, generated reverb); plays when `public/music/tracks.json` is absent, or with `?music=composed` |
 | Font | None bundled. The UI uses the system `"Courier New", monospace` |
 | News copy | Written for this project in `src/shared/bank.ts` (fictional city Shiokaze Bay, fictional channel KBN-7) |
 
