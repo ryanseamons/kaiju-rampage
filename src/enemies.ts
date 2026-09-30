@@ -181,8 +181,9 @@ export class EnemyManager {
           if (d > 120) { vx = ux * sp; vy = uy * sp; }
           else if (d < 70) { vx = -ux * sp * 0.6; vy = -uy * sp * 0.6; }
           if (d < 220 && e.fireCd <= 0) {
-            e.fireCd = 1.4 + Math.random() * 0.8;
-            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 200, 3, 1.6);
+            // Tier 1 rifles are a nuisance, not a death sentence: a stationary hatchling should last ~30s+.
+            e.fireCd = 1.8 + Math.random() * 1.0;
+            this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.12, 0.12), 200, 2, 1.6);
             sfx.shot();
           }
         } else {

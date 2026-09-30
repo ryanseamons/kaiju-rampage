@@ -67,7 +67,7 @@ export interface WaveDef {
 }
 
 export const WAVES: WaveDef[] = [
-  { wave: 1, duration: 80, soldierRate: 0.8, soldierMax: 18, tankRate: 0, tankMax: 0, boss: false },
+  { wave: 1, duration: 80, soldierRate: 0.55, soldierMax: 14, tankRate: 0, tankMax: 0, boss: false },
   { wave: 2, duration: 105, soldierRate: 1.1, soldierMax: 30, tankRate: 0.1, tankMax: 4, boss: false },
   { wave: 3, duration: 120, soldierRate: 1.2, soldierMax: 40, tankRate: 0.2, tankMax: 8, boss: false },
   { wave: 4, duration: 130, soldierRate: 1.1, soldierMax: 45, tankRate: 0.3, tankMax: 12, boss: false },
@@ -79,6 +79,8 @@ export const WAVES: WaveDef[] = [
  * Opus 5.5 at medium effort measured ~14s per bulletin. Never earlier than BULLETIN_MIN_FRACTION of the wave.
  */
 export const BULLETIN_LEAD_S = 22;
+/** Seconds at the start of wave 1 with no spawns: time to read the HUD and take a first step. */
+export const WAVE1_GRACE_S = 8;
 export const BULLETIN_MIN_FRACTION = 0.4;
 /** Max ms the wave break waits for an in-flight AI bulletin before showing the canned one. */
 export const BULLETIN_WAIT_MS = 2000;

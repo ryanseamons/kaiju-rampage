@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, LAND_H, REWARDS, SEED, START_WAVE, TIERS, TIME_SCALE, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL,
+  BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, LAND_H, WAVE1_GRACE_S, REWARDS, SEED, START_WAVE, TIERS, TIME_SCALE, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL,
 } from '../config';
 import { City, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
@@ -326,8 +326,8 @@ export class GameScene extends Phaser.Scene {
     const w = this.wave;
     this.waveTime += dt;
     const tier = this.tier;
-    // infantry: squads at higher tiers
-    this.soldierAcc += w.soldierRate * dt;
+    // infantry: squads at higher tiers (none during the opening grace period of wave 1)
+    if (!(this.waveIdx === 0 && this.waveTime < WAVE1_GRACE_S * TIME_SCALE)) this.soldierAcc += w.soldierRate * dt;
     const squad = tier === 3 ? 4 : tier === 2 ? 2 : 1;
     while (this.soldierAcc >= squad && this.enemies.count('soldier') < w.soldierMax) {
       this.soldierAcc -= squad;
