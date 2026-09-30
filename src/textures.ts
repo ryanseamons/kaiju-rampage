@@ -120,6 +120,49 @@ function drawSoldier(c: Ctx, frame: 0 | 1) {
   rect(c, 5, 4, 3, 1, '#222');
 }
 
+function drawRocket(c: Ctx, frame: 0 | 1) {
+  rect(c, 1 + frame, 7, 2, 2, '#1d2415');
+  rect(c, 4 - frame, 7, 2, 2, '#1d2415');
+  rect(c, 1, 3, 5, 5, '#46567a');
+  ell(c, 3.5, 2.5, 2.5, 2.2, '#2f3b58');
+  rect(c, 3, 1, 6, 2, '#8a8f99'); // launcher tube on the shoulder
+  rect(c, 8, 1, 1, 2, '#ffb040');
+}
+
+function drawHeli(c: Ctx, frame: 0 | 1) {
+  // tail boom + rotor
+  rect(c, 1, 9, 10, 2, '#3f4a28');
+  rect(c, 0, 7, 2, 6, '#2c3320');
+  ell(c, 16, 10, 7, 4.5, '#5d6a3c');
+  ell(c, 19, 10, 3, 2.5, '#9fd4ff');
+  rect(c, 13, 6, 4, 1, '#2c3320');
+  c.strokeStyle = 'rgba(210,220,230,0.9)';
+  c.lineWidth = 1;
+  c.beginPath();
+  if (frame === 0) { c.moveTo(5, 10); c.lineTo(27, 10); c.moveTo(16, 1); c.lineTo(16, 19); }
+  else { c.moveTo(8, 3); c.lineTo(24, 17); c.moveTo(24, 3); c.lineTo(8, 17); }
+  c.stroke();
+}
+
+function drawCannon(c: Ctx) {
+  rect(c, 0, 1, 20, 10, '#3a4155');
+  rect(c, 15, 2, 5, 8, '#23283a');
+  rect(c, 16, 3, 3, 3, '#9fd4ff');
+  ell(c, 7, 6, 4.5, 4.5, '#6d7890');
+  ell(c, 7, 6, 2.5, 2.5, '#5ff6ff');
+  rect(c, 1, 0, 3, 1, '#1a1d28');
+  rect(c, 1, 11, 3, 1, '#1a1d28');
+  rect(c, 12, 0, 3, 1, '#1a1d28');
+  rect(c, 12, 11, 3, 1, '#1a1d28');
+}
+
+function drawJet(c: Ctx) {
+  poly(c, [24, 7, 4, 0, 8, 7, 4, 14], '#8a93a8');
+  poly(c, [24, 7, 12, 5, 12, 9], '#c9d0de');
+  rect(c, 0, 6, 6, 2, '#ff9a3b');
+  rect(c, 19, 6, 3, 2, '#9fd4ff');
+}
+
 function drawTankHull(c: Ctx) {
   rect(c, 0, 0, 20, 4, '#262a1c');
   rect(c, 0, 12, 20, 4, '#262a1c');
@@ -295,6 +338,32 @@ export function generateTextures(scene: Phaser.Scene) {
   pixelTex(scene, 'soldier1', 9, 10, (c) => drawSoldier(c, 1));
   pixelTex(scene, 'tankHull', 20, 16, drawTankHull);
   pixelTex(scene, 'tankTurret', 20, 8, drawTankTurret, false);
+  pixelTex(scene, 'rocket0', 10, 10, (c) => drawRocket(c, 0));
+  pixelTex(scene, 'rocket1', 10, 10, (c) => drawRocket(c, 1));
+  pixelTex(scene, 'heli0', 28, 20, (c) => drawHeli(c, 0));
+  pixelTex(scene, 'heli1', 28, 20, (c) => drawHeli(c, 1));
+  pixelTex(scene, 'cannon', 20, 12, drawCannon);
+  pixelTex(scene, 'jet', 25, 15, drawJet);
+  pixelTex(scene, 'crate', 14, 12, (c) => {
+    rect(c, 0, 2, 14, 10, '#6b5a2f');
+    rect(c, 0, 2, 14, 2, '#8a7640');
+    for (let x = 1; x < 14; x += 4) poly(c, [x, 12, x + 2, 12, x + 4, 4, x + 2, 4], '#e0b23b');
+    rect(c, 5, 0, 4, 3, '#ff5fd2');
+  });
+  pixelTex(scene, 'itemMagnet', 11, 11, (c) => {
+    c.strokeStyle = '#e8384f'; c.lineWidth = 3; c.beginPath(); c.arc(5.5, 5, 3.5, Math.PI, 0, true); c.stroke();
+    rect(c, 1, 5, 3, 4, '#e8384f'); rect(c, 7, 5, 3, 4, '#e8384f');
+    rect(c, 1, 8, 3, 2, '#dfe6ff'); rect(c, 7, 8, 3, 2, '#dfe6ff');
+  });
+  pixelTex(scene, 'itemQuake', 11, 11, (c) => {
+    ell(c, 5.5, 5.5, 5, 5, '#c26a2a'); ell(c, 5.5, 5.5, 3, 3, '#ffb13b');
+    c.strokeStyle = '#3a1a0a'; c.lineWidth = 1; c.beginPath(); c.moveTo(2, 4); c.lineTo(5, 6); c.lineTo(4, 9); c.moveTo(6, 2); c.lineTo(7, 5); c.lineTo(10, 6); c.stroke();
+  });
+  pixelTex(scene, 'itemRage', 11, 11, (c) => {
+    ell(c, 5.5, 5.5, 5, 5, '#d7263d'); ell(c, 7.5, 4.5, 4, 4, 'rgba(0,0,0,0)');
+    c.globalCompositeOperation = 'destination-out'; ell(c, 7.5, 4, 3.6, 3.6, '#000'); c.globalCompositeOperation = 'source-over';
+    rect(c, 3, 6, 1, 1, '#ffd0d8');
+  });
   pixelTex(scene, 'mech0', 44, 49, (c) => drawMech(c, 0));
   pixelTex(scene, 'mech1', 44, 49, (c) => drawMech(c, 1));
   for (let v = 0; v < 6; v++) {

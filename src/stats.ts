@@ -9,6 +9,10 @@ export class RunTracker {
   cars = 0;
   soldiers = 0;
   tanks = 0;
+  helis = 0;
+  cannons = 0;
+  walkers = 0;
+  evolutions: string[] = [];
   bossDefeated = false;
   nearDeath = 0;
   lowestHpPct = 100;

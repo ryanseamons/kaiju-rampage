@@ -171,6 +171,69 @@ const S = {
   },
   keyHint: { en: 'Enter start · ↑↓ menu · L language · M music', ja: 'Enter 開始 · ↑↓ メニュー · L 言語 · M 音楽' },
   kaijuName: { en: 'TIDEMAW', ja: 'タイドモウ' },
+  // M2: events, items, score
+  surrounded: { en: 'SURROUNDED!', ja: '包囲網!' },
+  surroundedSub: { en: 'Infantry closing in from every side. Stomp!', ja: '四方から歩兵が迫る。踏みつけろ!' },
+  walkerTitle: { en: 'HEAVY WALKER', ja: '重装ウォーカー' },
+  walkerSub: { en: 'A prototype mech is closing in. It carries a supply crate.', ja: '試作メカが接近中。補給物資を積んでいる。' },
+  airStrike: { en: 'AIR STRIKE', ja: '空爆' },
+  airStrikeSub: { en: 'Jets inbound. Get off the red lines.', ja: 'ジェット機接近。赤い線から離れろ。' },
+  crate: { en: 'SUPPLY CRATE', ja: '補給物資' },
+  crateMaxed: { en: 'Build complete: +50% HP and 2,000 points', ja: '強化完了: 体力50%回復、2,000点' },
+  evolution: { en: 'EVOLUTION!', ja: '進化!' },
+  itemMagnet: { en: 'MAGNET!', ja: '磁石!' },
+  itemQuake: { en: 'QUAKE CORE!', ja: '震源の石!' },
+  itemRage: { en: 'KAIJU RAGE!', ja: '怪獣激怒!' },
+  score: { en: 'SCORE {n}', ja: 'スコア {n}' },
+  combo: { en: 'COMBO {n}  ×{m}', ja: 'コンボ {n}  ×{m}' },
+  rage: { en: 'RAGE {s}s', ja: '激怒 {s}秒' },
+  waveEndless: { en: 'WAVE {n} · ENDLESS', ja: 'ウェーブ {n} · エンドレス' },
+  endlessTitle: { en: 'ENDLESS RAMPAGE', ja: 'エンドレス暴走' },
+  endlessSub: { en: 'The army will not stop. Neither will you.', ja: '軍は止まらない。あなたも。' },
+  waveEndlessSub: { en: 'They keep coming, and they keep getting bigger.', ja: '敵は増え続け、強くなり続ける。' },
+  reroll: { en: '[R] REROLL ({n})', ja: '[R] 引き直し（{n}）' },
+  skip: { en: '[X] SKIP: HEAL 25%', ja: '[X] スキップ: 体力25%回復' },
+  resVictory: { en: 'RAMPAGE COMPLETE', ja: '大暴れ完了' },
+  resDefeat: { en: 'RAMPAGE OVER', ja: '大暴れ終了' },
+  resEndless: { en: 'ENDLESS OVER', ja: 'エンドレス終了' },
+  finalScore: { en: 'FINAL SCORE', ja: '最終スコア' },
+  grade: { en: 'GRADE', ja: '評価' },
+  newHigh: { en: 'NEW HIGH SCORE! RANK {n}', ja: 'ハイスコア更新! {n}位' },
+  enterName: { en: 'ENTER YOUR NAME', ja: '名前を入力' },
+  nameHint: { en: '↑↓ letter · ←→ move · type A–Z · ENTER confirm', ja: '↑↓ 文字 · ←→ 移動 · A–Z 入力 · ENTER 決定' },
+  r_waves: { en: 'Waves survived', ja: '生き延びたウェーブ' },
+  r_time: { en: 'Time', ja: 'タイム' },
+  r_kills: { en: 'Military defeated', ja: '撃破した軍' },
+  r_combo: { en: 'Best combo', ja: '最大コンボ' },
+  r_level: { en: 'Level', ja: 'レベル' },
+  r_evos: { en: 'Evolutions', ja: '進化' },
+  resNew: { en: 'ENTER — NEW RUN', ja: 'ENTER — 新しいラン' },
+  resEndlessGo: { en: 'E — KEEP RAMPAGING (ENDLESS)', ja: 'E — エンドレスで続ける' },
+  h_rank: { en: 'Rank', ja: '順位' },
+  h_name: { en: 'Name', ja: '名前' },
+  h_score: { en: 'Score', ja: 'スコア' },
+  h_result: { en: 'Result', ja: '結果' },
+  h_date: { en: 'Date', ja: '日付' },
+  allTime: { en: 'All time', ja: '総合' },
+  today: { en: "Today's daily rampage", ja: '本日の大暴れ' },
+  m_daily: { en: 'Daily rampage', ja: '本日の大暴れ' },
+  dailyBadge: { en: 'DAILY RAMPAGE · {date}', ja: '本日の大暴れ · {date}' },
+  dailyDesc: { en: 'Everyone gets the same city and the same upgrade rolls today.', ja: '今日は全員が同じ街、同じ強化の出方で遊ぶ。' },
+  resVictoryShort: { en: 'Mech destroyed', ja: 'メカ撃破' },
+  resWaveShort: { en: 'Wave {n}', ja: 'ウェーブ {n}' },
+  resEndlessShort: { en: 'Endless wave {n}', ja: 'エンドレス {n}' },
+  evolutions: { en: 'Evolutions', ja: '進化' },
+  evoHow: {
+    en: 'Max a weapon, own its paired mutation, then open a supply crate. Gold elites and the heavy walker drop crates.',
+    ja: '武器を最大まで強化し、対応する変異を持った状態で補給物資を開けると進化する。金色の精鋭と重装ウォーカーが物資を落とす。',
+  },
+  evoNeeds: { en: 'max {w} + {p}', ja: '{w}（最大）+ {p}' },
+  how_items: {
+    en: 'Gold elites and the heavy walker drop supply crates: an upgrade, or an evolution. Also grab magnets, quake cores and rage.',
+    ja: '金色の精鋭と重装ウォーカーは補給物資を落とす（強化か進化）。磁石・震源の石・激怒も拾おう。',
+  },
+  how_score: { en: 'Chain kills and destruction for a combo multiplier up to ×5. Beat the mech, then keep going in endless mode.', ja: '破壊と撃破を連鎖させるとコンボ倍率は最大×5。メカを倒したらエンドレスで続けられる。' },
+  kind_evolution: { en: 'EVOLUTION', ja: '進化' },
 } satisfies Record<string, Entry>;
 
 export type Key = keyof typeof S;
@@ -243,3 +306,35 @@ export function upDesc(id: string, nextLevel: number) {
   return nextLevel > 1 && l.later ? l.later : l.first;
 }
 export const upGlyph = (id: string) => UPGRADE_TEXT[id]?.glyph ?? '?';
+
+// ── Evolutions ──
+export const EVO_TEXT: Record<string, { glyph: string; en: { name: string; desc: string }; ja: { name: string; desc: string } }> = {
+  gamma: {
+    glyph: '滅',
+    en: { name: 'Gamma Ray', desc: 'Atomic Breath evolved: a long sweeping beam at double damage.' },
+    ja: { name: '滅びの光線', desc: '原子熱線の進化形。長く薙ぎ払う光線、ダメージ2倍。' },
+  },
+  typhoon: {
+    glyph: '嵐',
+    en: { name: 'Typhoon Tail', desc: 'Tail Spin evolved: spins constantly and drags enemies in.' },
+    ja: { name: '台風尻尾', desc: '回転尻尾の進化形。絶えず回転し、敵を引き寄せる。' },
+  },
+  storm: {
+    glyph: '雨',
+    en: { name: 'Spine Storm', desc: 'Spine Volley evolved: a constant storm of piercing spines.' },
+    ja: { name: '背びれの嵐', desc: '背びれ連射の進化形。貫通する背びれが降り注ぐ。' },
+  },
+  rend: {
+    glyph: '裂',
+    en: { name: 'Titan Rend', desc: 'Claws evolved: every swipe cuts all the way around you and sends out a shockwave.' },
+    ja: { name: '巨神の裂爪', desc: '爪の進化形。全方位を切り裂き、衝撃波を放つ。' },
+  },
+  radiant: {
+    glyph: '焔',
+    en: { name: 'Radiant Core', desc: 'Fallout Aura evolved: a wide aura that heals you as it burns.' },
+    ja: { name: '灼熱の光輪', desc: '放射能オーラの進化形。広がるオーラが焼くたびに体力を回復。' },
+  },
+};
+export const evoName = (id: string) => EVO_TEXT[id]?.[lang].name ?? id;
+export const evoDesc = (id: string) => EVO_TEXT[id]?.[lang].desc ?? '';
+export const evoGlyph = (id: string) => EVO_TEXT[id]?.glyph ?? '?';

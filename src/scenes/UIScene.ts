@@ -5,7 +5,9 @@ import { VIEW_H, VIEW_W, WAVES, XP_TO_LEVEL } from '../config';
 import { districtAt } from '../city';
 import { CHANNEL, DEFAULT_MODEL, type Bulletin, type RunStats } from '../shared/narration';
 import { UPGRADES, type UpgradeDef } from '../upgrades';
-import type { GameScene } from './GameScene';
+import type { GameScene, RunSummary } from './GameScene';
+import { lastName, submit } from '../scores';
+import { comboMult } from '../config';
 import { sfx } from '../sfx';
 import { districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
 import { overlay } from '../ui/overlay';
@@ -21,7 +23,13 @@ const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Te
   return style;
 };
 
-type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused';
+type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused' | 'results';
+
+export interface LevelUpOpts {
+  rerolls: number;
+  reroll: () => void;
+  skip: () => void;
+}
 
 const KIND_COLOR: Record<UpgradeDef['kind'], number> = { weapon: 0xff7a2a, body: 0x56c46a, stomp: 0x5ff6ff, growth: 0xff5fd2 };
 const up = (s: string) => (getLang() === 'ja' ? s : s.toUpperCase());
@@ -33,6 +41,8 @@ export class UIScene extends Phaser.Scene {
   private modalOpenedAt = 0;
   private onPick?: (i: number) => void;
   private onContinue?: () => void;
+  private levelOpts?: LevelUpOpts;
+  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
   private pad = { left: false, right: false, up: false, down: false, a: false };
@@ -56,12 +66,15 @@ export class UIScene extends Phaser.Scene {
   private bossRoot!: Phaser.GameObjects.Container;
   private bossBarFill!: Phaser.GameObjects.Rectangle;
   private chips!: Phaser.GameObjects.Container;
+  private scoreText!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
+  private comboBar!: Phaser.GameObjects.Rectangle;
+  private rageText!: Phaser.GameObjects.Text;
   private chipSig = '';
   private hud!: Phaser.GameObjects.Container;
   private hurt!: Phaser.GameObjects.Rectangle;
   private bannerRoot?: Phaser.GameObjects.Container;
   private whiteFlash!: Phaser.GameObjects.Rectangle;
-  private mutedTag!: Phaser.GameObjects.Text;
 
   constructor() {
     super('UI');
@@ -100,7 +113,6 @@ export class UIScene extends Phaser.Scene {
   private rebuildHud() {
     const vis = this.hud?.visible ?? false;
     this.hud?.destroy();
-    this.mutedTag?.destroy();
     this.chipSig = '';
     this.buildHud();
     this.hud.setVisible(vis);
@@ -120,6 +132,10 @@ export class UIScene extends Phaser.Scene {
     this.timerText = this.add.text(VIEW_W / 2, 44, '', txt(16, '#ffffff')).setOrigin(0.5, 0);
     this.districtText = this.add.text(VIEW_W - 16, 14, '', txt(16, '#ffb0e8')).setOrigin(1, 0);
     this.destroyedText = this.add.text(VIEW_W - 16, 38, '', txt(14, '#ffffff')).setOrigin(1, 0);
+    this.scoreText = this.add.text(VIEW_W - 16, 58, '', txt(18, '#ffe14a')).setOrigin(1, 0);
+    this.comboText = this.add.text(VIEW_W / 2, 68, '', txt(20, '#ff8a1f')).setOrigin(0.5, 0);
+    this.comboBar = this.add.rectangle(VIEW_W / 2 - 80, 94, 160, 4, 0xff8a1f).setOrigin(0, 0.5);
+    this.rageText = this.add.text(16, VIEW_H - 88, '', txt(18, '#ff3355')).setOrigin(0, 1);
     const xpBg = this.add.rectangle(0, VIEW_H - 10, VIEW_W, 10, 0x0a1a12).setOrigin(0);
     this.xpBar = this.add.rectangle(0, VIEW_H - 10, 0, 10, 0x4dffb0).setOrigin(0);
     this.lvText = this.add.text(VIEW_W / 2, VIEW_H - 14, '', txt(14, '#4dffb0')).setOrigin(0.5, 1);
@@ -134,9 +150,8 @@ export class UIScene extends Phaser.Scene {
     const bossLabel = this.add.text(0, -20, t('bossName'), txt(14, '#ff8899')).setOrigin(0.5);
     this.bossRoot = this.add.container(VIEW_W / 2, 92, [bossBg, this.bossBarFill, bossLabel]).setVisible(false);
     c.add([panel, hpBg, this.hpBar, this.hpText, gBg, this.growBar, this.growText, this.chips, this.waveText, this.timerText, this.districtText,
-      this.destroyedText, xpBg, this.xpBar, this.lvText, this.stompBox, this.stompBar, this.stompText, this.stompHint, this.fpsText, this.bossRoot]);
+      this.destroyedText, this.scoreText, this.comboText, this.comboBar, this.rageText, xpBg, this.xpBar, this.lvText, this.stompBox, this.stompBar, this.stompText, this.stompHint, this.fpsText, this.bossRoot]);
     c.setVisible(false);
-    this.mutedTag = this.add.text(VIEW_W - 10, VIEW_H - 30, t('muted'), txt(12, '#8888aa')).setOrigin(1, 1).setDepth(10).setVisible(sfx.isMuted());
   }
 
   /** One chip per owned mutation: its kanji, coloured by kind, with the level. */
@@ -166,7 +181,6 @@ export class UIScene extends Phaser.Scene {
     const gs = this.gs;
     if (!gs?.player) return;
     this.hud.setVisible(gs.phase !== 'title');
-    this.mutedTag.setVisible(sfx.isMuted() && !overlay.isOpen());
     const p = gs.player;
     const hpF = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBar.width = 280 * hpF;
@@ -177,7 +191,7 @@ export class UIScene extends Phaser.Scene {
     const cur = tierName(p.tier.tier);
     this.growText.setText(next ? `${cur} ▸ ${tierName(next.tier)}  ${Math.floor(p.growth * 100)}%` : t('maxSize', { a: cur }));
     const w = gs.wave;
-    this.waveText.setText(t('wave', { n: w.wave, total: WAVES.length }));
+    this.waveText.setText(w.endless ? t('waveEndless', { n: w.wave }) : t('wave', { n: w.wave, total: WAVES.length }));
     if (w.boss) this.timerText.setText(gs.enemies.boss ? t('destroyMech') : t('somethingComing'));
     else {
       const left = Math.max(0, gs.waveDuration - gs.waveTime);
@@ -185,6 +199,13 @@ export class UIScene extends Phaser.Scene {
     }
     this.districtText.setText(up(districtName(districtAt(p.x, p.y))));
     this.destroyedText.setText(t('flattened', { n: gs.stats.buildings }));
+    this.scoreText.setText(t('score', { n: gs.score.score.toLocaleString() }));
+    const combo = gs.score.combo;
+    this.comboText.setVisible(combo >= 5).setText(t('combo', { n: combo, m: comboMult(combo).toFixed(1) }));
+    this.comboText.setScale(1 + Math.min(0.4, combo / 200));
+    this.comboBar.setVisible(combo >= 5).setSize(160 * Phaser.Math.Clamp(gs.score.comboT / 2.2, 0, 1), 4);
+    this.rageText.setVisible(p.mods.rage > 0).setText(t('rage', { s: Math.ceil(p.mods.rage) }));
+    this.bossRoot.y = combo >= 5 ? 124 : 92;
     this.xpBar.width = VIEW_W * Phaser.Math.Clamp(p.xp / XP_TO_LEVEL(p.level), 0, 1);
     this.lvText.setText(`LV ${p.level}`);
     const ready = p.stompCd <= 0;
@@ -245,8 +266,9 @@ export class UIScene extends Phaser.Scene {
     this.cards = [];
   }
 
-  showLevelUp(offer: UpgradeDef[], levels: Record<string, number>, onPick: (i: number) => void) {
+  showLevelUp(offer: UpgradeDef[], levels: Record<string, number>, onPick: (i: number) => void, opts?: LevelUpOpts) {
     this.onPick = onPick;
+    this.levelOpts = opts;
     this.sel = 0;
     const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.7);
     const title = this.add.text(VIEW_W / 2, 150, t('levelUp'), txt(56, '#4dffb0', { strokeThickness: 8 })).setOrigin(0.5);
@@ -271,9 +293,31 @@ export class UIScene extends Phaser.Scene {
       children.push(card);
       return card;
     });
+    const cardsOnly = children.slice(3) as Phaser.GameObjects.Container[];
+    if (opts) {
+      const rr = this.add.text(VIEW_W / 2 - 170, 580, t('reroll', { n: opts.rerolls }), txt(18, opts.rerolls > 0 ? '#9ffcff' : '#555a70')).setOrigin(0.5);
+      const sk = this.add.text(VIEW_W / 2 + 170, 580, t('skip'), txt(18, '#ff9fb0')).setOrigin(0.5);
+      rr.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.rerollOffer());
+      sk.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.skipOffer());
+      children.push(rr, sk);
+    }
     this.openModal('levelup', children);
-    this.cards = children.slice(3) as Phaser.GameObjects.Container[];
+    this.cards = cardsOnly;
     this.select(0);
+  }
+
+  private rerollOffer() {
+    if (this.modal !== 'levelup' || !this.levelOpts || this.levelOpts.rerolls <= 0 || this.time.now - this.modalOpenedAt < 250) return;
+    const o = this.levelOpts;
+    this.closeModal();
+    o.reroll();
+  }
+
+  private skipOffer() {
+    if (this.modal !== 'levelup' || !this.levelOpts || this.time.now - this.modalOpenedAt < 250) return;
+    const o = this.levelOpts;
+    this.closeModal();
+    o.skip();
   }
 
   private select(i: number) {
@@ -383,6 +427,104 @@ export class UIScene extends Phaser.Scene {
     this.openModal('paused', children);
   }
 
+  showResults(summary: RunSummary, onDone: (c: 'new' | 'endless') => void) {
+    const name = (lastName() + 'AAA').slice(0, 3).split('');
+    this.results = { summary, onDone, name, cursor: 0, entering: summary.rank > 0, saved: false };
+    this.renderResults();
+  }
+
+  private renderResults() {
+    const r = this.results!;
+    const sm = r.summary;
+    const ch: Phaser.GameObjects.GameObject[] = [];
+    ch.push(this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.88));
+    const title = sm.outcome === 'victory' && !sm.endless ? t('resVictory') : sm.endless ? t('resEndless') : t('resDefeat');
+    ch.push(this.add.text(VIEW_W / 2, 78, title, txt(48, sm.outcome === 'victory' ? '#ffe14a' : '#ff5577', { strokeThickness: 8 })).setOrigin(0.5));
+    if (sm.daily) ch.push(this.add.text(VIEW_W / 2, 120, t('dailyBadge', { date: sm.daily }), txt(16, '#9ffcff')).setOrigin(0.5));
+    ch.push(this.add.text(VIEW_W / 2 - 250, 170, t('finalScore'), txt(18, '#8f97b8')).setOrigin(0.5));
+    ch.push(this.add.text(VIEW_W / 2 - 250, 222, sm.score.toLocaleString(), txt(56, '#ffffff', { strokeThickness: 6 })).setOrigin(0.5));
+    ch.push(this.add.text(VIEW_W / 2 + 250, 170, t('grade'), txt(18, '#8f97b8')).setOrigin(0.5));
+    const gradeCol = { S: '#ff5fd2', A: '#ffe14a', B: '#5ff6ff', C: '#4dffb0', D: '#c9d0ea' }[sm.grade] ?? '#ffffff';
+    const g = this.add.text(VIEW_W / 2 + 250, 230, sm.grade, txt(96, gradeCol, { strokeThickness: 10 })).setOrigin(0.5).setScale(2.2).setAlpha(0);
+    this.tweens.add({ targets: g, scale: 1, alpha: 1, duration: 380, ease: 'Back.easeOut', delay: 200 });
+    ch.push(g);
+    const mm = Math.floor(sm.seconds / 60), ss = String(sm.seconds % 60).padStart(2, '0');
+    const rows: [Parameters<typeof t>[0], string][] = [
+      ['r_waves', sm.endless ? t('resEndlessShort', { n: sm.wave }) : String(sm.outcome === 'victory' ? sm.wave : sm.wave - 1)],
+      ['r_time', `${mm}:${ss}`],
+      ['st_buildings', sm.buildings.toLocaleString()],
+      ['r_kills', sm.kills.toLocaleString()],
+      ['r_combo', String(sm.bestCombo)],
+      ['r_level', String(sm.level)],
+      ['r_evos', sm.evolutions.length ? sm.evolutions.join(', ') : '—'],
+    ];
+    rows.forEach(([k, v], i) => {
+      ch.push(this.add.text(VIEW_W / 2 - 330, 300 + i * 30, t(k), txt(17, '#c9d0ea', { strokeThickness: 2 })));
+      ch.push(this.add.text(VIEW_W / 2 + 330, 300 + i * 30, v, txt(17, '#ffffff', { strokeThickness: 2 })).setOrigin(1, 0));
+    });
+    if (r.entering) {
+      ch.push(this.add.text(VIEW_W / 2, 530, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
+      const nameText = this.add.text(VIEW_W / 2, 578, '', { fontFamily: '"Courier New", monospace', fontStyle: 'bold', fontSize: '44px', color: '#ffffff', stroke: '#05060d', strokeThickness: 6 }).setOrigin(0.5);
+      r.nameText = nameText;
+      ch.push(nameText, this.add.text(VIEW_W / 2, 624, t('nameHint'), txt(14, '#8f97b8')).setOrigin(0.5));
+      this.updateName();
+    } else {
+      if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
+      const opts = [t('resNew'), ...(sm.outcome === 'victory' && !sm.endless ? [t('resEndlessGo')] : [])];
+      const foot = this.add.text(VIEW_W / 2, 600, opts.join('      '), txt(22, '#ffffff')).setOrigin(0.5);
+      this.tweens.add({ targets: foot, alpha: 0.4, yoyo: true, repeat: -1, duration: 550 });
+      ch.push(foot);
+    }
+    this.openModal('results', ch);
+  }
+
+  private updateName() {
+    const r = this.results;
+    if (!r?.nameText) return;
+    r.nameText.setText(r.name.map((c, i) => (i === r.cursor ? `[${c}]` : ` ${c} `)).join(''));
+  }
+
+  private resultsKey(code: string) {
+    const r = this.results;
+    if (!r || this.time.now - this.modalOpenedAt < 500) return;
+    if (r.entering) {
+      const A = 'A'.charCodeAt(0);
+      const bump = (d: number) => {
+        const c = r.name[r.cursor].charCodeAt(0) - A;
+        r.name[r.cursor] = String.fromCharCode(A + ((c + d + 26) % 26));
+      };
+      if (code === 'ArrowUp') bump(1);
+      else if (code === 'ArrowDown') bump(-1);
+      else if (code === 'ArrowLeft') r.cursor = Math.max(0, r.cursor - 1);
+      else if (code === 'ArrowRight') r.cursor = Math.min(2, r.cursor + 1);
+      else if (/^Key[A-Z]$/.test(code)) {
+        r.name[r.cursor] = code.slice(3);
+        r.cursor = Math.min(2, r.cursor + 1);
+      } else if (code === 'Enter') {
+        const sm = r.summary;
+        const res = submit({ name: r.name.join(''), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', endless: sm.endless, level: sm.level });
+        sm.rank = res.rank || res.dailyRank;
+        r.entering = false;
+        r.saved = true;
+        this.renderResults();
+        return;
+      }
+      this.updateName();
+      return;
+    }
+    if (code === 'Enter') {
+      const cb = r.onDone;
+      this.results = undefined;
+      this.closeModal();
+      cb('new');
+    } else if (code === 'KeyE' && r.summary.outcome === 'victory' && !r.summary.endless) {
+      const cb = r.onDone;
+      this.results = undefined;
+      this.closeModal();
+      cb('endless');
+    }
+  }
+
   private continueFromBulletin() {
     if (this.modal !== 'bulletin' || this.time.now - this.modalOpenedAt < 600) return;
     const cb = this.onContinue;
@@ -393,7 +535,7 @@ export class UIScene extends Phaser.Scene {
   // ── Input ────────────────────────────────────────────────────────────────
   private onKey(code: string) {
     if (code === 'KeyM') {
-      this.mutedTag.setVisible(sfx.toggleMute());
+      sfx.toggleMute();
       return;
     }
     if (overlay.isOpen()) return; // the HTML front page handles its own keys
@@ -414,8 +556,12 @@ export class UIScene extends Phaser.Scene {
       else if (code === 'ArrowLeft' || code === 'KeyA') this.select(Math.max(0, this.sel - 1));
       else if (code === 'ArrowRight' || code === 'KeyD') this.select(Math.min(this.cards.length - 1, this.sel + 1));
       else if (code === 'Enter') this.pick(this.sel);
+      else if (code === 'KeyR') this.rerollOffer();
+      else if (code === 'KeyX') this.skipOffer();
     } else if (this.modal === 'bulletin' && code === 'Enter') {
       this.continueFromBulletin();
+    } else if (this.modal === 'results') {
+      this.resultsKey(code);
     }
   }
 

@@ -244,6 +244,27 @@ export class City {
       s.add.image(tx * TILE, 86 * TILE, 'glow').setTint(0xffe0a0).setAlpha(0.25).setScale(1.8).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
   }
 
+  /** Centre of the nearest road tile (searches outward over the tilemap, so any street layout works). */
+  snapToRoad(x: number, y: number): [number, number] {
+    const road = new Set<number>([T.road, T.roadH, T.roadV, T.cross]);
+    const tx0 = Math.floor(x / TILE), ty0 = Math.floor(y / TILE);
+    for (let r = 0; r <= 14; r++) {
+      let best: [number, number] | null = null;
+      let bd = Infinity;
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const tile = this.map.getTileAt(tx0 + dx, ty0 + dy);
+          if (!tile || !road.has(tile.index)) continue;
+          const cx = (tx0 + dx) * TILE + TILE / 2, cy = (ty0 + dy) * TILE + TILE / 2;
+          const d = (cx - x) ** 2 + (cy - y) ** 2;
+          if (d < bd) { bd = d; best = [cx, cy]; }
+        }
+      if (best) return best;
+    }
+    return [x, y];
+  }
+
   /** Replace a destroyed building with rubble. */
   leaveRubble(d: Destructible) {
     const s = this.scene;

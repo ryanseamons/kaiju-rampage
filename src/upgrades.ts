@@ -17,11 +17,33 @@ export interface Mods {
   tail: number;
   spines: number;
   aura: number;
+  /** Evolutions unlocked from supply crates. */
+  evo: Record<EvoId, boolean>;
+  /** Seconds of Kaiju Rage left (floor item). */
+  rage: number;
 }
+
+export type EvoId = 'gamma' | 'typhoon' | 'storm' | 'rend' | 'radiant';
+
+export interface EvolutionDef {
+  id: EvoId;
+  weapon: string;
+  passive: string;
+}
+
+/** A maxed weapon plus its paired mutation evolves when you open a supply crate (Vampire Survivors style). */
+export const EVOLUTIONS: EvolutionDef[] = [
+  { id: 'gamma', weapon: 'breath', passive: 'hormone' },
+  { id: 'typhoon', weapon: 'tail', passive: 'hide' },
+  { id: 'storm', weapon: 'spines', passive: 'frenzy' },
+  { id: 'rend', weapon: 'claws', passive: 'reach' },
+  { id: 'radiant', weapon: 'aura', passive: 'regen' },
+];
 
 export const baseMods = (): Mods => ({
   clawDmg: 1, clawRange: 1, cooldown: 1, speed: 1, maxHpBonus: 0, regen: 0, stompRadius: 1, stompCd: 1,
   magnet: 1, massGain: 1, rampageHeal: 0, armor: 0, breath: 0, tail: 0, spines: 0, aura: 0,
+  evo: { gamma: false, typhoon: false, storm: false, rend: false, radiant: false }, rage: 0,
 });
 
 export interface UpgradeDef {
@@ -81,4 +103,13 @@ export function rollOffer(levels: Record<string, number>, rand: () => number, n 
     out.push(pool.splice(i, 1)[0]);
   }
   return out;
+}
+
+/** The first evolution this build qualifies for (weapon at max level, paired mutation owned), if any. */
+export function readyEvolution(levels: Record<string, number>, mods: Mods): EvolutionDef | null {
+  for (const e of EVOLUTIONS) {
+    const w = UPGRADES.find((u) => u.id === e.weapon)!;
+    if (!mods.evo[e.id] && (levels[e.weapon] ?? 0) >= w.max && (levels[e.passive] ?? 0) >= 1) return e;
+  }
+  return null;
 }

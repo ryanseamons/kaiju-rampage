@@ -89,4 +89,11 @@ export const sfx = {
   },
   news: () => [880, 660, 988].forEach((f, i) => tone('triangle', f, f, 0.18, 0.18, i * 0.16)),
   alarm: () => [0, 0.35, 0.7].forEach((d) => tone('square', 520, 380, 0.3, 0.1, d)),
+  jet: () => (noise(1.4, 5000, 0.5, 0.7, 300), tone('sawtooth', 900, 200, 1.2, 0.08)),
+  charge: () => throttle('charge', 400) && tone('sawtooth', 120, 900, 1.6, 0.06),
+  zap: () => (noise(0.3, 8000, 0.45, 3, 1200), tone('square', 1500, 200, 0.25, 0.12)),
+  crate: () => [392, 523, 659, 784, 1046].forEach((f, i) => tone('triangle', f, f, 0.14, 0.14, i * 0.06)),
+  evolve: () => [262, 330, 392, 523, 659, 784, 1046].forEach((f, i) => tone('square', f, f * 1.01, 0.18, 0.11, i * 0.07)),
+  item: () => tone('sine', 500, 1600, 0.25, 0.16),
+  combo: (n: number) => throttle('combo', 120) && tone('square', 400 + Math.min(n, 60) * 18, 800 + Math.min(n, 60) * 30, 0.06, 0.05),
 };

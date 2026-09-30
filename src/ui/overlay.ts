@@ -1,14 +1,18 @@
 // The front page and its menus, as HTML over the canvas (pattern borrowed from the tavern project).
 // The layer is sized to the canvas's letterboxed rectangle so the poster lines up at any window size.
-import { getLang, onLang, setLang, t, upDesc, upGlyph, upName } from '../i18n';
-import { UPGRADES, type UpgradeDef } from '../upgrades';
-import { loadBest } from '../scores';
+import { evoDesc, evoGlyph, evoName, getLang, onLang, setLang, t, upDesc, upGlyph, upName } from '../i18n';
+import { EVOLUTIONS, UPGRADES, type UpgradeDef } from '../upgrades';
+import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
+import { DAILY, todayKey } from '../config';
 import { music } from '../audio/music';
-import { isRunning, prefs, setMusicOn, setSfxOn, unlock } from '../audio/core';
+import { isRunning, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+
+const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
 type Panel = null | 'how' | 'codex' | 'scores' | 'settings';
-type Item = 'start' | 'how' | 'codex' | 'scores' | 'settings';
-const ITEMS: Item[] = ['start', 'how', 'codex', 'scores', 'settings'];
+type Item = 'start' | 'daily' | 'how' | 'codex' | 'scores' | 'settings';
+const ITEMS: Item[] = ['start', 'daily', 'how', 'codex', 'scores', 'settings'];
 const KIND_COLOR: Record<UpgradeDef['kind'], string> = { weapon: '#ff7a2a', body: '#56c46a', stomp: '#5ff6ff', growth: '#ff5fd2' };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -39,6 +43,29 @@ class Overlay {
     document.addEventListener('pointerdown', wake, true);
     document.addEventListener('keydown', wake, true);
     onLang(() => this.open && this.render());
+    // The mute button lives outside the poster so it is there during play too. M does the same.
+    const mute = document.getElementById('mute') as HTMLButtonElement;
+    mute.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMuted();
+      this.syncMute();
+      mute.blur();
+    });
+    window.setInterval(() => this.syncMute(), 250);
+    this.syncMute();
+  }
+
+  private syncMute() {
+    const b = document.getElementById('mute');
+    if (!b) return;
+    const m = prefs.muted;
+    if (b.dataset.m === String(m)) return;
+    b.dataset.m = String(m);
+    b.innerHTML = m ? SPEAKER_OFF : SPEAKER_ON;
+    b.classList.toggle('muted', m);
+    b.setAttribute('aria-label', m ? 'Unmute (M)' : 'Mute (M)');
+    b.title = m ? 'Unmute (M)' : 'Mute (M)';
+    b.setAttribute('aria-pressed', String(m));
   }
 
   /** Tint the game's own kaiju sprite into a silhouette plus a glow layer for the poster. */
@@ -105,17 +132,32 @@ class Overlay {
     const r = canvas.getBoundingClientRect();
     Object.assign(this.root.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
     this.root.style.setProperty('--u', `${r.width / 80}px`);
+    const mute = document.getElementById('mute');
+    if (mute) {
+      const size = Math.max(32, Math.min(48, r.width / 30));
+      Object.assign(mute.style, { left: `${r.right - size - r.width * 0.012}px`, top: `${r.bottom - size - r.height * 0.05}px` });
+      mute.style.setProperty('--mb', `${size}px`);
+    }
   }
 
-  private start() {
-    if (performance.now() - this.openedAt < 250) return;
+  /** `fromKey`: ignore an Enter that carried over from the previous screen. */
+  private start(fromKey = false) {
+    if (fromKey && performance.now() - this.openedAt < 250) return;
     unlock();
     this.hide();
     this.onStart();
   }
 
-  private activate(item: Item) {
-    if (item === 'start') return this.start();
+  private activate(item: Item, fromKey = false) {
+    if (item === 'start') return this.start(fromKey);
+    if (item === 'daily') {
+      // The daily seed is read at load time, so the daily run is a fresh page with ?daily=1.
+      const q = new URLSearchParams(location.search);
+      if (DAILY) q.delete('daily');
+      else q.set('daily', '1');
+      location.search = q.toString();
+      return;
+    }
     this.panel = item;
     this.render();
   }
@@ -151,7 +193,7 @@ class Overlay {
       this.render();
     } else if (code === 'Enter' || code === 'Space') {
       handled();
-      this.activate(ITEMS[this.sel]);
+      this.activate(ITEMS[this.sel], true);
     }
   }
 
@@ -162,11 +204,11 @@ class Overlay {
 
   private render() {
     if (!this.root) return;
-    const best = loadBest();
-    const bestLine = best
-      ? `${esc(t('bestRun'))}: ${esc(best.victory ? t('runMech') : t('runWave', { n: best.wave }))} · ${esc(t('runBuildings', { n: best.buildings }))}`
-      : '';
-    const labels: Record<Item, string> = { start: t('m_start'), how: t('m_how'), codex: t('m_codex'), scores: t('m_scores'), settings: t('m_settings') };
+    const top = (DAILY ? loadDaily(DAILY) : loadBoard())[0];
+    const bestLine = top ? `${esc(DAILY ? t('today') : t('bestRun'))}: ${top.score.toLocaleString()} · ${esc(top.name)} · ${esc(this.resultShort(top))}` : '';
+    const labels: Record<Item, string> = {
+      start: t('m_start'), daily: DAILY ? `${t('m_daily')} ✓` : t('m_daily'), how: t('m_how'), codex: t('m_codex'), scores: t('m_scores'), settings: t('m_settings'),
+    };
     const menu = ITEMS.map(
       (it, i) =>
         `<button data-item="${it}" class="${it === 'start' ? 'primary' : ''} ${i === this.sel ? 'sel' : ''}"><span class="n">0${i + 1}</span>${esc(labels[it])}</button>`,
@@ -178,7 +220,7 @@ class Overlay {
       <div class="poster">
         ${monster}
         <div class="vertical">潮風湾大災害</div>
-        <div class="kicker">${getLang() === 'ja' ? 'KBN-7 報道部 提供' : 'KBN-7 NIGHT DESK PRESENTS'}</div>
+        <div class="kicker">${DAILY ? esc(t('dailyBadge', { date: DAILY })) : getLang() === 'ja' ? 'KBN-7 報道部 提供' : 'KBN-7 NIGHT DESK PRESENTS'}</div>
         <h1 class="logo" aria-label="Kaiju Rampage"><span>KAIJU</span><span>RAMPAGE</span></h1>
         <div class="seal" aria-hidden="true"><b>怪</b></div>
         <div class="jp-title" lang="ja">怪獣大暴れ</div>
@@ -255,6 +297,8 @@ class Overlay {
         ['SPACE', t('how_stomp')],
         ['GROW', t('how_grow')],
         ['1 · 2 · 3', t('how_level')],
+        ['CRATES', t('how_items')],
+        ['SCORE', t('how_score')],
         ['WIN', t('how_win')],
         ['P · M · L', t('how_keys')],
       ];
@@ -271,14 +315,31 @@ class Overlay {
           <div class="desc">${esc(upDesc(u.id, 1))}</div>
         </div>`,
       ).join('');
-      return `<section class="panel">${head(t('m_codex'))}<div class="body"><p>${esc(t('codexIntro'))}</p><div class="codex">${cards}</div></div></section>`;
+      const evos = EVOLUTIONS.map(
+        (e) => `<div class="card" style="--c:#ffd24a">
+          <div class="glyph" lang="ja">${evoGlyph(e.id)}</div>
+          <div class="name">${esc(evoName(e.id))}<small>${esc(t('evoNeeds', { w: upName(e.weapon), p: upName(e.passive) }))}</small></div>
+          <div class="desc">${esc(evoDesc(e.id))}</div>
+        </div>`,
+      ).join('');
+      return `<section class="panel">${head(t('m_codex'))}<div class="body"><p>${esc(t('codexIntro'))}</p><div class="codex">${cards}</div>
+        <p class="lede" style="margin-top:1.2em"><b>${esc(t('evolutions'))}</b> ${esc(t('evoHow'))}</p><div class="codex">${evos}</div></div></section>`;
     }
     if (p === 'scores') {
-      const best = loadBest();
-      const body = best
-        ? `<div class="big">${esc(best.victory ? t('runMech') : t('runWave', { n: best.wave }))}</div><p>${esc(t('runBuildings', { n: best.buildings }))}</p>`
-        : `<p>${esc(t('noRuns'))}</p>`;
-      return `<section class="panel scores">${head(t('m_scores'))}<div class="body"><p class="lede">${esc(t('bestRun'))}</p>${body}</div></section>`;
+      const table = (list: ScoreEntry[]) =>
+        list.length
+          ? `<table><tr><th>${esc(t('h_rank'))}</th><th>${esc(t('h_name'))}</th><th>${esc(t('h_score'))}</th><th>${esc(t('grade'))}</th><th>${esc(t('h_result'))}</th><th>${esc(t('h_date'))}</th></tr>${list
+              .map(
+                (e, i) =>
+                  `<tr><td>${i + 1}</td><td><b>${esc(e.name)}</b></td><td>${e.score.toLocaleString()}</td><td>${esc(e.grade)}</td><td>${esc(this.resultShort(e))}</td><td>${esc(e.date.slice(0, 10))}</td></tr>`,
+              )
+              .join('')}</table>`
+          : `<p>${esc(t('noRuns'))}</p>`;
+      const day = DAILY ?? todayKey();
+      return `<section class="panel scores">${head(t('m_scores'))}<div class="body">
+        <p class="lede"><b>${esc(t('allTime'))}</b></p>${table(loadBoard())}
+        <p class="lede" style="margin-top:1em"><b>${esc(t('today'))}</b> · ${esc(day)} · ${esc(t('dailyDesc'))}</p>${table(loadDaily(day))}
+      </div></section>`;
     }
     const toggle = (what: string, on: boolean) =>
       `<div class="pill"><button data-set="${what}:on" class="${on ? 'on' : ''}">${esc(t('on'))}</button><button data-set="${what}:off" class="${on ? '' : 'on'}">${esc(t('off'))}</button></div>`;
@@ -289,6 +350,10 @@ class Overlay {
       <span>${esc(t('s_sfx'))}</span>${toggle('sfx', prefs.sfx)}
       <p class="note">${esc(t('jpNote'))}</p>
     </div></div></section>`;
+  }
+
+  private resultShort(e: ScoreEntry) {
+    return e.endless ? t('resEndlessShort', { n: e.wave }) : e.victory ? t('resVictoryShort') : t('resWaveShort', { n: e.wave });
   }
 
   private updatePlaque() {

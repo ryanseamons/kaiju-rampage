@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
-import {
-  BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, LAND_H, WAVE1_GRACE_S, REWARDS, SEED, START_WAVE, TIERS, TIME_SCALE, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL,
-} from '../config';
+import { DAILY, LAND_H, REWARDS, SEED, START_WAVE, TIERS, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL, waveDmgMult, waveHpMult } from '../config';
 import { City, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
 import { Enemy, EnemyManager, ENEMY_ROSTER } from '../enemies';
@@ -9,29 +7,39 @@ import { Weapons } from '../weapons';
 import { Fx } from '../fx';
 import { RunTracker } from '../stats';
 import { NewsDesk } from '../news';
-import { UPGRADES, rollOffer, type UpgradeDef } from '../upgrades';
+import { EVOLUTIONS, UPGRADES, readyEvolution, rollOffer, type UpgradeDef } from '../upgrades';
 import { mulberry32 } from '../rng';
 import { sfx } from '../sfx';
 import { music } from '../audio/music';
 import { duckMusic } from '../audio/core';
-import { t, t as tr, tierName } from '../i18n';
+import { evoName, t, t as tr, tierName, upName } from '../i18n';
 import type { Bulletin, RunStats, Tier } from '../shared/narration';
 import type { UIScene } from './UIScene';
-import { recordBest } from '../scores';
+import { Director } from '../director';
+import { Pickups, type PickupKind } from '../pickups';
+import { Score } from '../score';
+import { gradeFor, qualifies } from '../scores';
 
-export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory';
-
-interface Pickup {
-  img: Phaser.GameObjects.Image;
-  kind: 'xp' | 'heart';
-  value: number;
-  x: number;
-  y: number;
-  alive: boolean;
-  settle: number;
-}
+export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory' | 'results';
 
 type Keys = Record<'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'SPACE' | 'SHIFT', Phaser.Input.Keyboard.Key>;
+
+export interface RunSummary {
+  outcome: 'victory' | 'defeat';
+  endless: boolean;
+  score: number;
+  grade: string;
+  rank: number;
+  wave: number;
+  seconds: number;
+  buildings: number;
+  kills: number;
+  bestCombo: number;
+  level: number;
+  tier: number;
+  evolutions: string[];
+  daily: string | null;
+}
 
 export class GameScene extends Phaser.Scene {
   city!: City;
@@ -40,12 +48,15 @@ export class GameScene extends Phaser.Scene {
   weapons!: Weapons;
   fx!: Fx;
   ui!: UIScene;
+  director!: Director;
+  pickups!: Pickups;
+  score = new Score();
   stats = new RunTracker();
   news = new NewsDesk();
   phase: Phase = 'title';
   gameTime = 0;
   waveIdx = 0;
-  waveTime = 0;
+  endless = false;
   maxTierReached = 1;
   bulletinsShown = 0;
   lastBulletin: Bulletin | null = null;
@@ -53,24 +64,24 @@ export class GameScene extends Phaser.Scene {
   offer: UpgradeDef[] = [];
   pendingLevelUps = 0;
   levelUpsShown = 0;
+  rerolls = 2;
+  cratesOpened = 0;
   /** Real damage taken this run (after armor); a test guard that enemies still have teeth. */
   damageTaken = 0;
-  private pickups: Pickup[] = [];
+  /** Which stomp hint the HUD should show right now (i18n key), if any. */
+  stompHint: 'stompPrompt' | 'stompTip' | null = null;
+  lastSummary: RunSummary | null = null;
   private keys!: Keys;
   private rand = mulberry32(SEED ^ 0x9e3779b9);
   private hitStopLeft = 0;
   private shakeUntil = 0;
   private shakeI = 0;
-  private soldierAcc = 0;
-  private tankAcc = 0;
-  private bossSpawnAt = -1;
   private padA = false;
   private tmp: Destructible[] = [];
   private bumpCd = 0;
-  /** Which stomp hint the HUD should show right now (i18n key), if any. */
-  stompHint: 'stompPrompt' | 'stompTip' | null = null;
   private titleFx: Phaser.GameObjects.Image[] = [];
   private titleT = 0;
+  private lastComboSfx = 0;
 
   constructor() {
     super('Game');
@@ -80,25 +91,32 @@ export class GameScene extends Phaser.Scene {
     return this.player.tier.tier;
   }
   get wave() {
-    return WAVES[this.waveIdx];
+    return this.director.wave;
   }
   get waveDuration() {
-    return this.wave.duration * TIME_SCALE;
+    return this.director.duration;
+  }
+  get waveTime() {
+    return this.director.time;
   }
 
   create() {
     this.stats = new RunTracker();
     this.news = new NewsDesk();
+    this.score = new Score();
     this.phase = 'title';
     this.gameTime = 0;
     this.waveIdx = 0;
-    this.pickups = [];
+    this.endless = false;
     this.pendingLevelUps = 0;
     this.maxTierReached = 1;
     this.bulletinsShown = 0;
     this.levelUpsShown = 0;
+    this.rerolls = 2;
+    this.cratesOpened = 0;
     this.damageTaken = 0;
     this.lastBulletin = null;
+    this.lastSummary = null;
 
     this.physics.world.setBounds(0, 0, WORLD_W, LAND_H - 6);
     this.city = new City(this, SEED);
@@ -107,6 +125,9 @@ export class GameScene extends Phaser.Scene {
     this.player = new Kaiju(this, WORLD_W / 2, LAND_H - 70);
     this.enemies = new EnemyManager(this);
     this.weapons = new Weapons(this);
+    this.pickups = new Pickups(this);
+    this.director = new Director(this);
+    this.director.start(1);
 
     this.physics.add.collider(
       this.player,
@@ -117,10 +138,11 @@ export class GameScene extends Phaser.Scene {
         return d.alive && d.sizeClass > this.tier;
       },
     );
-    // Infantry and tanks go around buildings; the mech walks through (and flattens) them.
+    // Infantry and vehicles go around buildings; helicopters fly over; mechs walk through (and flatten) them.
     this.physics.add.collider(this.enemies.group, this.city.solids, undefined, (e, z) => {
       const d = (z as Phaser.GameObjects.Zone).getData('d') as Destructible;
-      return d.alive && (e as Enemy).etype !== 'mech';
+      const en = e as Enemy;
+      return d.alive && !en.flying && en.etype !== 'mech' && en.etype !== 'walker';
     });
     this.physics.add.overlap(this.player, this.enemies.group, (_p, e) => this.onEnemyContact(e as Enemy));
     this.physics.add.overlap(this.player, this.enemies.shots, (_p, shot) => this.enemies.impact(shot as never));
@@ -159,14 +181,13 @@ export class GameScene extends Phaser.Scene {
     sfx.unlock();
     this.waveIdx = START_WAVE - 1;
     if (START_WAVE > 1) {
-      const t = START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0;
-      this.player.mass = TIERS[t].massToReach;
-      this.player.tierIdx = t;
+      const ti = START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0;
+      this.player.mass = TIERS[ti].massToReach;
+      this.player.tierIdx = ti;
       this.player.hp = this.player.maxHp;
       this.player.applyScale();
-      this.fx.level = t;
-      this.cameras.main.setZoom(TIERS[t].zoom);
-      this.maxTierReached = t + 1;
+      this.fx.level = ti;
+      this.maxTierReached = ti + 1;
     }
     const cam = this.cameras.main;
     cam.startFollow(this.player, false, 0.08, 0.08);
@@ -178,14 +199,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startWave() {
-    this.waveTime = 0;
-    this.soldierAcc = 0;
-    this.tankAcc = 0;
+    const n = this.waveIdx + 1;
+    this.enemies.hpMult = waveHpMult(n);
+    this.enemies.dmgMult = waveDmgMult(n);
+    this.director.start(n);
     this.stats.startWave();
-    const w = this.wave;
-    this.bossSpawnAt = w.boss ? 4 : -1;
-    const sub = t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[this.waveIdx]);
-    this.ui.banner(t('waveTitle', { n: w.wave }), sub);
+    const sub = n <= WAVES.length ? t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[n - 1]) : t('waveEndlessSub');
+    this.ui.banner(n <= WAVES.length ? t('waveTitle', { n }) : t('waveEndless', { n }), sub);
   }
 
   pauseGame() {
@@ -203,17 +223,13 @@ export class GameScene extends Phaser.Scene {
     duckMusic(false);
   }
 
-  private recordBest(outcome: RunStats['outcome']) {
-    if (outcome === 'wave-cleared') return;
-    recordBest({ wave: this.wave.wave, buildings: this.stats.buildings, victory: outcome === 'victory' });
-  }
-
-  private endWave(outcome: RunStats['outcome']) {
+  endWave(outcome: RunStats['outcome']) {
     // Only one end-of-wave card at a time (e.g. dying during the mech's death sequence).
     if (this.phase !== 'playing' && this.phase !== 'dying') return;
     if (this.phase === 'dying' && outcome !== 'defeat') return;
-    this.recordBest(outcome);
     duckMusic(true);
+    if (outcome === 'wave-cleared') this.score.bonus(1000 * this.wave.wave);
+    if (outcome === 'victory') this.score.bonus(25_000 + Math.max(0, 900 - this.stats.elapsed) * 20);
     if (outcome !== 'wave-cleared') music.play(outcome === 'victory' ? 'victory' : 'defeat');
     this.phase = outcome === 'wave-cleared' ? 'bulletin' : outcome === 'victory' ? 'victory' : 'gameover';
     if (outcome === 'wave-cleared') this.enemies.clearAll();
@@ -232,16 +248,44 @@ export class GameScene extends Phaser.Scene {
   }
 
   private afterBulletin(outcome: RunStats['outcome']) {
-    if (outcome !== 'wave-cleared') {
-      this.scene.restart();
-      this.ui.reset();
-      return;
-    }
-    this.waveIdx = Math.min(this.waveIdx + 1, WAVES.length - 1);
+    if (outcome !== 'wave-cleared') return this.showResults(outcome);
+    this.waveIdx++;
     this.phase = 'playing';
     this.scene.resume();
     duckMusic(false);
+    if (!this.enemies.boss) music.play(`tier${this.tier}` as 'tier1');
     this.startWave();
+  }
+
+  private showResults(outcome: 'victory' | 'defeat') {
+    this.phase = 'results';
+    const kills = this.stats.soldiers + this.stats.tanks + this.stats.helis + this.stats.cannons + this.stats.walkers + (this.stats.bossDefeated ? 1 : 0);
+    const summary: RunSummary = {
+      outcome, endless: this.endless, score: this.score.score, grade: gradeFor(this.score.score, outcome === 'victory' || this.endless),
+      rank: qualifies(this.score.score), wave: this.wave.wave, seconds: Math.round(this.stats.elapsed), buildings: this.stats.buildings, kills,
+      bestCombo: this.score.bestCombo, level: this.player.level, tier: this.maxTierReached, evolutions: this.stats.evolutions, daily: DAILY,
+    };
+    this.lastSummary = summary;
+    this.ui.showResults(summary, (choice) => {
+      if (choice === 'endless') this.continueEndless();
+      else {
+        this.scene.restart();
+        this.ui.reset();
+      }
+    });
+  }
+
+  /** After beating the mech: keep going with ever-larger waves for score. */
+  private continueEndless() {
+    this.endless = true;
+    this.waveIdx = WAVES.length; // wave 6
+    this.enemies.clearAll();
+    this.phase = 'playing';
+    this.scene.resume();
+    duckMusic(false);
+    music.play('tier3');
+    this.startWave();
+    this.ui.banner(t('endlessTitle'), t('endlessSub'), true);
   }
 
   snapshot(outcome: RunStats['outcome']): RunStats {
@@ -288,7 +332,7 @@ export class GameScene extends Phaser.Scene {
       this.padA = pad.A;
     }
     const len = Math.hypot(mx, my);
-    const speed = p.tier.speed * p.mods.speed;
+    const speed = p.tier.speed * p.mods.speed * (p.mods.rage > 0 ? 1.3 : 1);
     if (len > 0.01) {
       p.setVelocity((mx / len) * speed * Math.min(1, len), (my / len) * speed * Math.min(1, len));
       p.facing.set(mx / len, my / len);
@@ -301,6 +345,10 @@ export class GameScene extends Phaser.Scene {
     if (stompPressed) this.weapons.stomp();
     p.stompCd = Math.max(0, p.stompCd - dt);
     p.invuln = Math.max(0, p.invuln - dt);
+    if (p.mods.rage > 0) {
+      p.mods.rage = Math.max(0, p.mods.rage - dt);
+      if (Math.random() < dt * 10) this.fx.hit(p.x + Phaser.Math.Between(-10, 10) * p.scale, p.y - 8 * p.scale, 1);
+    }
     this.bumpCd -= dt;
     if (p.mods.regen) p.heal(p.mods.regen * dt);
 
@@ -312,14 +360,15 @@ export class GameScene extends Phaser.Scene {
 
     this.weapons.update(dt);
     this.enemies.update(dt);
-    this.updatePickups(dt);
-    this.updateDirector(dt);
+    this.pickups.update(dt);
+    this.director.update(dt);
+    this.score.update(dt);
     p.syncDecor(this.gameTime);
     this.stats.hp((p.hp / p.maxHp) * 100);
     // Teach the stomp: prompt when crowded until it has been used a few times, and nudge once if never used.
     let crowd = 0;
     const cr = 90 * p.scale;
-    for (const e of this.enemies.list) if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < cr * cr) crowd++;
+    for (const e of this.enemies.list) if (!e.flying && (e.x - p.x) ** 2 + (e.y - p.y) ** 2 < cr * cr) crowd++;
     this.stompHint =
       p.stompCd <= 0 && this.stats.stomps < 3 && crowd >= 4 ? 'stompPrompt' : p.stompCd <= 0 && this.stats.stomps === 0 && this.stats.elapsed > 15 ? 'stompTip' : null;
 
@@ -327,46 +376,8 @@ export class GameScene extends Phaser.Scene {
     if (this.pendingLevelUps > 0) this.openLevelUp();
   }
 
-  private updateDirector(dt: number) {
-    const w = this.wave;
-    this.waveTime += dt;
-    const tier = this.tier;
-    // infantry: squads at higher tiers (none during the opening grace period of wave 1)
-    if (!(this.waveIdx === 0 && this.waveTime < WAVE1_GRACE_S * TIME_SCALE)) this.soldierAcc += w.soldierRate * dt;
-    const squad = tier === 3 ? 4 : tier === 2 ? 2 : 1;
-    while (this.soldierAcc >= squad && this.enemies.count('soldier') < w.soldierMax) {
-      this.soldierAcc -= squad;
-      const lead = this.enemies.spawnOffscreen('soldier');
-      for (let i = 1; i < squad; i++) this.enemies.spawn('soldier', lead.x + Phaser.Math.Between(-24, 24), lead.y + Phaser.Math.Between(-24, 24));
-    }
-    if (this.soldierAcc > squad * 2) this.soldierAcc = squad * 2;
-    this.tankAcc += w.tankRate * (tier === 1 ? 0.6 : 1) * dt;
-    while (this.tankAcc >= 1 && this.enemies.count('tank') < w.tankMax) {
-      this.tankAcc -= 1;
-      this.enemies.spawnOffscreen('tank');
-    }
-    if (this.tankAcc > 2) this.tankAcc = 2;
-
-    if (w.boss) {
-      if (this.bossSpawnAt >= 0 && this.waveTime >= this.bossSpawnAt) {
-        this.bossSpawnAt = -1;
-        this.enemies.spawnOffscreen('mech');
-        this.ui.banner(t('warning'), t('mechInbound'), true);
-        sfx.alarm();
-        music.play('boss');
-      }
-      const b = this.enemies.boss;
-      if (b && b.hp < b.maxHp * 0.35 && this.news.prefetchedFor !== w.wave) this.news.prefetch(this.snapshot('victory'));
-    } else {
-      const prefetchAt = Math.max(this.waveDuration * BULLETIN_MIN_FRACTION, this.waveDuration - BULLETIN_LEAD_S);
-      if (this.waveTime >= prefetchAt && this.news.prefetchedFor !== w.wave)
-        this.news.prefetch(this.snapshot('wave-cleared'));
-      if (this.waveTime >= this.waveDuration) this.endWave('wave-cleared');
-    }
-  }
-
   // ── Level-ups ──────────────────────────────────────────────────────────────
-  private gainXp(n: number) {
+  gainXp(n: number) {
     const p = this.player;
     p.xp += n;
     let need = XP_TO_LEVEL(p.level);
@@ -386,11 +397,25 @@ export class GameScene extends Phaser.Scene {
     sfx.levelup();
     this.scene.pause();
     duckMusic(true);
-    this.ui.showLevelUp(this.offer, this.player.upgradeLevels, (i) => this.pickUpgrade(i));
+    this.showOffer();
   }
 
+  private showOffer() {
+    this.ui.showLevelUp(this.offer, this.player.upgradeLevels, (i) => this.pickUpgrade(i), {
+      rerolls: this.rerolls,
+      reroll: () => {
+        if (this.rerolls <= 0) return;
+        this.rerolls--;
+        this.offer = rollOffer(this.player.upgradeLevels, this.rand);
+        this.showOffer();
+      },
+      skip: () => this.pickUpgrade(-1),
+    });
+  }
+
+  /** i = -1 skips the offer for a bigger heal. */
   private pickUpgrade(i: number) {
-    const u = this.offer[i];
+    const u = i >= 0 ? this.offer[i] : undefined;
     const p = this.player;
     if (u) {
       u.apply(p.mods, (n) => p.heal(n));
@@ -398,13 +423,79 @@ export class GameScene extends Phaser.Scene {
       this.stats.upgraded(u.name);
     }
     // Levelling up is the hatchling's only reliable heal, so it matters most in wave 1.
-    p.heal(p.maxHp * 0.15);
+    p.heal(p.maxHp * (u ? 0.15 : 0.25));
     this.fx.word(p.x, p.y - 24 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.offer = [];
     this.phase = 'playing';
     this.scene.resume();
     duckMusic(false);
+  }
+
+  // ── Crates & items ─────────────────────────────────────────────────────────
+  openCrate() {
+    const p = this.player;
+    this.cratesOpened++;
+    this.score.bonus(500);
+    const evo = readyEvolution(p.upgradeLevels, p.mods);
+    if (evo) {
+      p.mods.evo[evo.id] = true;
+      this.stats.evolutions.push(evoName(evo.id));
+      this.stats.upgraded(evoName(evo.id));
+      this.ui.flashWhite();
+      this.hitStop(220);
+      this.shake(0.02, 400);
+      this.fx.ring(p.x, p.y, 160 * p.scale, 0xffd24a, 800);
+      this.fx.ring(p.x, p.y, 100 * p.scale, 0xff5fd2, 600);
+      sfx.evolve();
+      this.ui.banner(t('evolution'), evoName(evo.id), false);
+      return;
+    }
+    const [u] = rollOffer(p.upgradeLevels, this.rand, 1);
+    sfx.crate();
+    this.fx.ring(p.x, p.y, 80 * p.scale, 0xffd24a, 500);
+    if (u) {
+      u.apply(p.mods, (n) => p.heal(n));
+      p.upgradeLevels[u.id] = (p.upgradeLevels[u.id] ?? 0) + 1;
+      this.stats.upgraded(u.name);
+      this.ui.banner(t('crate'), `${upName(u.id)} +1`);
+    } else {
+      p.heal(p.maxHp * 0.5);
+      this.score.bonus(2000);
+      this.ui.banner(t('crate'), t('crateMaxed'));
+    }
+  }
+
+  useItem(kind: Exclude<PickupKind, 'xp' | 'heart' | 'crate'>) {
+    const p = this.player;
+    sfx.item();
+    if (kind === 'magnet') {
+      this.pickups.vacuum = 2.5;
+      this.fx.word(p.x, p.y - 26 * p.scale, t('itemMagnet'), '#ff6688', 1.2 + p.tierIdx * 0.6);
+    } else if (kind === 'rage') {
+      p.mods.rage = 10;
+      this.fx.word(p.x, p.y - 26 * p.scale, t('itemRage'), '#ff3355', 1.2 + p.tierIdx * 0.6);
+      sfx.roar();
+    } else {
+      // Quake core: flatten every enemy on screen (the boss just takes a big hit).
+      const v = this.cameras.main.worldView;
+      this.ui.flashWhite();
+      this.shake(0.03, 600);
+      this.hitStop(160);
+      sfx.stomp();
+      this.fx.ring(p.x, p.y, Math.max(v.width, v.height) * 0.7, 0xffb13b, 900);
+      this.fx.word(p.x, p.y - 26 * p.scale, t('itemQuake'), '#ffb13b', 1.4 + p.tierIdx * 0.7);
+      for (const e of [...this.enemies.list]) {
+        if (!v.contains(e.x, e.y)) continue;
+        if (e.etype === 'mech' || e.etype === 'walker') this.damageEnemy(e, e.maxHp * (e.etype === 'mech' ? 0.08 : 0.3), 0, 0);
+        else this.killEnemy(e, false);
+      }
+    }
+  }
+
+  private maybeDropItem(x: number, y: number, chance: number) {
+    if (Math.random() >= chance) return;
+    this.pickups.drop(x, y, Phaser.Utils.Array.GetRandom(['magnet', 'magnet', 'quake', 'rage'] as const));
   }
 
   // ── Combat & destruction ───────────────────────────────────────────────────
@@ -446,8 +537,13 @@ export class GameScene extends Phaser.Scene {
     e.hp -= dmg;
     this.fx.hit(e.x, e.y, 3);
     e.setTintFill(0xffffff);
-    this.time.delayedCall(50, () => e.active && e.clearTint());
-    if (e.etype !== 'mech' && (kx || ky)) {
+    this.time.delayedCall(50, () => {
+      if (!e.active) return;
+      e.clearTint();
+      if (e.elite) e.setTint(0xffd24a);
+      else if (e.etype === 'walker') e.setTint(0x9aa66a);
+    });
+    if (e.etype !== 'mech' && e.etype !== 'walker' && !e.flying && (kx || ky)) {
       e.setVelocity(kx, ky);
       e.stun = 0.14;
     }
@@ -457,27 +553,67 @@ export class GameScene extends Phaser.Scene {
   killEnemy(e: Enemy, crushed: boolean) {
     if (e.dead) return;
     const r = REWARDS[e.etype];
-    if (e.etype === 'soldier') {
-      this.stats.soldiers++;
-      this.fx.squish(e.x, e.y);
-      if (crushed) sfx.crunch();
-    } else if (e.etype === 'tank') {
-      this.stats.tanks++;
-      this.fx.explode(e.x, e.y, 40);
-      this.fx.word(e.x, e.y - 10, t('w_kaboom'), '#ffb13b', 1 + this.player.tierIdx * 0.6);
-      this.shake(0.008, 160);
-      this.hitStop(50);
-      sfx.collapse(false);
-      this.add.image(e.x, e.y, 'rubble').setScale(0.7).setDepth(-60).setTint(0x3a3a2a);
-      if (Math.random() < 0.08) this.dropPickup(e.x, e.y, 'heart', 0);
-    } else {
-      this.stats.bossDefeated = true;
-      this.bossDeath(e);
-      return;
+    const big = 1 + this.player.tierIdx * 0.6;
+    switch (e.etype) {
+      case 'soldier':
+      case 'rocket':
+        this.stats.soldiers++;
+        this.fx.squish(e.x, e.y);
+        if (crushed) sfx.crunch();
+        break;
+      case 'tank':
+      case 'cannon':
+        if (e.etype === 'tank') this.stats.tanks++;
+        else this.stats.cannons++;
+        this.fx.explode(e.x, e.y, 40);
+        this.fx.word(e.x, e.y - 10, t('w_kaboom'), '#ffb13b', big);
+        this.shake(0.008, 160);
+        this.hitStop(50);
+        sfx.collapse(false);
+        this.add.image(e.x, e.y, 'rubble').setScale(0.7).setDepth(-60).setTint(0x3a3a2a);
+        if (Math.random() < 0.08) this.pickups.drop(e.x, e.y, 'heart');
+        this.maybeDropItem(e.x, e.y, 0.04);
+        break;
+      case 'heli':
+        this.stats.helis++;
+        this.fx.explode(e.x, e.y, 46);
+        this.fx.explode(e.x + 10, e.y + 28, 30);
+        this.fx.word(e.x, e.y - 14, t('w_kaboom'), '#ffb13b', big);
+        this.shake(0.01, 180);
+        this.hitStop(60);
+        sfx.collapse(false);
+        this.add.image(e.x + 10, e.y + 28, 'rubble').setScale(0.9).setDepth(-60).setTint(0x3a3a2a);
+        this.maybeDropItem(e.x, e.y + 28, 0.1);
+        break;
+      case 'walker':
+        this.stats.walkers++;
+        for (let i = 0; i < 5; i++) this.time.delayedCall(i * 120, () => this.fx.explode(e.x + Phaser.Math.Between(-40, 40), e.y - Phaser.Math.Between(0, 80), 70));
+        this.fx.word(e.x, e.y - 110, t('w_mechDown'), '#ff5fd2', 3);
+        this.shake(0.02, 400);
+        this.hitStop(120);
+        sfx.collapse(true);
+        this.pickups.drop(e.x, e.y, 'crate');
+        break;
+      case 'mech':
+        this.stats.bossDefeated = true;
+        this.score.add(r.score);
+        this.bossDeath(e);
+        return;
     }
-    this.dropPickup(e.x, e.y, 'xp', r.xp);
+    if (e.elite) this.pickups.drop(e.x, e.y, 'crate');
+    this.score.add(r.score * (e.elite ? 5 : 1));
+    this.comboSfx();
+    this.pickups.drop(e.x, e.y, 'xp', r.xp * (e.elite ? 3 : 1));
     this.enemies.remove(e);
     if (this.player.addMass(r.mass)) this.onTierUp();
+  }
+
+  private comboSfx() {
+    const c = this.score.combo;
+    if (c >= 10 && c % 5 === 0 && c !== this.lastComboSfx) {
+      this.lastComboSfx = c;
+      sfx.combo(c);
+    }
   }
 
   private bossDeath(e: Enemy) {
@@ -500,13 +636,19 @@ export class GameScene extends Phaser.Scene {
       if (i >= 0) this.enemies.list.splice(i, 1);
       this.enemies.boss = null;
       e.destroyAll();
-      this.enemies.clearAll();
-      this.endWave('victory');
+      if (this.endless) {
+        // Endless boss waves end when the mech falls; drop a crate as the reward.
+        this.pickups.drop(e.x, e.y, 'crate');
+        this.endWave('wave-cleared');
+      } else {
+        this.enemies.clearAll();
+        this.endWave('victory');
+      }
     });
   }
 
   private onEnemyContact(e: Enemy) {
-    if (e.dead) return;
+    if (e.dead || e.flying) return;
     const p = this.player;
     if (e.sizeClass <= this.tier) {
       this.killEnemy(e, true);
@@ -514,7 +656,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (e.contactCd > 0) return;
     e.contactCd = 0.7;
-    if (e.etype === 'tank') {
+    if (e.etype === 'tank' || e.etype === 'cannon') {
       this.hurtPlayer(6, e.x, e.y);
       const a = Math.atan2(e.y - p.y, e.x - p.x);
       this.damageEnemy(e, 18 * p.power, Math.cos(a) * 220, Math.sin(a) * 220);
@@ -547,7 +689,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** `credit=false` is collateral damage (the mech's footsteps): no stats, mass or drops for the player. */
+  /** `credit=false` is collateral damage (the mech's footsteps, air strikes): no stats, mass or drops for the player. */
   destroyDestructible(d: Destructible, crushed: boolean, credit = true) {
     if (!d.alive) return;
     d.alive = false;
@@ -566,11 +708,11 @@ export class GameScene extends Phaser.Scene {
       d.sprite.destroy();
       this.city.leaveRubble(d);
       if (crushed && this.tier === 1) this.shake(0.002, 60);
-      if (credit && d.kind === 'car' && Math.random() < 0.04) this.dropPickup(d.x, d.y, 'heart', 0);
+      if (credit && d.kind === 'car' && Math.random() < 0.04) this.pickups.drop(d.x, d.y, 'heart');
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
-      // Collateral (the mech's footsteps) gets the dust but not the player's hit-stop and impact words.
+      // Collateral gets the dust but not the player's hit-stop and impact words.
       this.shake(credit ? (tower ? 0.014 : 0.005) : 0.003, tower ? 260 : 120);
       if (credit) this.hitStop(tower ? 70 : 25);
       sfx.collapse(tower);
@@ -591,21 +733,24 @@ export class GameScene extends Phaser.Scene {
       if (tower || d.kind === 'warehouse') this.fx.addFire(d.x, d.y - d.h * 0.2);
       if (!credit) return;
       if (p.mods.rampageHeal) p.heal(p.mods.rampageHeal);
-      if (Math.random() < (tower ? 0.08 : 0.03)) this.dropPickup(d.x, d.y, 'heart', 0);
+      if (Math.random() < (tower ? 0.08 : 0.03)) this.pickups.drop(d.x, d.y, 'heart');
+      this.maybeDropItem(d.x, d.y, tower ? 0.03 : 0.004);
     }
     if (!credit) return;
-    this.dropPickup(d.x, d.y, 'xp', rew.xp);
+    this.score.add(rew.score);
+    this.comboSfx();
+    this.pickups.drop(d.x, d.y, 'xp', rew.xp);
     if (p.addMass(rew.mass)) this.onTierUp();
   }
 
   private onTierUp() {
     const p = this.player;
-    const t = p.tier;
-    this.maxTierReached = Math.max(this.maxTierReached, t.tier);
+    const td = p.tier;
+    this.maxTierReached = Math.max(this.maxTierReached, td.tier);
     this.fx.level = p.tierIdx;
-    this.cameras.main.zoomTo(t.zoom, 1400, 'Sine.easeInOut');
+    this.cameras.main.zoomTo(td.zoom, 1400, 'Sine.easeInOut');
     this.ui.flashWhite();
-    if (!this.enemies.boss) music.play(`tier${t.tier}` as 'tier1');
+    if (!this.enemies.boss) music.play(`tier${td.tier}` as 'tier1');
     this.hitStop(160);
     this.shake(0.02, 400);
     sfx.roar();
@@ -617,53 +762,8 @@ export class GameScene extends Phaser.Scene {
     this.fx.dust(p.x, p.y, 20);
     // Growth shockwave flattens the neighbourhood.
     this.tmp.length = 0;
-    for (const d of this.city.grid.query(p.x, p.y, 30 * p.scale, this.tmp)) if (d.sizeClass <= t.tier) this.destroyDestructible(d, true);
-    this.ui.banner(tr('growth', { name: tierName(t.tier) }), tr(t.tier === 2 ? 'tierCopy2' : 'tierCopy3'));
-  }
-
-  private dropPickup(x: number, y: number, kind: Pickup['kind'], value: number) {
-    if (kind === 'xp' && value <= 0) return;
-    if (kind === 'xp' && this.pickups.length > 300) {
-      this.gainXp(value);
-      return;
-    }
-    const key = kind === 'heart' ? 'heart' : value >= 5 ? 'gemBig' : 'gem';
-    const s = Math.max(1, this.player.scale * 0.6);
-    const tx = x + Phaser.Math.Between(-10, 10) * s, ty = y + Phaser.Math.Between(-10, 10) * s;
-    const img = this.add.image(x, y, key).setDepth(8000).setScale(s);
-    this.tweens.add({ targets: img, x: tx, y: ty, duration: 250, ease: 'Quad.easeOut' });
-    this.pickups.push({ img, kind, value, x: tx, y: ty, alive: true, settle: 0.25 });
-  }
-
-  private updatePickups(dt: number) {
-    const p = this.player;
-    const magnet = (40 + 14 * p.scale) * p.mods.magnet;
-    const grab = p.radius + 6;
-    for (let i = this.pickups.length - 1; i >= 0; i--) {
-      const g = this.pickups[i];
-      if (g.settle > 0) {
-        g.settle -= dt;
-        continue;
-      }
-      const dx = p.x - g.img.x, dy = p.y - g.img.y;
-      const d = Math.hypot(dx, dy);
-      if (d < grab) {
-        if (g.kind === 'xp') {
-          this.gainXp(g.value);
-          sfx.pickup();
-        } else {
-          p.heal(p.maxHp * 0.15);
-          this.fx.word(p.x, p.y - 20 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
-          sfx.levelup();
-        }
-        g.img.destroy();
-        this.pickups.splice(i, 1);
-      } else if (d < magnet) {
-        const v = (260 + 60 * p.scale) * dt;
-        g.img.x += (dx / d) * v;
-        g.img.y += (dy / d) * v;
-      }
-    }
+    for (const d of this.city.grid.query(p.x, p.y, 30 * p.scale, this.tmp)) if (d.sizeClass <= td.tier) this.destroyDestructible(d, true);
+    this.ui.banner(tr('growth', { name: tierName(td.tier) }), tr(td.tier === 2 ? 'tierCopy2' : 'tierCopy3'));
   }
 
   private die() {
@@ -698,6 +798,7 @@ export class GameScene extends Phaser.Scene {
       phase: this.phase,
       modal: this.ui.currentModal,
       wave: this.wave.wave,
+      endless: this.endless,
       waveTime: this.waveTime,
       elapsed: this.stats.elapsed,
       waveDuration: this.wave.boss ? null : this.waveDuration,
@@ -709,26 +810,36 @@ export class GameScene extends Phaser.Scene {
       mass: p.mass,
       growth: p.growth,
       stompReady: p.stompCd <= 0,
+      rage: p.mods.rage,
       player: { x: p.x, y: p.y, r: p.radius, scale: k },
       view: { x: view.x, y: view.y, w: view.width, h: view.height },
       world: { w: WORLD_W, h: LAND_H },
-      enemies: this.enemies.list.filter((e) => near(e.x, e.y, 700 * Math.max(1, k * 0.5))).map((e) => ({ type: e.etype, x: e.x, y: e.y, hp: e.hp })),
+      enemies: this.enemies.list.filter((e) => near(e.x, e.y, 700 * Math.max(1, k * 0.5))).map((e) => ({ type: e.etype, x: e.x, y: e.y, hp: e.hp, elite: e.elite, flying: e.flying })),
       enemyTypesSpawned: [...this.enemies.spawnedTypes],
-      enemyRoster: ENEMY_ROSTER,
-      pickups: this.pickups.filter((g) => near(g.img.x, g.img.y, 500)).map((g) => ({ x: g.img.x, y: g.img.y, kind: g.kind })),
+      enemyRoster: [...ENEMY_ROSTER],
+      jets: this.enemies.jets.map((j) => ({ x0: j.x0, y0: j.y0, x1: j.x1, y1: j.y1, t: j.t })),
+      pickups: this.pickups.nearby(p.x, p.y, 500 * Math.max(1, k * 0.5)),
       shots: (this.enemies.shots.getChildren() as Phaser.Physics.Arcade.Image[])
         .filter((o) => o.active && near(o.x, o.y, 600 * Math.max(1, k * 0.5)))
         .map((o) => ({ x: o.x, y: o.y, vx: (o.body as Phaser.Physics.Arcade.Body).velocity.x, vy: (o.body as Phaser.Physics.Arcade.Body).velocity.y })),
       targets: tmp.map((d) => ({ x: d.x, y: d.y, w: d.w, h: d.h, kind: d.kind, sizeClass: d.sizeClass })),
       offer: this.offer.map((u) => ({ id: u.id, name: u.name })),
+      rerolls: this.rerolls,
       upgradePoolSize: UPGRADES.length,
+      evolutionCount: EVOLUTIONS.length,
       upgradeLevels: { ...p.upgradeLevels },
+      evolutions: Object.entries(p.mods.evo).filter(([, v]) => v).map(([k2]) => k2),
+      cratesOpened: this.cratesOpened,
       pendingLevelUps: this.pendingLevelUps,
       levelUpsShown: this.levelUpsShown,
       bulletinsShown: this.bulletinsShown,
       lastBulletin: this.lastBulletin,
       narrationMode: this.news.mode,
       damageTaken: Math.round(this.damageTaken),
+      score: this.score.score,
+      combo: this.score.combo,
+      bestCombo: this.score.bestCombo,
+      summary: this.lastSummary,
       fps: Math.round(this.game.loop.actualFps),
       stats: this.lastStats,
       destroyed: this.stats.buildings,
