@@ -2,49 +2,61 @@
   {
     "level": "easy",
     "wave": 2,
-    "damage": 17,
+    "damage": 183,
+    "secs": 25,
+    "dps": 7.46,
     "maxHp": 180,
-    "died": false,
+    "died": true,
     "difficulty": "easy"
   },
   {
     "level": "medium",
     "wave": 2,
-    "damage": 0,
+    "damage": 188,
+    "secs": 21,
+    "dps": 9.03,
     "maxHp": 180,
-    "died": false,
+    "died": true,
     "difficulty": "medium"
   },
   {
     "level": "hard",
     "wave": 2,
-    "damage": 0,
+    "damage": 197,
+    "secs": 21,
+    "dps": 9.24,
     "maxHp": 180,
-    "died": false,
+    "died": true,
     "difficulty": "hard"
   },
   {
     "level": "easy",
     "wave": 4,
-    "damage": 0,
+    "damage": 315,
+    "secs": 29,
+    "dps": 11.04,
     "maxHp": 300,
-    "died": false,
+    "died": true,
     "difficulty": "easy"
   },
   {
     "level": "medium",
     "wave": 4,
-    "damage": 0,
+    "damage": 302,
+    "secs": 25,
+    "dps": 12.32,
     "maxHp": 300,
-    "died": false,
+    "died": true,
     "difficulty": "medium"
   },
   {
     "level": "hard",
     "wave": 4,
-    "damage": 0,
+    "damage": 330,
+    "secs": 23,
+    "dps": 14.33,
     "maxHp": 300,
-    "died": false,
+    "died": true,
     "difficulty": "hard"
   }
 ]

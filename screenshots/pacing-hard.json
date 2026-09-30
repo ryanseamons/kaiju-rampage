@@ -1,0 +1,22 @@
+{
+  "difficulty": "hard",
+  "events": {
+    "wave1": 0,
+    "tier1": 0,
+    "wave2": 88,
+    "death": 116
+  },
+  "gameTime": {
+    "wave1": 0,
+    "tier1": 0,
+    "wave2": 80,
+    "death": 107
+  },
+  "level": 6,
+  "destroyed": 31,
+  "minHpPct": -5,
+  "damageTaken": 191,
+  "reachedWave": 2,
+  "outcome": "death",
+  "wallClockNote": "events = wall-clock seconds incl. pauses and headless slowdown; gameTime = simulated seconds"
+}
