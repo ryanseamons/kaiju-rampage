@@ -412,7 +412,7 @@ export class UIScene extends Phaser.Scene {
   private showPaused() {
     const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.72);
     const tt = this.add.text(VIEW_W / 2, 110, t('paused'), txt(56, '#ffffff', { strokeThickness: 8 })).setOrigin(0.5);
-    const s = this.add.text(VIEW_W / 2, 160, t('pauseHint'), txt(18, '#9ffcff')).setOrigin(0.5);
+    const s = this.add.text(VIEW_W / 2, 160, `${t('pauseHint')}  ·  ${t('s_difficulty')}: ${t(`diff_${this.gs.diff.id}` as 'diff_easy')}`, txt(18, '#9ffcff')).setOrigin(0.5);
     const head = this.add.text(VIEW_W / 2, 214, t('yourMutations'), txt(20, '#ffe14a')).setOrigin(0.5);
     const children: Phaser.GameObjects.GameObject[] = [dim, tt, s, head];
     const owned = UPGRADES.filter((u) => this.gs.player.upgradeLevels[u.id]);

@@ -50,6 +50,17 @@ A second pass played the game with a deliberately naive bot, read the code for e
 
 **Normal-speed pacing after pass 2** (same opt-in spec, seed 2024, dodging bot, wall-clock seconds): wave 2 at 169 s, tier 2 at 259 s, wave 3 at 445 s, tier 3 at 568 s, wave 4 at 835 s; the bot was alive at level 19 with 998 buildings flattened when the spec's 15-minute limit ended the run, and its HP never dropped below 65%. Wall-clock is inflated here because headless Chromium ran at 10–20 FPS during this run (the simulation caps each step at 50 ms, so slow frames slow the game rather than skipping); the spec now also logs simulated game seconds. A separate boss-only run (`START_WAVE=5`) destroyed the mech after 170 simulated seconds with the bot never below 68% HP, so the final wave is still beatable with leading shells and building collisions. The fast-mode regression run's minimum HP rose from about 40% to 92%, because level-up heals arrive 2.5× faster there; it remains a regression test, not balance evidence.
 
+## Pass 3: publish, then audit again
+
+Published as a public repo (github.com/ryanseamons/kaiju-rampage) and a Cloudflare Pages site (`npm run deploy`, wrangler 3; wrangler 4's `pages project create` rewrote package.json and vite.config.ts, so it's pinned back). What changed after the first real play ("I beat everything in my first run"):
+
+- **Front page.** An HTML poster over the canvas (pattern from the tavern project), sized in canvas units so it lines up at any window size: the kaiju silhouette, EN/日本語, a "What is kaiju?" line, How to Play, a Mutations codex (all 16 upgrades and the evolutions), local high scores, settings, a now-playing plaque and a mute button that stays on screen during play.
+- **More army, more reasons to move.** Rocket teams, helicopters, cannon batteries, a heavy walker mid-boss, jet bombing runs, elites, and an encirclement ring. Ground units follow a flow field (BFS from the kaiju over the tile grid), so they route around buildings instead of pressing into walls; riflemen close to 85% of their range instead of orbiting out of it.
+- **Items and build.** Supply crates (from elites and the walker) open an evolution or a big upgrade; floor items (magnet, quake, rage); four evolutions from weapon + passive pairs; reroll and skip on level-up; the pause screen lists your build.
+- **Score.** A destruction combo (×0.5 per 15 hits, up to ×5), a results screen with a grade, initials entry, all-time and daily top-10s, a daily seed, and endless mode after the mech.
+- **Sound.** Music is 14 licensed Epidemic Sound tracks rotating per stage with 2.5 s crossfades, loudness-normalised and mixed under the effects (the procedural composer is the fallback in a clone). Effects are Kenney CC0 samples in 14 banks (alternates, pitch jitter, voice caps, deeper crunches as you grow, an XP pickup tick that climbs in pitch while you hoover a stream of crystals) layered over the old synthesis for weight. Every HTML button has Voyage's hover and press sounds.
+- **Difficulty.** Easy is the old tuning; Medium (the new default) and Hard multiply enemy HP, damage, spawn rates and caps, add elites and earlier, more frequent jets, field extra cannons and helicopters at tier 3, add tier-3 damage, and cut heals. See README for the table and `src/difficulty.ts` for the numbers.
+
 ## Decisions made during the build
 
 - The optional live narration model is `claude-opus-5-5` at medium effort (BRIEF.md started from a smaller model), configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.
@@ -60,7 +71,7 @@ A second pass played the game with a deliberately naive bot, read the code for e
 ## What a full game would need next
 
 - **Content:** the other kaiju (each with its own weapon tree), the other biomes (harbor at dawn, mountain lab, neon megacity), 3–4 more enemy types (jets, artillery, helicopters, mech variants), and a real boss moveset per biome. Around 60–100 upgrades with synergies and evolutions, survivor-like style.
-- **Structure:** meta-progression between runs (unlocks, a DNA currency), a run map or district choice, difficulty levels, save data, settings (volume, key rebinding, screen shake toggle, colorblind-safe palette).
+- **Structure:** meta-progression between runs (unlocks, a DNA currency), a run map or district choice, save data, settings (volume, key rebinding, screen shake toggle, colorblind-safe palette).
 - **Feel:** real audio (music stems that intensify with tier, layered destruction SFX), hand-authored or generated sprite art with more animation frames, per-building collapse variety, screen-space lighting, fire and smoke that persist in the ruins.
 - **AI/tech:** pathfinding on the road graph for vehicles and infantry, object pooling for bullets and particles, a performance pass for 1000+ sprites on low-end GPUs (culling, static batching of the city), and a proper first-time user experience (tutorial wave, tooltip for stomp).
 - **Narration:** a much larger bank written per biome and per kaiju, with "callback" lines that remember earlier events in the run. If the live model returns: a cheaper, faster model or lower effort, streaming the ticker in as it's generated, and caching the system prompt.

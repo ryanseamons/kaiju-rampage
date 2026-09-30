@@ -7,7 +7,7 @@ import { Bot } from './bot';
 test('normal-speed pacing log', async ({ page }) => {
   test.skip(!process.env.PACING, 'set PACING=1');
   test.setTimeout(16 * 60_000);
-  const startWave = (process.env.START_WAVE ? `&startWave=${process.env.START_WAVE}` : '') + `&difficulty=${process.env.DIFFICULTY ?? 'easy'}`;
+  const startWave = (process.env.START_WAVE ? `&startWave=${process.env.START_WAVE}` : '') + `&difficulty=${process.env.DIFFICULTY ?? 'easy'}` + (process.env.FAST ? '&fast=1' : '');
   await page.goto(`/?seed=2024&mute=1${startWave}`);
   const bot = new Bot(page);
   const t0 = Date.now();
@@ -34,7 +34,7 @@ test('normal-speed pacing log', async ({ page }) => {
     },
     15 * 60_000,
   );
-  const out = { events, gameTime, level: last?.level, destroyed: last?.destroyed, minHpPct: Math.round(bot.minHpPct), wallClockNote: 'events = wall-clock seconds incl. pauses and headless slowdown; gameTime = simulated seconds' };
+  const out = { difficulty: last?.difficulty, events, gameTime, level: last?.level, destroyed: last?.destroyed, minHpPct: Math.round(bot.minHpPct), damageTaken: Math.round(last?.damageTaken ?? 0), reachedWave: last?.wave, outcome: 'death' in events ? 'death' : 'victory' in events ? 'victory' : 'timeout', wallClockNote: 'events = wall-clock seconds incl. pauses and headless slowdown; gameTime = simulated seconds' };
   console.log('PACING', JSON.stringify(out));
-  fs.writeFileSync(`screenshots/pacing-${process.env.DIFFICULTY ?? 'easy'}${process.env.START_WAVE ? `-wave${process.env.START_WAVE}` : ''}.json`, JSON.stringify(out, null, 2));
+  fs.writeFileSync(`screenshots/pacing-${process.env.DIFFICULTY ?? 'easy'}${process.env.FAST ? '-fast' : ''}${process.env.START_WAVE ? `-wave${process.env.START_WAVE}` : ''}.json`, JSON.stringify(out, null, 2));
 });

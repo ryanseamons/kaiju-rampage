@@ -47,8 +47,11 @@ npm run build
 | Enter (gamepad: A) | Start, dismiss the news card |
 | P or Esc | Pause / resume |
 | M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
+| ←/→ on the title screen, or click | Difficulty: **Easy**, **Medium** (default) or **Hard** (remembered; the daily rampage is always Medium) |
 
 **The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**.
+
+**Difficulty.** Easy is the original tuning. Medium and Hard raise enemy HP and damage, spawn rates and caps, add elites (2 and 3 per wave), bring jets in from wave 3 and more often, field more cannon batteries and helicopters once you reach tier 3 (where you'd otherwise outgrow the army), add tier-3 damage, cut heart drops and level-up heals, and thicken the encirclement ring. Score is ×0.75 on Easy, ×1 on Medium and ×1.5 on Hard, and the high-score table shows each run's mode. The knobs live in `src/difficulty.ts`.
 
 There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, Atomic Breath, Tail Spin, Spine Volley, Fallout Aura, Thick Hide, Regeneration, Scaled Plating, Quickstep, Aftershock, Tectonic Rhythm, Magnetism, Growth Hormone and Rampage.
 
@@ -72,6 +75,10 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 | `?fast=1` | Test speed: waves are 40% as long, and growth and XP are scaled up to match. Rules are unchanged, but it plays easier than normal because enemy pressure per second is the same. |
 | `?startWave=5` | Debug: start at a later wave with that wave's expected size (for example, to see the boss) |
 | `?mute=1` | No sound |
+| `?difficulty=easy` | Force a difficulty (`easy`, `medium`, `hard`) for this load; the tests pin `easy` |
+| `?daily=1` | Today's daily rampage (same city and upgrade rolls for everyone, Medium) |
+| `?lang=ja` | Japanese UI |
+| `?music=composed` | Use the procedural composer instead of the recorded tracks |
 | `?renderer=canvas` | Force the Canvas renderer instead of WebGL |
 
 ## Tests
@@ -94,7 +101,10 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `boss.spec.ts` | `?startWave=5` spawns the mech (`boss.png`). |
 | `teeth.spec.ts` | The military can hurt you: a kaiju that stands still in wave 2 at normal speed takes ≥40 damage within 35 s (it took 157 in the last run). |
 | `live-ai.spec.ts` | Skipped unless `LIVE_NARRATION_URL` points at a narration server with a real key. |
-| `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached. |
+| `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached (`DIFFICULTY=medium`, `START_WAVE=3` to vary it). |
+| `difficulty.spec.ts` | Skipped unless `DIFF=1`: a stationary kaiju at wave 2 (tier 2) and wave 4 (tier 3) on each difficulty; damage per game second must rise from Easy to Medium to Hard. |
+| `sfx.spec.ts` | All 14 Kenney sample banks load and are audible on the master bus (recorded, not played aloud). |
+| `music.spec.ts` | Skipped unless `MUSIC=1`: every music context is audible and unclipped; recorded tracks rotate and sit level with the composer. |
 
 ## Known gaps
 
@@ -102,7 +112,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 - Pathing is minimal: soldiers and tanks move straight at or away from you and sidestep when a building blocks them; they can still get briefly stuck in tight blocks.
 - Balance is tuned against the bot plus a short manual play, not real playtests.
 - An AI bulletin is written from stats about 22s before the wave ends, so its numbers can lag the stats box beside it.
-- Sound is procedural WebAudio. The music is a minimal generated loop (bass pulse, hat, drone) whose tempo rises with your size; it has not been auditioned by a human ear, so press M if it grates.
+- Music on the deployed site is 14 licensed Epidemic Sound tracks that rotate per stage (title, each tier, boss, victory, defeat). They're not in this repository, so a clone plays the procedural composer instead (see ASSETS.md). Effects are Kenney CC0 samples layered over WebAudio synthesis.
 - Text uses the system `Courier New`/monospace font; no pixel font is bundled.
 - The gamepad path uses Phaser's standard mapping and has only been checked in code, not with a physical pad.
 - In headless Chromium (SwiftShader, no GPU) the game runs at about 15–30 FPS. On this laptop's browser it runs at about 140 FPS (see NOTES.md).
