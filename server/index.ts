@@ -80,5 +80,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[narration] listening on :${PORT} · model ${MODEL} (effort ${EFFORT}) · ${client ? 'API key loaded' : 'no ANTHROPIC_API_KEY → client uses canned bulletins'}`);
+  console.log(`[narration] listening on :${PORT} · model ${MODEL} (effort ${EFFORT}) · ${client ? 'API key loaded' : 'no ANTHROPIC_API_KEY → client uses the shipped news bank (default)'}`);
 });
