@@ -1,5 +1,9 @@
 # Kaiju Rampage (vertical slice)
 
+**Play it: https://kaiju.ryanseamons.com**
+
+*Kaiju* (怪獣, Japanese for "strange beast") is the giant-monster genre: think a skyscraper-sized lizard wading out of the sea and flattening a city while the army fights back.
+
 A browser survivor-like. You hatch in the bay as **TIDEMAW**, a van-sized lizard, and eat your way up to a city-ending monster across **3 size tiers** while the military throws infantry, tanks and finally a giant mech at you. Between waves the city reacts to *your* run with a **BREAKING NEWS** card: an anchor line plus a scrolling ticker built from your stats (buildings flattened, hardest-hit district, size, near-death moments, new abilities).
 
 | Tier 1 · Hatchling | Tier 2 · Behemoth | Tier 3 · City-Ender |

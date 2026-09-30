@@ -4,14 +4,14 @@
 
 1. **Balance and pacing against a scripted player.** The first playable build let the bot reach tier 3 inside wave 1 and level 24 by wave 3 without dropping below 97% HP. Pacing took three passes: mass thresholds (tier 2 at 140 → 240 → 450, tier 3 at 520 → 1000 → 3000), split rewards so destruction mostly grows you and the military mostly levels you, a steeper XP curve, and harder infantry and tanks. The fixed-seed test run now reaches tier 2 in wave 2 and tier 3 in wave 3, with min HP around 35–45% (see `screenshots/playthrough-summary.json`).
 2. **A test bot that survives on keyboard input alone.** The bot reads a read-only `window.__kaiju.state()` snapshot and steers with W/A/S/D and Space. The hard parts were sliding around walls it's too small to crush, getting unstuck, not chasing rifle squads at tier 1 on low HP, and keeping screenshots from racing the level-up modal.
-3. **The narration layer changed direction twice mid-build** (see Decisions below): Haiku → Opus 5.5 at medium effort, then no key at all with a large shipped bank as the default. The bank (34 headlines, 123 anchor lines, 123 ticker fragments) and its grammar tests (zero counts, plurals, unfilled slots, no repeats) took longer than the original prompt did.
+3. **The narration layer changed direction twice mid-build** (see Decisions below): first to a larger model, then to no key at all with a large shipped bank as the default. The bank (34 headlines, 123 anchor lines, 123 ticker fragments) and its grammar tests (zero counts, plurals, unfilled slots, no repeats) took longer than the original prompt did.
 4. **Procedural pixel art.** Every sprite is drawn with Canvas shapes, then alpha-thresholded and outlined. Cheap to iterate on, but getting a readable 3/4 view for buildings (roof plus lit facade, bottom-aligned collision footprints, depth-sorted by y) took a few passes.
 
 ## Rough AI cost
 
 - **Playing the game: $0 by default.** Bulletins come from the shipped bank, so no key or network is needed.
 - **Optional live-model path** (`claude-opus-5-5`, effort `medium`, at $4 in / $20 out per MTok): two real calls measured about 600–660 input and 1.17–1.22k output tokens (about 890 of those are adaptive thinking), with **12–14s latency**. That's roughly **$0.025 per bulletin, about $0.13 per 5-wave run**. Those two calls (about $0.05) are the only real API spend in this build. The automated "with key" test uses a local mock of the Messages API and costs nothing.
-- **Building it (this Claude Code session):** it ran on a Max-plan subscription, so there's no marginal dollar cost. At API rates, one long Opus 5.5 session (about 340k context at the end, mostly cache reads across roughly 150 turns) plus a handful of advisor reviews comes to an **estimated $20–40 API-equivalent**. This is an estimate, not a metered number.
+- **Building it:** the game was built in one long Claude Code session (Opus 5.5, with a stronger model reviewing plans and done gates). At API list prices that is an estimated $20–40; this is an estimate, not a metered number.
 
 ## Measured
 
@@ -44,16 +44,16 @@ A second pass played the game with a deliberately naive bot, read the code for e
 - **No heal source in wave 1 (feel).** A non-dodging player bled from 34 HP to 0 over 24 s with a few riflemen around, and nothing at tier 1 dropped hearts. Level-ups now heal 15% and crushed cars drop a heart 4% of the time. The same non-dodging bot now clears wave 1 and dies 96 s in, during wave 2. A second look after a real first play: a hatchling that simply *stood still* at the spawn died in about 8 s, which reads like the game resetting itself. Wave 1 now opens with an 8-second grace period before the first squad, spawns fewer riflemen, and tier-1 rifles do 2 damage on a slower cadence; standing still now lasts about 38 s.
 - **Enemies walked through buildings.** Infantry and tanks now collide with buildings and sidestep along the perpendicular that leans toward you; spawn points are snapped to road centrelines so nothing spawns inside a wall. The mech ignores buildings and flattens houses as it walks (collateral, not credited to you).
 - **Quality of life.** P/Esc pauses, M mutes (remembered), the title shows your best run, a white flash marks each growth spurt, projectiles scale up when the camera zooms out, towers and warehouses keep burning after they fall (one shared emitter, capped at 12 fires).
-- **Music.** A minimal procedural loop: a bass pulse and soft hat whose tempo rises with your tier, a low drone, a key change for the boss, ducked under menus. It is quiet by design and **has not been auditioned by a human ear**; if it grates, press M and tell me.
+- **Music.** A minimal procedural loop: a bass pulse and soft hat whose tempo rises with your tier, a low drone, a key change for the boss, ducked under menus. It is quiet by design; M mutes it.
 - **Narration never touches the network without a key.** The run checks `/api/health` once; unless the server reports a key, no bulletin request is made (the tests now assert zero requests without a key and at least one with).
 - **Perf was fine and stayed fine:** 144 FPS at 400 buildings destroyed with a 60–80 MB heap. The rubble-as-tilemap refactor that was on the table was not needed.
 
 **Normal-speed pacing after pass 2** (same opt-in spec, seed 2024, dodging bot, wall-clock seconds): wave 2 at 169 s, tier 2 at 259 s, wave 3 at 445 s, tier 3 at 568 s, wave 4 at 835 s; the bot was alive at level 19 with 998 buildings flattened when the spec's 15-minute limit ended the run, and its HP never dropped below 65%. Wall-clock is inflated here because headless Chromium ran at 10–20 FPS during this run (the simulation caps each step at 50 ms, so slow frames slow the game rather than skipping); the spec now also logs simulated game seconds. A separate boss-only run (`START_WAVE=5`) destroyed the mech after 170 simulated seconds with the bot never below 68% HP, so the final wave is still beatable with leading shells and building collisions. The fast-mode regression run's minimum HP rose from about 40% to 92%, because level-up heals arrive 2.5× faster there; it remains a regression test, not balance evidence.
 
-## Decisions made during the build (relayed via a peer session, to confirm)
+## Decisions made during the build
 
-- Narration model switched from BRIEF.md's Haiku default to `claude-opus-5-5` at medium effort, configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.
-- Then: no API key. The shipped bank is the default and the "without a key" case. The live path stays as an optional extra and is off without a key.
+- The optional live narration model is `claude-opus-5-5` at medium effort (BRIEF.md started from a smaller model), configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.
+- The shipped bank is the default narration, so the game needs no key and no server; the live-model path is an optional extra that stays off without a key. This is also what lets the game run as a static site.
 - Phaser pinned to 3.90 (npm `latest` is 4.x; the brief says Phaser 3).
 - Rendering: 2D top-down pixel art in Phaser. It's the fastest way to "chunky destruction" juice (camera shake, hit-stop, particles, tweens) with zero art pipeline, and camera zoom-out per tier is trivial.
 
