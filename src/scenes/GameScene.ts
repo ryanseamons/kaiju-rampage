@@ -69,6 +69,8 @@ export class GameScene extends Phaser.Scene {
   offer: UpgradeDef[] = [];
   pendingLevelUps = 0;
   levelUpsShown = 0;
+  /** Real damage taken this run (after armor); a test guard that enemies still have teeth. */
+  damageTaken = 0;
   private pickups: Pickup[] = [];
   private keys!: Keys;
   private rand = mulberry32(SEED ^ 0x9e3779b9);
@@ -107,6 +109,7 @@ export class GameScene extends Phaser.Scene {
     this.maxTierReached = 1;
     this.bulletinsShown = 0;
     this.levelUpsShown = 0;
+    this.damageTaken = 0;
     this.lastBulletin = null;
 
     this.physics.world.setBounds(0, 0, WORLD_W, LAND_H - 6);
@@ -423,6 +426,7 @@ export class GameScene extends Phaser.Scene {
     if (p.invuln > 0 || this.phase !== 'playing') return;
     const real = dmg * (1 - p.mods.armor);
     p.hp -= real;
+    this.damageTaken += real;
     p.invuln = 0.06;
     p.setTintFill(0xff5566);
     this.time.delayedCall(70, () => p.clearTint());
@@ -720,6 +724,7 @@ export class GameScene extends Phaser.Scene {
       bulletinsShown: this.bulletinsShown,
       lastBulletin: this.lastBulletin,
       narrationMode: this.news.mode,
+      damageTaken: Math.round(this.damageTaken),
       fps: Math.round(this.game.loop.actualFps),
       stats: this.lastStats,
       destroyed: this.stats.buildings,

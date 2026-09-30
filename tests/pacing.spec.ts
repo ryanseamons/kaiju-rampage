@@ -7,7 +7,8 @@ import { Bot } from './bot';
 test('normal-speed pacing log', async ({ page }) => {
   test.skip(!process.env.PACING, 'set PACING=1');
   test.setTimeout(16 * 60_000);
-  await page.goto('/?seed=2024&mute=1');
+  const startWave = process.env.START_WAVE ? `&startWave=${process.env.START_WAVE}` : '';
+  await page.goto(`/?seed=2024&mute=1${startWave}`);
   const bot = new Bot(page);
   const t0 = Date.now();
   const events: Record<string, number> = {};
@@ -35,5 +36,5 @@ test('normal-speed pacing log', async ({ page }) => {
   );
   const out = { events, gameTime, level: last?.level, destroyed: last?.destroyed, minHpPct: Math.round(bot.minHpPct), wallClockNote: 'events = wall-clock seconds incl. pauses and headless slowdown; gameTime = simulated seconds' };
   console.log('PACING', JSON.stringify(out));
-  fs.writeFileSync('screenshots/pacing-normal.json', JSON.stringify(out, null, 2));
+  fs.writeFileSync(process.env.START_WAVE ? `screenshots/pacing-wave${process.env.START_WAVE}.json` : 'screenshots/pacing-normal.json', JSON.stringify(out, null, 2));
 });

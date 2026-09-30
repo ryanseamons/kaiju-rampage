@@ -63,7 +63,7 @@ test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)'
     wave: last.wave, tier: last.tier, maxTierReached: last.maxTierReached, level: last.level, hp: Math.round(last.hp),
     minHpPct: Math.round(bot.minHpPct), destroyed: last.destroyed, bulletinsShown: last.bulletinsShown,
     levelUpsShown: last.levelUpsShown, enemyTypesSpawned: last.enemyTypesSpawned, upgradePoolSize: last.upgradePoolSize,
-    headlessAvgFps: fps, shots: [...shots], bulletinSource: bulletin?.source,
+    damageTaken: last.damageTaken, headlessAvgFps: fps, shots: [...shots], bulletinSource: bulletin?.source,
   };
   console.log('PLAYTHROUGH', JSON.stringify(summary));
   fs.writeFileSync('screenshots/playthrough-summary.json', JSON.stringify(summary, null, 2));
@@ -78,6 +78,9 @@ test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)'
   expect(last.enemyRoster).toEqual(expect.arrayContaining(['soldier', 'tank', 'mech']));
   expect(last.enemyTypesSpawned).toEqual(expect.arrayContaining(['soldier', 'tank']));
   expect(last.levelUpsShown).toBeGreaterThan(0);
+  // Fast mode (short waves, fast growth) plus a dodging bot takes very little damage; the real
+  // "enemies have teeth" guard is tests/teeth.spec.ts. Here only prove that damage exists at all.
+  expect(last.damageTaken).toBeGreaterThan(0);
   expect(bulletin).not.toBeNull();
   expect(bulletin!.source).toBe('bank');
   expect(bulletin!.ticker.length).toBeGreaterThan(0);

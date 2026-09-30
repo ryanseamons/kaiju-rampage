@@ -1,0 +1,20 @@
+{
+  "events": {
+    "wave1": 0,
+    "tier1": 0,
+    "wave5": 1,
+    "tier3": 1,
+    "victory": 223
+  },
+  "gameTime": {
+    "wave1": 0,
+    "tier1": 0,
+    "wave5": 0,
+    "tier3": 0,
+    "victory": 170
+  },
+  "level": 16,
+  "destroyed": 747,
+  "minHpPct": 68,
+  "wallClockNote": "events = wall-clock seconds incl. pauses and headless slowdown; gameTime = simulated seconds"
+}

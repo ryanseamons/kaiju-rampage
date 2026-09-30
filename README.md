@@ -88,6 +88,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `ai-bulletin.spec.ts` | The optional live path works end to end against the mock with a fake key. It checks model `claude-opus-5-5`, effort `medium`, that the key header reaches the upstream, and that the card renders the model's text (`bulletin-ai.png`). |
 | `bank.spec.ts` | The bank has ≥100 anchors and ≥100 tickers. Every template renders across 8 stat profiles with no unfilled slots, no "0 tanks" and no bad plurals; every template is reachable; a 5-wave run never repeats a line. |
 | `boss.spec.ts` | `?startWave=5` spawns the mech (`boss.png`). |
+| `teeth.spec.ts` | The military can hurt you: a kaiju that stands still in wave 2 at normal speed takes ≥40 damage within 35 s (it took 157 in the last run). |
 | `live-ai.spec.ts` | Skipped unless `LIVE_NARRATION_URL` points at a narration server with a real key. |
 | `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached. |
 

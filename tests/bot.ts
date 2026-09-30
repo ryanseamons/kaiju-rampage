@@ -22,6 +22,7 @@ export type KState = {
   pickups: { x: number; y: number; kind: string }[];
   shots: { x: number; y: number; vx: number; vy: number }[];
   narrationMode: 'unknown' | 'live' | 'bank';
+  damageTaken: number;
   targets: { x: number; y: number; w: number; h: number; kind: string; sizeClass: number }[];
   offer: { id: string; name: string }[];
   upgradePoolSize: number;
