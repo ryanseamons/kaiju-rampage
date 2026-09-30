@@ -4,6 +4,7 @@ import { evoDesc, evoGlyph, evoName, getLang, onLang, setLang, t, upDesc, upGlyp
 import { EVOLUTIONS, UPGRADES, type UpgradeDef } from '../upgrades';
 import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
 import { DAILY, todayKey } from '../config';
+import { DIFFICULTIES, cycleDifficulty, difficultyId, difficultyLocked, setDifficulty, type DifficultyId } from '../difficulty';
 import { music } from '../audio/music';
 import { isRunning, onAudioReady, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
 import { uiSound } from '../audio/ui-sounds';
@@ -197,7 +198,15 @@ class Overlay {
       }
       return;
     }
-    if (code === 'ArrowDown' || code === 'KeyS') {
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD') {
+      handled();
+      if (difficultyLocked()) return;
+      const back = code === 'ArrowLeft' || code === 'KeyA';
+      if (back) setDifficulty(DIFFICULTIES[(DIFFICULTIES.indexOf(difficultyId()) + DIFFICULTIES.length - 1) % DIFFICULTIES.length]);
+      else cycleDifficulty();
+      uiSound.hover(false);
+      this.render();
+    } else if (code === 'ArrowDown' || code === 'KeyS') {
       handled();
       this.sel = (this.sel + 1) % ITEMS.length;
       uiSound.hover(false);
@@ -245,6 +254,7 @@ class Overlay {
         <div class="pitch">${esc(t('pitch'))}</div>
         <div class="teaser">${esc(t('kaijuTeaser'))}</div>
         <nav class="menu">${menu}</nav>
+        ${this.difficultyHtml()}
         <div class="best">${bestLine}</div>
         <div class="controls">
           <div class="pill" role="group" aria-label="${esc(t('s_language'))}">
@@ -277,6 +287,12 @@ class Overlay {
         }
       }),
     );
+    this.root.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach((b) =>
+      b.addEventListener('click', () => {
+        setDifficulty(b.dataset.diff as DifficultyId);
+        this.render();
+      }),
+    );
     this.root.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang as 'en' | 'ja')));
     this.root.querySelectorAll<HTMLButtonElement>('[data-close]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -305,6 +321,18 @@ class Overlay {
     this.updatePlaque();
   }
 
+  private difficultyHtml() {
+    const cur = difficultyId(), locked = difficultyLocked();
+    const btns = DIFFICULTIES.map(
+      (d) => `<button data-diff="${d}" class="${d === cur ? 'on' : ''} ${d}" ${locked && d !== cur ? 'disabled' : ''}>${esc(t(`diff_${d}` as 'diff_easy'))}</button>`,
+    ).join('');
+    return `<div class="difficulty">
+      <div class="label">${esc(t('s_difficulty'))} <span class="arrows">◀ ▶</span></div>
+      <div class="pill" role="group" aria-label="${esc(t('s_difficulty'))}">${btns}</div>
+      <div class="desc">${esc(locked ? t('diffDaily') : t(`diffDesc_${cur}` as 'diffDesc_easy'))}</div>
+    </div>`;
+  }
+
   private panelHtml(p: Exclude<Panel, null>) {
     const head = (title: string) => `<header><h2>${esc(title)}</h2><button data-close>${esc(t('back'))}</button></header>`;
     if (p === 'how') {
@@ -317,6 +345,7 @@ class Overlay {
         ['CRATES', t('how_items')],
         ['SCORE', t('how_score')],
         ['WIN', t('how_win')],
+        ['← →', t('how_diff')],
         ['P · M · L', t('how_keys')],
       ];
       return `<section class="panel">${head(t('m_how'))}<div class="body">
@@ -345,10 +374,10 @@ class Overlay {
     if (p === 'scores') {
       const table = (list: ScoreEntry[]) =>
         list.length
-          ? `<table><tr><th>${esc(t('h_rank'))}</th><th>${esc(t('h_name'))}</th><th>${esc(t('h_score'))}</th><th>${esc(t('grade'))}</th><th>${esc(t('h_result'))}</th><th>${esc(t('h_date'))}</th></tr>${list
+          ? `<table><tr><th>${esc(t('h_rank'))}</th><th>${esc(t('h_name'))}</th><th>${esc(t('h_score'))}</th><th>${esc(t('h_diff'))}</th><th>${esc(t('grade'))}</th><th>${esc(t('h_result'))}</th><th>${esc(t('h_date'))}</th></tr>${list
               .map(
                 (e, i) =>
-                  `<tr><td>${i + 1}</td><td><b>${esc(e.name)}</b></td><td>${e.score.toLocaleString()}</td><td>${esc(e.grade)}</td><td>${esc(this.resultShort(e))}</td><td>${esc(e.date.slice(0, 10))}</td></tr>`,
+                  `<tr><td>${i + 1}</td><td><b>${esc(e.name)}</b></td><td>${e.score.toLocaleString()}</td><td>${esc(t(`diff_${e.difficulty ?? 'easy'}` as 'diff_easy'))}</td><td>${esc(e.grade)}</td><td>${esc(this.resultShort(e))}</td><td>${esc(e.date.slice(0, 10))}</td></tr>`,
               )
               .join('')}</table>`
           : `<p>${esc(t('noRuns'))}</p>`;

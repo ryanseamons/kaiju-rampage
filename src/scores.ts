@@ -12,6 +12,8 @@ export interface ScoreEntry {
   level: number;
   date: string; // ISO
   daily?: string;
+  /** Missing on runs from before difficulty existed: those were Easy. */
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 const ALL_KEY = 'kaiju.scores.v2';

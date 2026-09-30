@@ -18,7 +18,7 @@ test('wave-end bulletin comes from the model when a key is configured', async ({
     await route.fulfill({ response });
   });
 
-  await page.goto('/?fast=1&seed=99&mute=1');
+  await page.goto('/?fast=1&seed=99&mute=1&difficulty=easy');
   const bot = new Bot(page);
   let bulletin = null as KState['lastBulletin'];
   await bot.play(

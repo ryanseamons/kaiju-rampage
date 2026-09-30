@@ -7,6 +7,8 @@ export class Score {
   combo = 0;
   comboT = 0;
   bestCombo = 0;
+  /** Difficulty multiplier on every point. */
+  diffMult = 1;
 
   /** Adds `base` × the current multiplier; `chain` also extends the combo. */
   add(base: number, chain = true) {
@@ -15,12 +17,12 @@ export class Score {
       this.comboT = COMBO_WINDOW;
       if (this.combo > this.bestCombo) this.bestCombo = this.combo;
     }
-    this.score += Math.round(base * comboMult(this.combo));
+    this.score += Math.round(base * comboMult(this.combo) * this.diffMult);
   }
 
   /** Flat bonus (wave clears, crates): not multiplied, doesn't extend the chain. */
   bonus(n: number) {
-    this.score += Math.round(n);
+    this.score += Math.round(n * this.diffMult);
   }
 
   update(dt: number) {

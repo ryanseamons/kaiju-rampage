@@ -11,6 +11,7 @@ import { EVOLUTIONS, UPGRADES, readyEvolution, rollOffer, type UpgradeDef } from
 import { mulberry32 } from '../rng';
 import { sfx } from '../sfx';
 import { music } from '../audio/music';
+import { difficulty, type DifficultyDef, type DifficultyId } from '../difficulty';
 import { duckMusic } from '../audio/core';
 import { evoName, t, t as tr, tierName, upName } from '../i18n';
 import type { Bulletin, RunStats, Tier } from '../shared/narration';
@@ -40,6 +41,7 @@ export interface RunSummary {
   tier: number;
   evolutions: string[];
   daily: string | null;
+  difficulty: DifficultyId;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -54,6 +56,7 @@ export class GameScene extends Phaser.Scene {
   nav!: NavField;
   private navT = 0;
   score = new Score();
+  diff: DifficultyDef = difficulty();
   stats = new RunTracker();
   news = new NewsDesk();
   phase: Phase = 'title';
@@ -180,10 +183,13 @@ export class GameScene extends Phaser.Scene {
   // ── Run flow ───────────────────────────────────────────────────────────────
   startRun() {
     if (this.phase !== 'title') return;
+    this.diff = difficulty();
+    this.score.diffMult = this.diff.score;
     for (const f of this.titleFx) f.destroy();
     this.titleFx = [];
     sfx.unlock();
     this.waveIdx = START_WAVE - 1;
+    sfx.setTier(START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0);
     if (START_WAVE > 1) {
       const ti = START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0;
       this.player.mass = TIERS[ti].massToReach;
@@ -204,8 +210,8 @@ export class GameScene extends Phaser.Scene {
 
   private startWave() {
     const n = this.waveIdx + 1;
-    this.enemies.hpMult = waveHpMult(n);
-    this.enemies.dmgMult = waveDmgMult(n);
+    this.enemies.hpMult = waveHpMult(n) * this.diff.hp;
+    this.enemies.dmgMult = waveDmgMult(n) * this.diff.dmg;
     this.director.start(n);
     this.stats.startWave();
     const sub = n <= WAVES.length ? t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[n - 1]) : t('waveEndlessSub');
@@ -268,6 +274,7 @@ export class GameScene extends Phaser.Scene {
       outcome, endless: this.endless, score: this.score.score, grade: gradeFor(this.score.score, outcome === 'victory' || this.endless),
       rank: qualifies(this.score.score), wave: this.wave.wave, seconds: Math.round(this.stats.elapsed), buildings: this.stats.buildings, kills,
       bestCombo: this.score.bestCombo, level: this.player.level, tier: this.maxTierReached, evolutions: this.stats.evolutions, daily: DAILY,
+      difficulty: this.diff.id,
     };
     this.lastSummary = summary;
     this.ui.showResults(summary, (choice) => {
@@ -432,7 +439,7 @@ export class GameScene extends Phaser.Scene {
       this.stats.upgraded(u.name);
     }
     // Levelling up is the hatchling's only reliable heal, so it matters most in wave 1.
-    p.heal(p.maxHp * (u ? 0.15 : 0.25));
+    p.heal(p.maxHp * (u ? 0.15 : 0.25) * this.diff.heal);
     this.fx.word(p.x, p.y - 24 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.offer = [];
@@ -529,7 +536,8 @@ export class GameScene extends Phaser.Scene {
   hurtPlayer(dmg: number, _sx: number, _sy: number) {
     const p = this.player;
     if (p.invuln > 0 || this.phase !== 'playing') return;
-    const real = dmg * (1 - p.mods.armor);
+    // Tier 3 outgrows most of the army; harder settings keep what's left dangerous.
+    const real = dmg * (1 - p.mods.armor) * (this.tier === 3 ? this.diff.tier3Dmg : 1);
     p.hp -= real;
     this.damageTaken += real;
     p.invuln = 0.06;
@@ -568,7 +576,7 @@ export class GameScene extends Phaser.Scene {
       case 'rocket':
         this.stats.soldiers++;
         this.fx.squish(e.x, e.y);
-        if (crushed) sfx.crunch();
+        if (crushed) sfx.crunch('soldier');
         break;
       case 'tank':
       case 'cannon':
@@ -578,9 +586,9 @@ export class GameScene extends Phaser.Scene {
         this.fx.word(e.x, e.y - 10, t('w_kaboom'), '#ffb13b', big);
         this.shake(0.008, 160);
         this.hitStop(50);
-        sfx.collapse(false);
+        sfx.explode(false);
         this.add.image(e.x, e.y, 'rubble').setScale(0.7).setDepth(-60).setTint(0x3a3a2a);
-        if (Math.random() < 0.08) this.pickups.drop(e.x, e.y, 'heart');
+        if (Math.random() < 0.08 * this.diff.heal) this.pickups.drop(e.x, e.y, 'heart');
         this.maybeDropItem(e.x, e.y, 0.04);
         break;
       case 'heli':
@@ -590,7 +598,7 @@ export class GameScene extends Phaser.Scene {
         this.fx.word(e.x, e.y - 14, t('w_kaboom'), '#ffb13b', big);
         this.shake(0.01, 180);
         this.hitStop(60);
-        sfx.collapse(false);
+        sfx.explode(false);
         this.add.image(e.x + 10, e.y + 28, 'rubble').setScale(0.9).setDepth(-60).setTint(0x3a3a2a);
         this.maybeDropItem(e.x, e.y + 28, 0.1);
         break;
@@ -600,7 +608,7 @@ export class GameScene extends Phaser.Scene {
         this.fx.word(e.x, e.y - 110, t('w_mechDown'), '#ff5fd2', 3);
         this.shake(0.02, 400);
         this.hitStop(120);
-        sfx.collapse(true);
+        sfx.explode(true);
         this.pickups.drop(e.x, e.y, 'crate');
         break;
       case 'mech':
@@ -634,7 +642,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(i * 160, () => {
         this.fx.explode(e.x + Phaser.Math.Between(-60, 60), e.y - Phaser.Math.Between(0, 140), 90);
         this.shake(0.02, 200);
-        sfx.collapse(true);
+        sfx.explode(true);
       });
     }
     this.fx.word(e.x, e.y - 160, t('w_mechDown'), '#ff5fd2', 4);
@@ -714,11 +722,11 @@ export class GameScene extends Phaser.Scene {
     if (small) {
       this.fx.collapse(d.x, d.y, 'small');
       if (d.kind === 'car') this.fx.hit(d.x, d.y, 4);
-      sfx.crunch();
+      sfx.crunch(d.kind === 'tree' ? 'tree' : 'car');
       d.sprite.destroy();
       this.city.leaveRubble(d);
       if (crushed && this.tier === 1) this.shake(0.002, 60);
-      if (credit && d.kind === 'car' && Math.random() < 0.04) this.pickups.drop(d.x, d.y, 'heart');
+      if (credit && d.kind === 'car' && Math.random() < 0.04 * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
@@ -743,7 +751,7 @@ export class GameScene extends Phaser.Scene {
       if (tower || d.kind === 'warehouse') this.fx.addFire(d.x, d.y - d.h * 0.2);
       if (!credit) return;
       if (p.mods.rampageHeal) p.heal(p.mods.rampageHeal);
-      if (Math.random() < (tower ? 0.08 : 0.03)) this.pickups.drop(d.x, d.y, 'heart');
+      if (Math.random() < (tower ? 0.08 : 0.03) * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
       this.maybeDropItem(d.x, d.y, tower ? 0.03 : 0.004);
     }
     if (!credit) return;
@@ -754,6 +762,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onTierUp() {
+    sfx.setTier(this.player.tierIdx);
     const p = this.player;
     const td = p.tier;
     this.maxTierReached = Math.max(this.maxTierReached, td.tier);
@@ -813,6 +822,7 @@ export class GameScene extends Phaser.Scene {
       elapsed: this.stats.elapsed,
       waveDuration: this.wave.boss ? null : this.waveDuration,
       tier: this.tier,
+      difficulty: this.diff.id,
       maxTierReached: this.maxTierReached,
       level: p.level,
       hp: p.hp,

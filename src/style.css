@@ -399,3 +399,22 @@ html[lang='ja'] .panel header h2 { font-family: var(--gothic); font-weight: 800;
 @media (prefers-reduced-motion: reduce) {
   .poster, .logo span, .seal, .monster, .spine-glow, .menu button.primary.sel, .plaque .eq b, .panel, .scrim { animation: none !important; }
 }
+
+/* ── Difficulty, beside Start ───────────────────────────────────────────── */
+.difficulty {
+  position: absolute;
+  left: calc(var(--u) * 26);
+  top: calc(var(--u) * 28.6);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.3);
+}
+.difficulty .label { font-size: 0.68em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.difficulty .arrows { letter-spacing: 0; margin-left: 0.4em; opacity: 0.7; }
+.difficulty .pill button { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; }
+html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weight: 700; }
+#overlay .difficulty .pill button.on.easy { background: #7fd48a; color: var(--ink); }
+#overlay .difficulty .pill button.on.medium { background: #ffc94a; color: var(--ink); }
+#overlay .difficulty .pill button.on.hard { background: #ff4b5c; color: #fff; }
+#overlay .difficulty .pill button:disabled { opacity: 0.35; cursor: default; }
+.difficulty .desc { font-size: 0.7em; color: var(--muted); max-width: calc(var(--u) * 16); line-height: 1.35; }

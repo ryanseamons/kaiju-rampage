@@ -13,7 +13,7 @@ test('live Claude bulletin (real API key)', async ({ page }) => {
     const url = new URL(route.request().url());
     await route.fulfill({ response: await route.fetch({ url: `${LIVE}${url.pathname}${url.search}`, timeout: 30_000 }) });
   });
-  await page.goto('/?fast=1&seed=4242&mute=1');
+  await page.goto('/?fast=1&seed=4242&mute=1&difficulty=easy');
   const bot = new Bot(page);
   let bulletin = null as KState['lastBulletin'];
   await bot.play(

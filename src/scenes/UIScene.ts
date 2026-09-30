@@ -446,6 +446,8 @@ export class UIScene extends Phaser.Scene {
     const title = sm.outcome === 'victory' && !sm.endless ? t('resVictory') : sm.endless ? t('resEndless') : t('resDefeat');
     ch.push(this.add.text(VIEW_W / 2, 78, title, txt(48, sm.outcome === 'victory' ? '#ffe14a' : '#ff5577', { strokeThickness: 8 })).setOrigin(0.5));
     if (sm.daily) ch.push(this.add.text(VIEW_W / 2, 120, t('dailyBadge', { date: sm.daily }), txt(16, '#9ffcff')).setOrigin(0.5));
+    const diffCol = { easy: '#7fd48a', medium: '#ffc94a', hard: '#ff4b5c' }[sm.difficulty];
+    ch.push(this.add.text(VIEW_W / 2, sm.daily ? 142 : 120, `${t('s_difficulty')}: ${t(`diff_${sm.difficulty}` as 'diff_easy')}`.toUpperCase(), txt(15, diffCol)).setOrigin(0.5));
     ch.push(this.add.text(VIEW_W / 2 - 250, 170, t('finalScore'), txt(18, '#8f97b8')).setOrigin(0.5));
     ch.push(this.add.text(VIEW_W / 2 - 250, 222, sm.score.toLocaleString(), txt(56, '#ffffff', { strokeThickness: 6 })).setOrigin(0.5));
     ch.push(this.add.text(VIEW_W / 2 + 250, 170, t('grade'), txt(18, '#8f97b8')).setOrigin(0.5));
@@ -509,7 +511,7 @@ export class UIScene extends Phaser.Scene {
         r.cursor = Math.min(2, r.cursor + 1);
       } else if (code === 'Enter') {
         const sm = r.summary;
-        const res = submit({ name: r.name.join(''), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', endless: sm.endless, level: sm.level });
+        const res = submit({ name: r.name.join(''), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', endless: sm.endless, level: sm.level, difficulty: sm.difficulty });
         sm.rank = res.rank || res.dailyRank;
         r.entering = false;
         r.saved = true;

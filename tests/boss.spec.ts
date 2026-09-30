@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { Bot, getState } from './bot';
 
 test('final wave spawns the flagship mech', async ({ page }) => {
-  await page.goto('/?fast=1&seed=7&mute=1&startWave=5');
+  await page.goto('/?fast=1&seed=7&mute=1&startWave=5&difficulty=easy');
   const bot = new Bot(page);
   let seenAt = 0;
   const last = await bot.play(

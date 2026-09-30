@@ -16,7 +16,7 @@ export class Director {
   private heliAcc = 0;
   private cannonAcc = 0;
   private bossAt = -1;
-  private eliteAt = -1;
+  private elitesAt: number[] = [];
   private ringAt = -1;
   private walkerAt = -1;
   private nextJet = -1;
@@ -34,15 +34,19 @@ export class Director {
     this.soldierAcc = this.tankAcc = this.heliAcc = this.cannonAcc = 0;
     const d = this.duration;
     this.bossAt = w.boss ? 4 : -1;
-    this.eliteAt = n >= 2 ? d * 0.35 : -1;
+    // Easy: one elite at 35%. Medium and Hard spread more of them through the wave.
+    const k = this.s.diff.elites;
+    this.elitesAt = n >= 2 ? Array.from({ length: k }, (_, i) => d * (k === 1 ? 0.35 : 0.2 + (0.55 * i) / (k - 1))) : [];
     this.ringAt = w.ring ? d * 0.5 : -1;
     this.walkerAt = w.walker ? (w.endless ? d * 0.3 : d * 0.55) : -1;
-    this.nextJet = w.jets ? 12 * TIME_SCALE + 4 : -1;
+    // Harder settings bring the air force in a wave early (wave 3).
+    const jets = w.jets || (this.s.diff.jetGap < 1 && n >= 3);
+    this.nextJet = jets ? 12 * TIME_SCALE + 4 : -1;
     this.jetsAnnounced = false;
   }
 
   update(dt: number) {
-    const s = this.s, w = this.wave, e = s.enemies, tier = s.tier;
+    const s = this.s, w = this.wave, e = s.enemies, tier = s.tier, df = s.diff;
     this.time += dt;
     const progress = w.boss ? 0.6 : Phaser.Math.Clamp(this.time / this.duration, 0, 1);
     // Pressure climbs through the wave: 70% of the listed rate at the start, 130% at the end.
@@ -50,10 +54,10 @@ export class Director {
 
     // infantry: squads at higher tiers (none during the opening grace period of wave 1)
     const grace = w.wave === 1 && this.time < WAVE1_GRACE_S * TIME_SCALE;
-    if (!grace) this.soldierAcc += w.soldierRate * ramp * dt;
+    if (!grace) this.soldierAcc += w.soldierRate * df.spawn * ramp * dt;
     const squad = tier === 3 ? 4 : tier === 2 ? 2 : 1;
     const infantry = e.count('soldier') + e.count('rocket');
-    if (infantry < w.soldierMax) {
+    if (infantry < w.soldierMax * df.cap) {
       while (this.soldierAcc >= squad) {
         this.soldierAcc -= squad;
         const kind: EnemyType = Math.random() < w.rocketShare ? 'rocket' : 'soldier';
@@ -62,19 +66,23 @@ export class Director {
       }
     }
     this.soldierAcc = Math.min(this.soldierAcc, squad * 2);
-    this.tankAcc = this.spawnKind('tank', w.tankRate * (tier === 1 ? 0.6 : 1) * ramp, w.tankMax, this.tankAcc, dt);
-    this.heliAcc = this.spawnKind('heli', w.heliRate * ramp, w.heliMax, this.heliAcc, dt);
-    this.cannonAcc = this.spawnKind('cannon', tier >= 3 ? w.cannonRate * ramp : 0, w.cannonMax, this.cannonAcc, dt);
+    this.tankAcc = this.spawnKind('tank', w.tankRate * (tier === 1 ? 0.6 : 1) * df.spawn * ramp, w.tankMax * df.cap, this.tankAcc, dt);
+    // Heavy weapons are the tier-3 threat: harder settings field them in greater numbers, from wave 3.
+    const heavy = tier >= 3 ? df.heavy : 1;
+    this.heliAcc = this.spawnKind('heli', w.heliRate * df.spawn * heavy * ramp, Math.round(w.heliMax * df.cap * Math.sqrt(heavy)), this.heliAcc, dt);
+    const cannonRate = w.cannonRate || (df.heavy > 1 && w.wave >= 3 ? 0.04 : 0);
+    const cannonMax = w.cannonMax || (df.heavy > 1 && w.wave >= 3 ? 2 : 0);
+    this.cannonAcc = this.spawnKind('cannon', tier >= 3 ? cannonRate * heavy * ramp : 0, Math.round(cannonMax * df.cap * Math.sqrt(heavy)), this.cannonAcc, dt);
 
     // set pieces
-    if (this.eliteAt >= 0 && this.time >= this.eliteAt) {
-      this.eliteAt = -1;
+    if (this.elitesAt.length && this.time >= this.elitesAt[0]) {
+      this.elitesAt.shift();
       const kind: EnemyType = tier >= 3 ? 'tank' : tier === 2 ? Phaser.Utils.Array.GetRandom(['rocket', 'tank']) : 'soldier';
       e.spawnOffscreen(kind, true);
     }
     if (this.ringAt >= 0 && this.time >= this.ringAt) {
       this.ringAt = -1;
-      e.encircle(12 + 4 * Math.min(w.wave, 8), w.rocketShare);
+      e.encircle(Math.round((12 + 4 * Math.min(w.wave, 8)) * df.ring), w.rocketShare);
       s.ui.banner(t('surrounded'), t('surroundedSub'), true);
       sfx.alarm();
     }
@@ -85,7 +93,7 @@ export class Director {
       sfx.alarm();
     }
     if (this.nextJet >= 0 && this.time >= this.nextJet && tier >= 2) {
-      this.nextJet = this.time + Phaser.Math.FloatBetween(16, 24) * (w.endless ? 0.7 : 1);
+      this.nextJet = this.time + Phaser.Math.FloatBetween(16, 24) * (w.endless ? 0.7 : 1) * df.jetGap;
       if (!this.jetsAnnounced) {
         this.jetsAnnounced = true;
         s.ui.banner(t('airStrike'), t('airStrikeSub'), true);

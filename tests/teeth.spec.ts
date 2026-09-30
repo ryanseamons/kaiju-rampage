@@ -5,13 +5,15 @@ import { test, expect } from '@playwright/test';
 import { getState } from './bot';
 
 test('a kaiju that stands still gets hurt', async ({ page }) => {
-  await page.goto('/?seed=5&mute=1&startWave=2');
+  await page.goto('/?seed=5&mute=1&startWave=2&difficulty=easy');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.phase === 'playing');
-  const end = Date.now() + 35_000;
+  // 35 game seconds (not wall-clock, so a slow frame rate doesn't make the army look harmless).
+  test.setTimeout(15 * 60_000);
   let s = await getState(page);
-  while (Date.now() < end) {
+  const t0 = s?.elapsed ?? 0;
+  while (s && s.elapsed - t0 < 35) {
     s = await getState(page);
     if (!s) break;
     if (s.modal === 'levelup') await page.keyboard.press('Digit1'); // claws kill walk-ins; keep the game running
