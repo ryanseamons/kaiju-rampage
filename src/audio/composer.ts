@@ -115,9 +115,12 @@ function makeTitle(r: Rng, style: Style) {
   const i = Math.floor(r() * style.titles.en.length);
   const ge = style.titles.en[i];
   const gj = style.titles.ja[i];
-  const en = r() < 0.5 ? `${ge} of the ${pe} ${ce}` : `${pe} ${ce} ${ge}`;
-  const ja = `${pj}の${cj}${gj}`;
-  return { en: en.replace('the Midnight', 'Midnight'), ja };
+  // One-word genres read as "March of the Harbor Beast"; phrases ("Skyline Collapse") as "Harbor: Skyline Collapse".
+  const single = !ge.includes(' ');
+  const where = pe === 'Midnight' ? 'Midnight' : `the ${pe}`;
+  const en = single ? (r() < 0.6 ? `${ge} of ${where} ${ce}` : `${pe} ${ce} ${ge}`) : `${pe}: ${ge}`;
+  const ja = gj.startsWith('の') ? `${pj}の${cj}${gj}` : single ? `${pj}の${cj}${gj}` : `${pj}・${gj}`;
+  return { en, ja };
 }
 
 // Drum patterns over 16 steps: T taiko, s shime, h hat, x taiko accent.

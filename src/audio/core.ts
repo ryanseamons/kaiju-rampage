@@ -167,3 +167,33 @@ export async function record(seconds: number): Promise<Blob | null> {
   rec.stop();
   return done;
 }
+
+// Test/dev surface: Playwright records the soundtrack through this (tests/music.spec.ts).
+(window as unknown as { __kaijuAudio: unknown }).__kaijuAudio = {
+  unlock: () => !!unlock(),
+  async record(seconds: number): Promise<string | null> {
+    const blob = await record(seconds);
+    if (!blob) return null;
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  },
+  /** Peak and RMS of a recorded clip, decoded in the page. */
+  async analyse(b64: string): Promise<{ peak: number; rms: number; seconds: number }> {
+    const g = audio()!;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const ab = await g.ctx.decodeAudioData(bytes.buffer.slice(0));
+    let peak = 0, sum = 0, n = 0;
+    for (let ch = 0; ch < ab.numberOfChannels; ch++) {
+      const d = ab.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) {
+        const v = Math.abs(d[i]);
+        if (v > peak) peak = v;
+        sum += v * v;
+        n++;
+      }
+    }
+    return { peak, rms: Math.sqrt(sum / Math.max(1, n)), seconds: ab.duration };
+  },
+};

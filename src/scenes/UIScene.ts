@@ -166,6 +166,7 @@ export class UIScene extends Phaser.Scene {
     const gs = this.gs;
     if (!gs?.player) return;
     this.hud.setVisible(gs.phase !== 'title');
+    this.mutedTag.setVisible(sfx.isMuted() && !overlay.isOpen());
     const p = gs.player;
     const hpF = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBar.width = 280 * hpF;

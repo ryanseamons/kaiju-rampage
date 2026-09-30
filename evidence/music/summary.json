@@ -1,0 +1,58 @@
+{
+  "title": {
+    "title": "Footsteps of the Neon Row Tidemaw / ネオン横丁のタイドモウの足音",
+    "scale": "E hirajoshi",
+    "bpm": 69,
+    "peak": 0.7088640332221985,
+    "rms": 0.13186020209889024,
+    "seconds": 16.02
+  },
+  "tier1": {
+    "title": "Shiokaze Bay Tidemaw Stomp / 潮風湾のタイドモウストンプ",
+    "scale": "D yo",
+    "bpm": 115,
+    "peak": 0.7634931206703186,
+    "rms": 0.15397156006556653,
+    "seconds": 16.02
+  },
+  "tier2": {
+    "title": "Parade of the Shiokaze Bay Titan / 潮風湾の巨神大行進",
+    "scale": "E aeolian",
+    "bpm": 129,
+    "peak": 0.7449814677238464,
+    "rms": 0.1321673412648038,
+    "seconds": 16.02
+  },
+  "tier3": {
+    "title": "Shiokaze Bay Beast Titanfall / 潮風湾の獣巨神降臨",
+    "scale": "D in (miyako-bushi)",
+    "bpm": 139,
+    "peak": 0.8093729019165039,
+    "rms": 0.16065838406569433,
+    "seconds": 16.02
+  },
+  "boss": {
+    "title": "Showdown of the Old Town Titan / 旧市街の巨神決戦",
+    "scale": "F# in (miyako-bushi)",
+    "bpm": 155,
+    "peak": 0.7885671257972717,
+    "rms": 0.16312272627042218,
+    "seconds": 15.96
+  },
+  "victory": {
+    "title": "Shiokaze Bay Leviathan New Ruler / 潮風湾の海獣新たな支配者",
+    "scale": "C yo",
+    "bpm": 102,
+    "peak": 0.7781126499176025,
+    "rms": 0.1576439781965307,
+    "seconds": 16.02
+  },
+  "defeat": {
+    "title": "Downtown Leviathan Elegy / 中心街の海獣哀歌",
+    "scale": "A hirajoshi",
+    "bpm": 66,
+    "peak": 0.44663456082344055,
+    "rms": 0.13921909770867125,
+    "seconds": 15.96
+  }
+}
