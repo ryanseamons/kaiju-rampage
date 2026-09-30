@@ -76,7 +76,7 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 | Param | Effect |
 |---|---|
 | `?seed=1234` | Fixed city layout and upgrade offers |
-| `?fast=1` | Test speed: waves are 40% as long, and growth and XP are scaled up to match. Rules are unchanged, but it plays easier than normal because enemy pressure per second is the same. |
+| `?fast=1` (or `?fast=2`) | Test speed: waves are 40% (or 25%) as long, and growth and XP are scaled up to match. Rules are unchanged, but it plays easier than normal because enemy pressure per second is the same. |
 | `?startWave=5` | Debug: start at a later wave with that wave's expected size (for example, to see the boss) |
 | `?mute=1` | No sound |
 | `?difficulty=easy` | Force a difficulty (`easy`, `medium`, `hard`) for this load; the tests pin `easy` |

@@ -1,8 +1,10 @@
 // Tuning knobs and URL params. Everything a designer would poke lives here.
 const params = new URLSearchParams(location.search);
 
-/** `?fast=1` compresses wave length and growth curves for automated tests. Gameplay rules are unchanged. */
-export const FAST = params.get('fast') === '1';
+/** `?fast=1` compresses wave length and growth curves for automated tests (`?fast=2` compresses harder, for the
+ * playthrough spec). Gameplay rules are unchanged. */
+const FAST_LEVEL = params.get('fast') === '2' ? 2 : params.get('fast') === '1' ? 1 : 0;
+export const FAST = FAST_LEVEL > 0;
 /** Local calendar date, YYYY-MM-DD: the key for the daily rampage. */
 export const todayKey = () => {
   const d = new Date();
@@ -33,7 +35,7 @@ export const WORLD_H = MAP_H * TILE;
 export const COAST_ROW = 92;
 export const LAND_H = COAST_ROW * TILE;
 
-export const TIME_SCALE = FAST ? 0.4 : 1;
+export const TIME_SCALE = FAST_LEVEL === 2 ? 0.25 : FAST_LEVEL === 1 ? 0.4 : 1;
 
 export interface TierDef {
   tier: 1 | 2 | 3;
@@ -53,8 +55,8 @@ export const TIERS: TierDef[] = [
 ];
 
 // Fast mode compresses time by TIME_SCALE, so growth/xp income is scaled by the inverse to keep wave-relative pacing.
-export const MASS_MULT = FAST ? 2.5 : 1;
-export const XP_MULT = FAST ? 2.5 : 1;
+export const MASS_MULT = 1 / TIME_SCALE;
+export const XP_MULT = 1 / TIME_SCALE;
 
 /** Size class of things in the city: crushed on contact if <= tier, damageable by attacks if <= tier + 1, otherwise solid. */
 export const SIZE = { car: 1, soldier: 1, house: 2, tank: 3, tower: 3, mech: 4 } as const;

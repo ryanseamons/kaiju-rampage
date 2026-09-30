@@ -10,7 +10,7 @@ test('scripted run reaches wave 3 and tier 3 (no API key → shipped news bank)'
 
   let bulletinRequests = 0;
   await page.route('**/api/bulletin', (route) => { bulletinRequests++; return route.continue(); });
-  await page.goto('/?fast=1&seed=1234&mute=1&difficulty=easy');
+  await page.goto('/?fast=2&seed=1234&mute=1&difficulty=easy');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await page.waitForTimeout(1200); // poster fade-in
   await page.screenshot({ path: 'screenshots/title.png' });

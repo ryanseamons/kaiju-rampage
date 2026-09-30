@@ -5,7 +5,9 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests',
   timeout: 10 * 60_000,
-  workers: 1,
+  // Specs are independent (own pages, own localStorage); two at once keeps the gate under the stop hook's 5 minutes.
+  workers: 2,
+  fullyParallel: true,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:5174',
