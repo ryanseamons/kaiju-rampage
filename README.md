@@ -49,6 +49,7 @@ npm run build
 | Space or Shift (gamepad: A) | **Stomp**: shockwave, 5s cooldown |
 | 1 / 2 / 3, or ←/→ then Enter, or click (gamepad: d-pad + A) | Pick an upgrade on level-up |
 | Enter (gamepad: A) | Start, dismiss the news card |
+| Results screen: Enter / Space, Esc or Q, E (or click) | **New run** straight away, **exit to the title**, or after a win **keep rampaging** (endless); ←/→ to choose |
 | P or Esc, or the pause button beside mute | Pause / resume. From the pause screen, Q (or the button) exits to the title after a confirm |
 | M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
 | Settings → Volume / Music / Effects sliders; on the pause screen, − / + (or the - and = keys) | Volume (remembered) |

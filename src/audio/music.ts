@@ -156,7 +156,8 @@ function streamedFor(g: Graph, ctx: MusicContext, track: TrackInfo): Streamed {
   const el = new Audio();
   el.crossOrigin = 'anonymous';
   el.preload = 'auto';
-  el.src = tracks.url(track);
+  // A media fragment skips a quiet intro (tracks.json `start`); the browser seeks before playing.
+  el.src = tracks.url(track) + (track.start ? `#t=${track.start}` : '');
   const node = g.ctx.createMediaElementSource(el);
   const bus = newBus(g, TRACK_LEVEL);
   node.connect(bus);

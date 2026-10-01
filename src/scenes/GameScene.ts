@@ -54,6 +54,9 @@ export interface RunSummary {
   stage: string;
 }
 
+/** Set by the results screen's "New run": the restarted scene skips the title and starts a run. */
+let quickStart = false;
+
 export class GameScene extends Phaser.Scene {
   city!: City;
   player!: Kaiju;
@@ -214,6 +217,13 @@ export class GameScene extends Phaser.Scene {
     this.ui.onGameReady(this);
   }
 
+  /** True once, on the scene restart after the results screen's "New run". */
+  takeQuickStart() {
+    const q = quickStart;
+    quickStart = false;
+    return q;
+  }
+
   // ── Run flow ───────────────────────────────────────────────────────────────
   startRun() {
     if (this.phase !== 'title') return;
@@ -343,11 +353,11 @@ export class GameScene extends Phaser.Scene {
     };
     this.lastSummary = summary;
     this.ui.showResults(summary, (choice) => {
-      if (choice === 'endless') this.continueEndless();
-      else {
-        this.scene.restart();
-        this.ui.reset();
-      }
+      if (choice === 'endless') return this.continueEndless();
+      // A new run rebuilds the scene and starts straight away; 'title' stops at the front page.
+      quickStart = choice === 'new';
+      this.scene.restart();
+      this.ui.reset();
     });
   }
 

@@ -49,9 +49,10 @@ export interface Graph {
 let graph: Graph | null = null;
 const readyListeners = new Set<(g: Graph) => void>();
 
-// Music sits well under the effects (Voyage's rule of thumb: voice first, music second, UI distant third).
+// Music sits under the effects (Voyage's rule of thumb: voice first, music second, UI distant third),
+// but not far under: measured over a run's opening, effects at 0.9 ran 4-6x the music's level.
 const MUSIC_LEVEL = 0.3;
-const SFX_LEVEL = 0.9;
+const SFX_LEVEL = 0.62;
 
 function impulse(ctx: BaseAudioContext, seconds: number, decay: number) {
   const len = Math.floor(ctx.sampleRate * seconds);

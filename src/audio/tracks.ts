@@ -14,6 +14,8 @@ export interface TrackInfo {
   new?: boolean;
   /** Epidemic's genre and mood tags, for the Sound Test. */
   tags?: string[];
+  /** Seconds to skip at the start: a quiet intro that would sit far under the effects. */
+  start?: number;
 }
 
 let list: TrackInfo[] | null = null;

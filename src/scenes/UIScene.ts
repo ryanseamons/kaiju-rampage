@@ -28,6 +28,8 @@ const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Te
 };
 
 type Modal = null | 'title' | 'levelup' | 'loading' | 'bulletin' | 'paused' | 'exitConfirm' | 'results';
+/** What the results screen leads to. */
+export type ResultChoice = 'new' | 'title' | 'endless';
 
 export interface LevelUpOpts {
   rerolls: number;
@@ -48,7 +50,8 @@ export class UIScene extends Phaser.Scene {
   private onPick?: (i: number) => void;
   private onContinue?: () => void;
   private levelOpts?: LevelUpOpts;
-  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string };
+  private pauseBtn: HTMLElement | null = null;
+  private results?: { summary: RunSummary; onDone: (c: ResultChoice) => void; name: string[]; cursor: number; sel: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string; buttons?: [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text, number][] };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
   private pad = { left: false, right: false, up: false, down: false, a: false };
@@ -109,7 +112,8 @@ export class UIScene extends Phaser.Scene {
     this.chipSig = '';
     const src = gs.textures.get('kaiju0').getSourceImage() as HTMLCanvasElement;
     overlay.setMonster(src);
-    overlay.show();
+    if (gs.takeQuickStart()) gs.startRun();
+    else overlay.show();
   }
 
   reset() {
@@ -190,6 +194,10 @@ export class UIScene extends Phaser.Scene {
     const gs = this.gs;
     if (!gs?.player) return;
     this.hud.setVisible(gs.phase !== 'title');
+    // The on-screen pause button only while it does something: in play, and on the pause screen.
+    const pauseBtn = this.pauseBtn ??= document.getElementById('pause');
+    const pausable = !overlay.isOpen() && (gs.phase === 'playing' || gs.phase === 'paused');
+    if (pauseBtn && pauseBtn.hidden === pausable) pauseBtn.hidden = !pausable;
     const p = gs.player;
     const hpF = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBar.width = 280 * hpF;
@@ -503,11 +511,11 @@ export class UIScene extends Phaser.Scene {
     this.gs.exitToTitle();
   }
 
-  showResults(summary: RunSummary, onDone: (c: 'new' | 'endless') => void) {
+  showResults(summary: RunSummary, onDone: (c: ResultChoice) => void) {
     const name = (lastName() + 'AAA').slice(0, 3).split('');
     // A ranked daily run always goes on the global board, so it always asks for initials.
     const global = !!summary.daily && summary.ranked;
-    this.results = { summary, onDone, name, cursor: 0, entering: summary.rank > 0 || global, saved: false };
+    this.results = { summary, onDone, name, cursor: 0, sel: 0, entering: summary.rank > 0 || global, saved: false };
     this.renderResults();
   }
 
@@ -551,14 +559,23 @@ export class UIScene extends Phaser.Scene {
     } else {
       if (r.global) ch.push(this.add.text(VIEW_W / 2, 540, r.global, txt(22, '#ffe14a')).setOrigin(0.5));
       else if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
-      const opts = [t('resNew'), ...(sm.outcome === 'victory' && !sm.endless ? [t('resEndlessGo')] : [])];
-      const foot = this.add.text(VIEW_W / 2, 600, opts.join('      '), txt(22, '#ffffff')).setOrigin(0.5);
+      // Buttons: a new run straight away, back to the title, or (after a win) keep going.
+      const opts = this.resultOptions();
+      r.sel = Math.min(r.sel, opts.length - 1);
+      const w = opts.length === 3 ? 330 : 360;
+      r.buttons = opts.map((o, i) => {
+        const label = t(o === 'new' ? 'resNew' : o === 'title' ? 'resTitle' : 'resEndlessGo');
+        const col = o === 'new' ? 0x4dffb0 : o === 'title' ? 0x9ffcff : 0xffe14a;
+        const [bg, tx] = this.pauseButton(VIEW_W / 2 + (i - (opts.length - 1) / 2) * (w + 24), 596, w, label, col, i === r.sel, () => this.finishResults(o)) as [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text];
+        bg.on('pointerover', () => this.selectResult(i));
+        ch.push(bg, tx);
+        return [bg, tx, col];
+      });
+      ch.push(this.add.text(VIEW_W / 2, 640, t('resHint'), txt(13, '#8f97b8')).setOrigin(0.5));
       if (sm.daily) {
-        r.copyText = this.add.text(VIEW_W / 2, 642, r.copied ? t('dailyCopied') : t('dailyCopy'), txt(16, '#9ffcff')).setOrigin(0.5);
+        r.copyText = this.add.text(VIEW_W / 2, 664, r.copied ? t('dailyCopied') : t('dailyCopy'), txt(16, '#9ffcff')).setOrigin(0.5);
         ch.push(r.copyText);
       }
-      this.tweens.add({ targets: foot, alpha: 0.4, yoyo: true, repeat: -1, duration: 550 });
-      ch.push(foot);
     }
     this.openModal('results', ch);
   }
@@ -624,18 +641,45 @@ export class UIScene extends Phaser.Scene {
       (window as unknown as { __kaijuShare?: string }).__kaijuShare = text; // for tests
       return;
     }
-    if (code === 'Enter' || code === 'Space') {
+    const opts = this.resultOptions();
+    if (code === 'ArrowLeft' || code === 'KeyA' || code === 'ArrowRight' || code === 'KeyD') {
+      uiSound.hover(false);
+      this.selectResult((r.sel + (code === 'ArrowLeft' || code === 'KeyA' ? opts.length - 1 : 1)) % opts.length);
+    } else if (code === 'Enter' || code === 'Space') {
       uiSound.press();
-      const cb = r.onDone;
-      this.results = undefined;
-      this.closeModal();
-      cb('new');
-    } else if (code === 'KeyE' && r.summary.outcome === 'victory' && !r.summary.endless) {
-      const cb = r.onDone;
-      this.results = undefined;
-      this.closeModal();
-      cb('endless');
+      this.finishResults(opts[r.sel]);
+    } else if (code === 'Escape' || code === 'KeyQ') {
+      uiSound.press();
+      this.finishResults('title');
+    } else if (code === 'KeyE' && opts.includes('endless')) {
+      uiSound.press();
+      this.finishResults('endless');
     }
+  }
+
+  private resultOptions(): ResultChoice[] {
+    const sm = this.results!.summary;
+    return ['new', 'title', ...(sm.outcome === 'victory' && !sm.endless ? (['endless'] as const) : [])];
+  }
+
+  /** Highlight one results button (restyled in place, so the screen's animations don't replay). */
+  private selectResult(i: number) {
+    const r = this.results;
+    if (!r?.buttons) return;
+    r.sel = i;
+    r.buttons.forEach(([bg, tx, col], j) => {
+      const on = j === i;
+      bg.setFillStyle(on ? col : 0x10121e, on ? 1 : 0.92);
+      tx.setColor(on ? '#05060d' : '#ffffff').setStroke('#05060d', on ? 0 : 3);
+    });
+  }
+
+  private finishResults(choice: ResultChoice) {
+    const r = this.results;
+    if (!r || r.entering) return;
+    this.results = undefined;
+    this.closeModal();
+    r.onDone(choice);
   }
 
   private continueFromBulletin() {
@@ -666,7 +710,7 @@ export class UIScene extends Phaser.Scene {
       }
       return;
     }
-    if (code === 'KeyP' || code === 'Escape') {
+    if ((code === 'KeyP' || code === 'Escape') && this.modal !== 'results') {
       if (this.modal === null && this.gs.phase === 'playing') {
         uiSound.press();
         this.gs.pauseGame();
