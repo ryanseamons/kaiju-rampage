@@ -23,26 +23,32 @@ const game = new Phaser.Game({
 
 // High-refresh displays (120 Hz ProMotion, 144 Hz monitors) would have Phaser update and draw at the
 // display's rate: double the work for no gameplay benefit, and stutter on a busy machine. Measure the
-// refresh rate once and, only above ~75 Hz, step the game at ~60 fps. (A plain 60 fps limit misfires
-// on 60 Hz screens: a frame arriving a hair early gets skipped, giving 33 ms hitches.)
+// refresh rate and, only above ~75 Hz, step the game every Nth display frame (120 Hz → 60 fps,
+// 144 Hz → 72, 240 Hz → 60). Whole frames only: a plain 60 fps limit skips a step every so often
+// (144 Hz gave 48 fps, 60 Hz gave 33 ms hitches). The first frames are slow while the textures are
+// built, so the probe keeps measuring in short windows until it sees the display's real rate.
 {
   const gaps: number[] = [];
   let last = 0;
+  let windows = 0;
   const probe = (t: number) => {
     if (last) gaps.push(t - last);
     last = t;
-    if (gaps.length < 40) return void requestAnimationFrame(probe);
+    if (gaps.length < 30) return void requestAnimationFrame(probe);
     gaps.sort((a, b) => a - b);
-    const median = gaps[gaps.length >> 1];
-    if (median < 13) {
+    const frame = gaps[gaps.length >> 1];
+    gaps.length = 0;
+    last = 0;
+    const every = Math.floor(1000 / frame / 60 + 0.1);
+    if (every >= 2) {
       const loop = game.loop as unknown as { fpsLimit: number; hasFpsLimit: boolean; _limitRate: number; sleep(): void; wake(): void };
-      loop.fpsLimit = 60;
+      loop.fpsLimit = Math.round(1000 / frame / every);
       loop.hasFpsLimit = true;
-      loop._limitRate = 15; // a step every other 120 Hz frame (16.7 ms); tolerant of jitter
+      loop._limitRate = frame * (every - 0.5); // tolerant of half a frame of jitter either way
       loop.sleep();
       loop.wake();
-      console.info(`[perf] ${Math.round(1000 / median)} Hz display: game stepped at ~60 fps`);
-    }
+      console.info(`[perf] ${Math.round(1000 / frame)} Hz display: game stepped every ${every} frames (~${loop.fpsLimit} fps)`);
+    } else if (++windows < 12) setTimeout(() => requestAnimationFrame(probe), 400);
   };
   requestAnimationFrame(probe);
 }
