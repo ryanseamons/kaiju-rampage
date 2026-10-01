@@ -514,7 +514,8 @@ class Overlay {
       const votes = loadVotes();
       const playing = music.currentTrackId();
       const groups = STAGES.map((st) => {
-        const rows = all.filter((x) => x.contexts[0] === st).map((x) => {
+        const order = (x: (typeof all)[number]) => STAGES.indexOf((x.suggest ?? 'title') as (typeof STAGES)[number]);
+        const rows = all.filter((x) => x.contexts[0] === st).sort((a, b) => order(a) - order(b)).map((x) => {
           const v = votes[x.id];
           const sug = x.suggest ? `<span class="tag sug">→ ${esc(t(`st_${x.suggest}` as 'st_title'))}</span>` : '';
           const tags = sug + (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');

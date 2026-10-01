@@ -36,8 +36,8 @@ test('recorded tracks rotate and sit level with the composer', async ({ page }) 
     out[c] = { title: r.info.en, artist: r.info.meta, rms: +r.rms.toFixed(3), peak: +r.peak.toFixed(3) };
     console.log('TRACK', c, JSON.stringify(out[c]));
   }
-  // rotation: skipping to the end of a tier-2 track rolls into a different tier-2 track
-  await page.evaluate(() => (window as any).__kaijuMusic.play('tier2'));
+  // rotation: skipping to the end of a tier-3 track rolls into the other tier-3 track
+  await page.evaluate(() => (window as any).__kaijuMusic.play('tier3'));
   await page.waitForTimeout(3000);
   const first = (await page.evaluate(() => (window as any).__kaijuMusic.now())).en;
   await page.evaluate(() => (window as any).__kaijuMusic.skipToEnd());

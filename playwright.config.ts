@@ -10,6 +10,8 @@ export default defineConfig({
   fullyParallel: true,
   reporter: [['list']],
   use: {
+    // A missing element should fail fast, not hang until the 10-minute test timeout.
+    actionTimeout: 60_000,
     baseURL: 'http://localhost:5174',
     viewport: { width: 1280, height: 720 },
     launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },

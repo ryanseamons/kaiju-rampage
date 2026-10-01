@@ -29,20 +29,24 @@ test('title buttons update in place', async ({ page }) => {
 
 test('sound test lists tracks, plays one, and remembers votes', async ({ page }) => {
   test.skip(!fs.existsSync('public/music/tracks.json'), 'no recorded tracks in this checkout');
-  const n = JSON.parse(fs.readFileSync('public/music/tracks.json', 'utf8')).tracks.length;
+  const list: { id: string; contexts: string[] }[] = JSON.parse(fs.readFileSync('public/music/tracks.json', 'utf8')).tracks;
+  const n = list.length;
+  // Whatever is in the list today: one track in rotation, one candidate (the line-up changes as tracks are voted on).
+  const a = list.find((x) => x.contexts[0] !== 'candidate')!.id;
+  const b = (list.find((x) => x.contexts[0] === 'candidate') ?? list[1]).id;
   await page.goto('/?seed=3&mute=1&lang=en');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await page.locator('.plaque').click();
   await expect(page.locator('.panel.sound .track')).toHaveCount(n);
-  await page.locator('[data-play="ninja-skills"]').click();
-  await expect(page.locator('.track.now [data-play="ninja-skills"]')).toBeVisible({ timeout: 10_000 });
-  await page.locator('[data-vote="ninja-skills:keep"]').click();
-  await page.locator('[data-vote="ikki-uchi:cut"]').click();
+  await page.locator(`[data-play="${a}"]`).click();
+  await expect(page.locator(`.track.now [data-play="${a}"]`)).toBeVisible({ timeout: 10_000 });
+  await page.locator(`[data-vote="${a}:keep"]`).click();
+  await page.locator(`[data-vote="${b}:cut"]`).click();
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'screenshots/sound-test.png' });
   await page.reload();
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await page.locator('.plaque').click();
-  await expect(page.locator('[data-vote="ninja-skills:keep"]')).toHaveClass(/on/);
-  await expect(page.locator('[data-vote="ikki-uchi:cut"]')).toHaveClass(/on/);
+  await expect(page.locator(`[data-vote="${a}:keep"]`)).toHaveClass(/on/);
+  await expect(page.locator(`[data-vote="${b}:cut"]`)).toHaveClass(/on/);
 });
