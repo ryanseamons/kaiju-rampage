@@ -8,3 +8,4 @@ test-results/
 playwright-report/
 public/music/
 public/sfx/es/
+.data/

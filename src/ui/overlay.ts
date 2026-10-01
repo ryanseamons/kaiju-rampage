@@ -9,6 +9,7 @@ import { music } from '../audio/music';
 import { duckMusic, isRunning, onAudioReady, prefs, setMusicOn, setMusicVolume, setSfxVolume, setVolume, toggleMuted, unlock } from '../audio/core';
 import { tracks } from '../audio/tracks';
 import { dailyConfig, msToReset, rankedUsed } from '../daily';
+import { fetchBoard, type Board } from '../leaderboard';
 import { dailyDesc, dailyGlyph, dailyName } from '../i18n';
 import { uiSound } from '../audio/ui-sounds';
 
@@ -54,6 +55,8 @@ class Overlay {
   /** The panel currently in the DOM, so re-rendering it (a settings toggle) doesn't replay its pop-in. */
   private shownPanel: Panel = null;
   private briefedOnce = false;
+  /** Global daily board: undefined = not asked yet, null = loading or unreachable. */
+  private globalBoard: Board | null | undefined = undefined;
 
   init(onStart: () => void) {
     this.onStart = onStart;
@@ -157,6 +160,7 @@ class Overlay {
 
   show() {
     this.open = true;
+    this.globalBoard = undefined; // fetch fresh after every run
     this.panel = null;
     this.sel = 0;
     this.openedAt = performance.now();
@@ -430,6 +434,15 @@ class Overlay {
     );
     slot.querySelector<HTMLButtonElement>('[data-copy]')?.addEventListener('click', () => void this.copyPicks());
     slot.querySelector<HTMLButtonElement>('[data-dstart]')?.addEventListener('click', () => this.start());
+    if (this.panel === 'daily' && DAILY && this.globalBoard === undefined) {
+      const day = DAILY;
+      this.globalBoard = null;
+      void fetchBoard(day, 5).then((b) => {
+        this.globalBoard = b;
+        const wrap = this.root.querySelector('.dboard-wrap');
+        if (wrap) wrap.innerHTML = this.dailyBoardHtml(day);
+      });
+    }
     // Volume sliders apply live; a short tick on release lets you hear the new effects level.
     slot.querySelectorAll<HTMLInputElement>('[data-vol]').forEach((el) => {
       const out = el.parentElement?.querySelector('output');
@@ -493,6 +506,15 @@ class Overlay {
     }
   }
 
+  /** Today's top five: the global board when it answers, this device's otherwise. */
+  private dailyBoardHtml(day: string) {
+    const g = this.globalBoard;
+    const list = g ? g.scores.map((e) => ({ name: e.name, score: e.score, grade: e.grade })) : loadDaily(day).slice(0, 5);
+    const label = g ? `${t('dailyGlobal')} · ${g.total}` : t('dailyLocal');
+    if (!list.length) return `<p class="muted">${esc(t('dailyFirst'))}</p>`;
+    return `<small class="dlabel">${esc(label)}</small><ol class="dboard">${list.map((e) => `<li><b>${esc(e.name)}</b><span>${e.score.toLocaleString()}</span><em>${esc(e.grade)}</em></li>`).join('')}</ol>`;
+  }
+
   private difficultyHtml() {
     const cur = difficultyId(), locked = difficultyLocked();
     const btns = DIFFICULTIES.map(
@@ -552,10 +574,7 @@ class Overlay {
         `<div class="dcard ${kind}"><div class="glyph" lang="ja">${id ? dailyGlyph(kind, id) : '—'}</div><div><small>${esc(label)}</small><b>${esc(id ? dailyName(kind, id) : t('dailyNone'))}</b><p>${esc(id ? dailyDesc(kind, id) : t('dailyNoneDesc'))}</p></div></div>`;
       const twists = c.twists.length ? c.twists.map((tw) => card('twist', t('dailyTwist'), tw)).join('') : card('twist', t('dailyTwist'), null);
       const ranked = !rankedUsed(DAILY);
-      const board = loadDaily(DAILY).slice(0, 5);
-      const rows = board.length
-        ? `<ol class="dboard">${board.map((e) => `<li><b>${esc(e.name)}</b><span>${e.score.toLocaleString()}</span><em>${esc(e.grade)}</em></li>`).join('')}</ol>`
-        : `<p class="muted">${esc(t('dailyFirst'))}</p>`;
+      const rows = `<div class="dboard-wrap">${this.dailyBoardHtml(DAILY)}</div>`;
       return `<section class="panel daily">
         <header><h2>${esc(t('dailyTitle', { n: c.number }))}</h2><button data-close>${esc(t('back'))}</button></header>
         <div class="body">

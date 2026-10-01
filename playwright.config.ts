@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     { command: 'node tests/mock-anthropic.mjs', port: 8790, env: { MOCK_PORT: '8790' }, reuseExistingServer: false },
-    { command: 'npx tsx server/index.ts', port: 8791, env: { NARRATION_PORT: '8791', ANTHROPIC_API_KEY: '' }, reuseExistingServer: false },
+    { command: 'npx tsx server/index.ts', port: 8791, env: { NARRATION_PORT: '8791', ANTHROPIC_API_KEY: '', DAILY_DATA_DIR: 'test-results/daily-store' }, reuseExistingServer: false },
     {
       command: 'npx tsx server/index.ts',
       port: 8792,

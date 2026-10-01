@@ -13,6 +13,7 @@ import { dailyName, districtName, gameFont, getLang, JP_FONT, onLang, t, tierNam
 import { overlay } from '../ui/overlay';
 import { uiSound } from '../audio/ui-sounds';
 import { shareLine } from '../daily';
+import { submitScore } from '../leaderboard';
 import { prefs, setMuted, setVolume } from '../audio/core';
 
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
@@ -47,7 +48,7 @@ export class UIScene extends Phaser.Scene {
   private onPick?: (i: number) => void;
   private onContinue?: () => void;
   private levelOpts?: LevelUpOpts;
-  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean };
+  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
   private pad = { left: false, right: false, up: false, down: false, a: false };
@@ -501,7 +502,9 @@ export class UIScene extends Phaser.Scene {
 
   showResults(summary: RunSummary, onDone: (c: 'new' | 'endless') => void) {
     const name = (lastName() + 'AAA').slice(0, 3).split('');
-    this.results = { summary, onDone, name, cursor: 0, entering: summary.rank > 0, saved: false };
+    // A ranked daily run always goes on the global board, so it always asks for initials.
+    const global = !!summary.daily && summary.ranked;
+    this.results = { summary, onDone, name, cursor: 0, entering: summary.rank > 0 || global, saved: false };
     this.renderResults();
   }
 
@@ -543,7 +546,8 @@ export class UIScene extends Phaser.Scene {
       ch.push(nameText, this.add.text(VIEW_W / 2, 624, t('nameHint'), txt(14, '#8f97b8')).setOrigin(0.5));
       this.updateName();
     } else {
-      if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
+      if (r.global) ch.push(this.add.text(VIEW_W / 2, 540, r.global, txt(22, '#ffe14a')).setOrigin(0.5));
+      else if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
       const opts = [t('resNew'), ...(sm.outcome === 'victory' && !sm.endless ? [t('resEndlessGo')] : [])];
       const foot = this.add.text(VIEW_W / 2, 600, opts.join('      '), txt(22, '#ffffff')).setOrigin(0.5);
       if (sm.daily) {
@@ -586,6 +590,17 @@ export class UIScene extends Phaser.Scene {
         sm.rank = res.rank || res.dailyRank;
         r.entering = false;
         r.saved = true;
+        if (sm.daily && sm.ranked) {
+          r.global = t('globalSending');
+          void submitScore(sm.daily, {
+            name: r.name.join(''), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', level: sm.level,
+            buildings: sm.buildings, kills: sm.kills, seconds: sm.seconds, stage: sm.stage,
+          }).then((g) => {
+            if (this.results !== r) return;
+            r.global = g.ok ? t('globalRank', { n: g.rank, total: g.total }) : g.reason === 'already-submitted' ? t('globalAlready') : t('globalOffline');
+            this.renderResults();
+          });
+        }
         this.renderResults();
         return;
       }

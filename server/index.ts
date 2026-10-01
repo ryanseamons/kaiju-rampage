@@ -1,9 +1,15 @@
 // Tiny local narration server. The ONLY place ANTHROPIC_API_KEY is read.
 // POST /api/bulletin  { stats: RunStats }  → { ok: true, bulletin } | { ok: false, reason }
 // GET  /api/health                         → { ok: true, hasKey, model }
+// GET/POST /api/daily/:day/scores           → the daily leaderboard (src/shared/daily-api.ts), kept in a JSON
+//                                             file under DAILY_DATA_DIR (default .data/). Any self-hosted deploy
+//                                             can serve the board this way; the public site uses Cloudflare D1.
 import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
+import fs from 'node:fs';
+import path from 'node:path';
 import { DEFAULT_EFFORT, DEFAULT_MODEL, SYSTEM_PROMPT, buildUserPrompt, parseBulletin, type RunStats } from '../src/shared/narration.ts';
+import { MemoryStore, handleDaily, hashIp, type DailyEntry } from '../src/shared/daily-api.ts';
 
 // Optional gitignored .env next to package.json (ANTHROPIC_API_KEY=...). An explicitly set
 // environment variable (even an empty one) always wins, so tests can force the no-key path.
@@ -63,11 +69,42 @@ async function bulletin(stats: RunStats) {
   return { ok: true, bulletin: { ...parsed, source: 'ai' }, ms, usage: msg.usage };
 }
 
+/** The daily board in a JSON file: fine for a local or small self-hosted board. */
+class FileStore extends MemoryStore {
+  constructor(private file: string) {
+    super();
+    try {
+      this.rows = JSON.parse(fs.readFileSync(file, 'utf8')) as DailyEntry[];
+    } catch {
+      this.rows = [];
+    }
+  }
+  async insert(e: DailyEntry) {
+    const r = await super.insert(e);
+    if (r === 'ok') {
+      // keep 30 days
+      const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+      this.rows = this.rows.filter((x) => x.day >= cutoff);
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file, JSON.stringify(this.rows));
+    }
+    return r;
+  }
+}
+const dailyStore = new FileStore(path.join(process.env.DAILY_DATA_DIR || '.data', 'daily.json'));
+const DAILY_SALT = process.env.DAILY_SALT || 'kaiju-local';
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/api/health') {
       return send(res, 200, { ok: true, hasKey: !!client, model: MODEL, effort: EFFORT });
+    }
+    if (url.pathname.startsWith('/api/daily/')) {
+      const body = req.method === 'POST' ? await readJson(req) : null;
+      const ip = await hashIp(String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? 'local'), DAILY_SALT);
+      const r = await handleDaily({ method: req.method ?? 'GET', path: url.pathname, query: url.searchParams, body, ip, now: new Date() }, dailyStore);
+      return send(res, r.status, r.body);
     }
     if (req.method === 'POST' && url.pathname === '/api/bulletin') {
       const body = await readJson(req);
