@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COAST_ROW, MAP_H, MAP_W, SIZE, TILE } from './config';
 import { T } from './textures';
 import { mulberry32, rint, type Rng } from './rng';
+import { STAGE_DEF } from './stages';
 
 export type DestructibleKind = 'car' | 'tree' | 'house' | 'warehouse' | 'tower';
 /** Named landmarks: towers (and one house-sized gate) with their own art, HP and score. */
@@ -32,6 +33,8 @@ export interface Destructible {
   alive: boolean;
   lastHit: number;
   landmark?: LandmarkId;
+  /** Harbor fuel tank: explodes when destroyed, hurting enemies and setting off other tanks. */
+  fuel?: boolean;
 }
 
 export class Grid<T extends { x: number; y: number; alive: boolean }> {
@@ -153,11 +156,15 @@ export class City {
       'the Harbor': [['warehouse', 0.65], ['houses', 0.25], ['park', 0.1]],
     };
     let roll = r(), pattern = 'houses';
-    for (const [p, w] of weights[district]) {
+    for (const [p, w] of STAGE_DEF.blocks?.(district) ?? weights[district]) {
       if ((roll -= w) <= 0) { pattern = p; break; }
     }
-    const lm = this.special.get(`${bx},${by}`) ?? ((district === 'Old Town' || district === 'Hillside') && r() < 0.1 ? 'pagoda' : undefined);
+    // Landmarks: the castle and KBN-7 tower every stage; pagodas in the old quarters (and all over the night market).
+    const pagodaOdds = STAGE_DEF.id === 'market' ? 0.14 : STAGE_DEF.id === 'bay' || STAGE_DEF.id === 'typhoon' ? 0.1 : 0;
+    const lm = this.special.get(`${bx},${by}`) ?? ((district === 'Old Town' || district === 'Hillside' || STAGE_DEF.id === 'market') && r() < pagodaOdds ? 'pagoda' : undefined);
     if (lm) return this.landmarkBlock(tx0, ty0, lm, district);
+    if (pattern === 'stalls') return this.stallBlock(tx0, ty0, district);
+    if (pattern === 'tanks') return this.tankBlock(tx0, ty0, district);
     const used = new Set<string>();
     const big = (lx: number, ly: number, kind: 'tower' | 'warehouse') => {
       for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) used.add(`${lx + dx},${ly + dy}`);
@@ -194,6 +201,32 @@ export class City {
       }
   }
 
+  /** Night market: rows of food stalls on a paved plaza. */
+  private stallBlock(tx0: number, ty0: number, district: string) {
+    const r = this.r;
+    for (let ly = 0; ly < 5; ly++)
+      for (let lx = 0; lx < 5; lx++) {
+        this.map.putTileAt(T.sidewalk, tx0 + lx, ty0 + ly);
+        if (ly % 2 === 0 && r() < 0.85) this.addProp('car', (tx0 + lx) * TILE + 16, (ty0 + ly) * TILE + 18, district, 0, `stall${rint(r, 0, 3)}`);
+      }
+  }
+
+  /** Harbor tank farm: fuel tanks (they explode) and, sometimes, a container crane. */
+  private tankBlock(tx0: number, ty0: number, district: string) {
+    const r = this.r;
+    const crane = r() < 0.3;
+    if (crane) this.addBuilding('tower', (tx0 + 1) * TILE + 16, (ty0 + 1) * TILE, district, undefined, 'crane');
+    for (let ly = 0; ly < 5; ly += 2)
+      for (let lx = 0; lx < 5; lx += 2) {
+        if (crane && lx >= 1 && lx <= 3 && ly <= 2) continue;
+        if (r() < 0.85) {
+          const d = this.addBuilding('house', (tx0 + lx) * TILE, (ty0 + ly) * TILE, district, undefined, 'fueltank');
+          d.fuel = true;
+          d.hp = d.maxHp = 20;
+        }
+      }
+  }
+
   /** A landmark in the middle of the block, a torii in front, and a park around them. */
   private landmarkBlock(tx0: number, ty0: number, lm: LandmarkId, district: string) {
     const r = this.r;
@@ -211,7 +244,7 @@ export class City {
       }
   }
 
-  private addBuilding(kind: 'house' | 'warehouse' | 'tower', px: number, py: number, district: string, landmark?: LandmarkId): Destructible {
+  private addBuilding(kind: 'house' | 'warehouse' | 'tower', px: number, py: number, district: string, landmark?: LandmarkId, tex?: string): Destructible {
     const s = this.scene, r = this.r;
     const v = kind === 'warehouse' ? rint(r, 0, 2) : rint(r, 0, 5);
     // footprint (collision) rectangle, bottom-aligned with the sprite
@@ -219,7 +252,7 @@ export class City {
     const fh = kind === 'house' ? 26 : kind === 'warehouse' ? 44 : 58;
     const left = px + (kind === 'house' ? 2 : 2);
     const bottom = py + (kind === 'house' ? 30 : 62);
-    const sprite = s.add.image(left + fw / 2, bottom, landmark ?? `${kind}${v}`).setOrigin(0.5, 1).setDepth(bottom);
+    const sprite = s.add.image(left + fw / 2, bottom, tex ?? landmark ?? `${kind}${v}`).setOrigin(0.5, 1).setDepth(bottom);
     const d: Destructible = {
       kind,
       sizeClass: kind === 'tower' ? SIZE.tower : SIZE.house,
@@ -245,9 +278,9 @@ export class City {
     return d;
   }
 
-  private addProp(kind: 'car' | 'tree', x: number, y: number, district: string, rot = 0) {
+  private addProp(kind: 'car' | 'tree', x: number, y: number, district: string, rot = 0, tex?: string) {
     const v = kind === 'car' ? rint(this.r, 0, 5) : rint(this.r, 0, 2);
-    const sprite = this.scene.add.image(x, y, `${kind}${v}`).setRotation(rot).setDepth(y + (kind === 'tree' ? 6 : 0));
+    const sprite = this.scene.add.image(x, y, tex ?? `${kind}${v}`).setRotation(rot).setDepth(y + (kind === 'tree' ? 6 : 0));
     const d: Destructible = {
       kind, sizeClass: SIZE.car, hp: 1, maxHp: 1, x, y, w: kind === 'car' ? 12 : 12, h: kind === 'car' ? 8 : 12,
       sprite, district, alive: true, lastHit: 0,
@@ -265,6 +298,10 @@ export class City {
         if (r() > 0.16) continue;
         const x = tx * TILE + 16, y = ty * TILE + 16;
         const district = districtAt(x, y);
+        if (STAGE_DEF.extras === 'stalls' && r() < 0.45) {
+          this.addProp('car', x + rint(r, -6, 6), y + rint(r, -6, 6), district, 0, `stall${rint(r, 0, 3)}`);
+          continue;
+        }
         if (rc) this.addProp('car', x, y + rint(r, -8, 8), district, (tx % 9 === 0 ? 1 : -1) * Math.PI / 2);
         else this.addProp('car', x + rint(r, -8, 8), y, district, ty % 9 === 0 ? Math.PI : 0);
       }
@@ -281,6 +318,18 @@ export class City {
       }
     for (let tx = 2; tx < MAP_W; tx += 6)
       s.add.image(tx * TILE, 86 * TILE, 'glow').setTint(0xffe0a0).setAlpha(0.25).setScale(1.8).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
+    // Night market: strings of paper lanterns along the streets.
+    if (STAGE_DEF.weather === 'lanterns')
+      for (let ty = 0; ty < 83; ty += 9)
+        for (let tx = 0; tx < MAP_W; tx += 2) {
+          const l = s.add.image(tx * TILE + 16, ty * TILE + 4, 'lantern').setBlendMode(Phaser.BlendModes.ADD).setDepth(9000).setAlpha(0.85);
+          s.tweens.add({ targets: l, alpha: 0.55, yoyo: true, repeat: -1, duration: 700 + ((tx * 37 + ty) % 600) });
+        }
+    // Neon Megacity: a pink-and-cyan glow on every block corner.
+    if (STAGE_DEF.weather === 'neon')
+      for (let ty = 0; ty < 83; ty += 9)
+        for (let tx = 4; tx < MAP_W; tx += 9)
+          s.add.image(tx * TILE + 16, ty * TILE + 48, 'glow').setTint((tx + ty) % 2 ? 0xff3fa4 : 0x3ff0ff).setAlpha(0.4).setScale(3.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
   }
 
   /** Centre of the nearest road tile (searches outward over the tilemap, so any street layout works). */

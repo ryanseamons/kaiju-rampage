@@ -270,6 +270,12 @@ export const sfx = {
     noise(0.18, 700, 0.35, 1, 120);
     samples.play('punch', { rate: 0.55, gain: 0.35 });
   },
+  /** Typhoon lightning: a crack, then a long rumble. */
+  thunder: () => {
+    if (!samples.play('es.explosionBig', { rate: 0.55, gain: 0.7 })) noise(0.15, 6000, 0.6, 1, 2000);
+    noise(2.2, 400, 0.5, 0.8, 60);
+    tone('sine', 60, 28, 1.6, 0.3, 0.05);
+  },
   /** Mech and walker footfalls. */
   mechStep: (big: boolean) => {
     if (!throttle('mechStep', 250)) return;

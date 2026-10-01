@@ -24,6 +24,8 @@ import { gradeFor, qualifies } from '../scores';
 import { rng } from '../rand';
 import { dailyConfig, markRanked, rankedUsed, type DailyConfig } from '../daily';
 import { TWIST_PARAM, Twists } from '../twists';
+import { Weather } from '../weather';
+import { STAGE_DEF } from '../stages';
 import { dailyDesc, dailyName } from '../i18n';
 
 export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory' | 'results';
@@ -69,6 +71,7 @@ export class GameScene extends Phaser.Scene {
   ranked = true;
   /** Today's twists (or `?twist=` for testing). */
   twists: Twists = new Twists(this, []);
+  private weather?: Weather;
   /** Today's daily content, or null outside the daily. */
   readonly dailyCfg: DailyConfig | null = DAILY ? dailyConfig(DAILY) : null;
   private stepT = new WeakMap<Enemy, number>();
@@ -190,7 +193,7 @@ export class GameScene extends Phaser.Scene {
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(9600),
     );
-    cam.setBackgroundColor('#05060d');
+    cam.setBackgroundColor(STAGE_DEF.bg);
 
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT') as Keys;
     this.ui = this.scene.get('UI') as UIScene;
@@ -236,6 +239,7 @@ export class GameScene extends Phaser.Scene {
     music.play(`tier${this.tier}` as 'tier1');
     this.startWave();
     this.twists.start();
+    this.weather = new Weather(this);
     if (this.twists.has('giant')) this.pendingLevelUps += 3;
     // Announce the day's twists after the wave banner.
     [...this.twists.on].forEach((id, i) => this.time.delayedCall(2600 + i * 2400, () => this.ui.banner(`${t('dailyTwist').toUpperCase()}: ${dailyName('twist', id)}`, dailyDesc('twist', id), true)));
@@ -440,6 +444,7 @@ export class GameScene extends Phaser.Scene {
     this.weapons.update(dt);
     this.enemies.update(dt);
     this.twists.update(dt);
+    this.weather?.update(dt);
     this.ambientSounds(dt);
     this.pickups.update(dt);
     this.director.update(dt);
@@ -788,6 +793,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (credit) this.stats.destroyed(d.kind, d.district);
     this.twists.spread(d);
+    if (d.fuel) this.fuelBlast(d);
     if (credit) {
       const eat = this.twists.eatHeal(d.kind, this.player.tierIdx);
       if (eat) this.player.heal(eat);
@@ -873,6 +879,19 @@ export class GameScene extends Phaser.Scene {
       }
     }
     sfx.setRotor(rotor);
+  }
+
+  /** A fuel tank goes up: a big blast that hurts the army and sets off neighbouring tanks. */
+  private fuelBlast(d: Destructible) {
+    const R = 95;
+    this.fx.explode(d.x, d.y - 10, 70);
+    this.fx.addFire(d.x, d.y);
+    sfx.explode(true);
+    this.shake(0.016, 280);
+    for (const e of [...this.enemies.list]) if (!e.dead && Phaser.Math.Distance.Between(e.x, e.y, d.x, d.y) < R) this.damageEnemy(e, 90, (e.x - d.x) * 3, (e.y - d.y) * 3);
+    const near: Destructible[] = [];
+    this.city.grid.query(d.x, d.y, R + 30, near);
+    for (const n of near) if (n.alive && n !== d) this.time.delayedCall(n.fuel ? 220 : 120, () => this.damageDestructible(n, n.fuel ? 999 : 35, true));
   }
 
   private onTierUp() {
@@ -968,6 +987,8 @@ export class GameScene extends Phaser.Scene {
       spawnLog: this.enemies.spawnLog,
       daily: this.dailyCfg,
       twists: [...this.twists.on],
+      stage: STAGE_DEF.id,
+      cityExtras: { fuel: this.city.all.filter((d) => d.fuel).length, stalls: this.city.all.filter((d) => d.sprite.texture.key.startsWith('stall')).length, cranes: this.city.all.filter((d) => d.sprite.texture.key === 'crane').length },
       darkness: !!this.children.getByName('darkness'),
       ranked: this.ranked,
       enemyRoster: [...ENEMY_ROSTER],

@@ -2,25 +2,25 @@
   "wave": 3,
   "tier": 3,
   "maxTierReached": 3,
-  "level": 13,
+  "level": 12,
   "hp": 420,
-  "minHpPct": 93,
-  "destroyed": 98,
+  "minHpPct": 89,
+  "destroyed": 130,
   "bulletinsShown": 2,
-  "levelUpsShown": 12,
+  "levelUpsShown": 11,
   "enemyTypesSpawned": [
     "soldier",
     "rocket",
     "tank"
   ],
   "upgradePoolSize": 16,
-  "damageTaken": 36,
-  "headlessAvgFps": 59,
+  "damageTaken": 60,
+  "headlessAvgFps": 60,
   "shots": [
     "levelup",
     "tier1",
-    "tier2",
     "bulletin",
+    "tier2",
     "tier3"
   ],
   "bulletinSource": "bank"

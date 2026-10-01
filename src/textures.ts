@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import { TILE } from './config';
 import { mulberry32 } from './rng';
+import { STAGE_DEF as SD } from './stages';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -210,8 +211,9 @@ function drawMech(c: Ctx, frame: 0 | 1) {
 }
 
 // ── City ─────────────────────────────────────────────────────────────────────
-const ROOFS = ['#7a2f38', '#2f4f7a', '#6b4b2f', '#3f6b4b', '#5a3f6b', '#6b6b6b'];
-const WINDOW_LIT = ['#ffd66b', '#ffe9a8', '#7ef0ff', '#ff8adf'];
+// Palettes come from the stage (src/stages.ts); Shiokaze Bay is the original look.
+const ROOFS = SD.roofs;
+const WINDOW_LIT = SD.windowLit;
 
 function drawHouse(c: Ctx, v: number) {
   const r = mulberry32(v * 101 + 7);
@@ -227,12 +229,16 @@ function drawHouse(c: Ctx, v: number) {
   poly(c, [0, 20, 15, 2, 30, 20], roof);
   poly(c, [15, 2, 30, 20, 15, 20], shade(roof, -0.25));
   rect(c, 14, 2, 2, 18, shade(roof, 0.2));
+  if (SD.snow) {
+    poly(c, [3, 17, 15, 4, 27, 17, 22, 14, 15, 8, 8, 14], '#eef3fa');
+    rect(c, 2, 19, 26, 1, '#eef3fa');
+  }
 }
 
 function drawTower(c: Ctx, v: number) {
   const r = mulberry32(v * 977 + 3);
   const w = 60, roofH = 56, faceH = 30;
-  const body = ['#252a44', '#2d2440', '#1f3340', '#322a2a'][v % 4];
+  const body = SD.towerBodies[v % SD.towerBodies.length];
   // facade with window grid
   rect(c, 0, roofH - 4, w, faceH + 4, shade(body, -0.15));
   for (let y = roofH; y < roofH + faceH - 3; y += 6)
@@ -250,10 +256,11 @@ function drawTower(c: Ctx, v: number) {
   ell(c, 16, 40, 6, 6, '#3a3f55');
   rect(c, 44, 8, 2, 14, '#9aa0b8');
   rect(c, 44, 6, 2, 2, '#ff3355');
-  if (v % 3 === 0) {
+  if (SD.snow) rect(c, 3, 3, w - 6, 10, '#e6edf6');
+  if (mulberry32(v * 31 + 5)() < SD.neonSigns) {
     // neon sign on the facade
     rect(c, 10, roofH + 6, 40, 8, '#12060f');
-    rect(c, 12, roofH + 8, 36, 4, ['#ff3fa4', '#3ff0ff', '#ffe23f'][v % 3 === 0 ? (v >> 2) % 3 : 0]);
+    rect(c, 12, roofH + 8, 36, 4, ['#ff3fa4', '#3ff0ff', '#ffe23f', '#c08aff'][v % 4]);
   }
 }
 
@@ -351,8 +358,53 @@ function drawCar(c: Ctx, v: number) {
 
 function drawTree(c: Ctx, v: number) {
   rect(c, 6, 10, 3, 4, '#3a2a1c');
-  ell(c, 7.5, 7, 6.5, 6, ['#1f4a2e', '#24553a', '#2a4a24'][v % 3]);
-  ell(c, 6, 5, 3, 2.5, '#3a7a4a');
+  const leaf = SD.leaves[v % SD.leaves.length];
+  if (SD.snow) {
+    // a snowy pine
+    poly(c, [7.5, 0, 14, 11, 1, 11], leaf);
+    poly(c, [7.5, 0, 11, 6, 4, 6], '#eef3fa');
+    rect(c, 3, 9, 9, 1, '#eef3fa');
+    return;
+  }
+  ell(c, 7.5, 7, 6.5, 6, leaf);
+  ell(c, 6, 5, 3, 2.5, shade(leaf, 0.35));
+}
+
+/** Night-market food stall: a striped awning over a counter. 16 x 14 (car-sized, crushable). */
+function drawStall(c: Ctx, v: number) {
+  const stripe = ['#d23a2a', '#e0a02a', '#2a7ad2', '#2aa05a'][v % 4];
+  rect(c, 1, 7, 14, 6, '#5a3a2a');
+  rect(c, 2, 8, 12, 2, '#ffd38a');
+  for (let x = 0; x < 16; x += 4) rect(c, x, 2, 2, 5, stripe), rect(c, x + 2, 2, 2, 5, '#f2e6d0');
+  rect(c, 0, 1, 16, 1, shade(stripe, -0.3));
+  ell(c, 4, 11, 1.5, 1, '#ffb24a');
+}
+
+/** Fuel tank: a squat cylinder with hazard stripes. 30 x 32 (house-sized; explodes). */
+function drawFuelTank(c: Ctx) {
+  ell(c, 15, 26, 14, 5, '#3a3a36');
+  rect(c, 1, 9, 28, 17, '#c8c2b0');
+  rect(c, 1, 9, 6, 17, '#a8a290');
+  for (let x = 2; x < 28; x += 6) poly(c, [x, 20, x + 3, 20, x + 6, 24, x + 3, 24], '#d0a020');
+  ell(c, 15, 9, 14, 5, '#e2dccb');
+  ell(c, 15, 9, 6, 2, '#a8a290');
+  rect(c, 22, 4, 2, 6, '#7a7468');
+  rect(c, 19, 13, 8, 4, '#d23a2a');
+}
+
+/** Container crane: a tall red gantry. 60 x 140 (tower-sized). */
+function drawCrane(c: Ctx) {
+  const red = '#c23a2a';
+  rect(c, 6, 40, 4, 100, red);
+  rect(c, 50, 40, 4, 100, red);
+  for (let y = 48; y < 136; y += 16) poly(c, [10, y, 50, y + 12, 50, y + 14, 10, y + 2], shade(red, -0.25));
+  rect(c, 0, 30, 60, 10, red);
+  rect(c, 0, 30, 60, 2, shade(red, 0.25));
+  rect(c, 20, 0, 6, 30, red);
+  poly(c, [23, 0, 58, 30, 54, 30, 23, 4], shade(red, -0.15));
+  rect(c, 30, 40, 1, 40, '#2a2a2a');
+  rect(c, 24, 80, 14, 10, '#3a7ad2');
+  rect(c, 2, 136, 56, 4, '#4a4a4a');
 }
 
 function shade(hex: string, amt: number) {
@@ -379,18 +431,21 @@ function drawTiles(scene: Phaser.Scene) {
     for (let i = 0; i < count; i++) rect(c, ox + Math.floor(r() * TILE), Math.floor(r() * TILE), 1, 1, shade(base, (r() - 0.5) * amt));
   };
   const at = (i: number) => i * TILE;
-  rect(c, at(T.lot), 0, TILE, TILE, '#191c2c'); noise(at(T.lot), '#191c2c', 0.4, 40);
-  rect(c, at(T.sidewalk), 0, TILE, TILE, '#2a2d42');
-  for (let k = 0; k < TILE; k += 8) { rect(c, at(T.sidewalk) + k, 0, 1, TILE, '#23263a'); rect(c, at(T.sidewalk), k, TILE, 1, '#23263a'); }
-  for (const i of [T.road, T.roadH, T.roadV, T.cross]) { rect(c, at(i), 0, TILE, TILE, '#12131c'); noise(at(i), '#12131c', 0.5, 30); }
-  rect(c, at(T.roadH) + 4, 30, 10, 2, '#8a7424'); rect(c, at(T.roadH) + 20, 30, 10, 2, '#8a7424');
-  rect(c, at(T.roadV) + 30, 4, 2, 10, '#8a7424'); rect(c, at(T.roadV) + 30, 20, 2, 10, '#8a7424');
+  rect(c, at(T.lot), 0, TILE, TILE, SD.lot); noise(at(T.lot), SD.lot, 0.4, 40);
+  rect(c, at(T.sidewalk), 0, TILE, TILE, SD.sidewalk);
+  for (let k = 0; k < TILE; k += 8) { rect(c, at(T.sidewalk) + k, 0, 1, TILE, shade(SD.sidewalk, -0.15)); rect(c, at(T.sidewalk), k, TILE, 1, shade(SD.sidewalk, -0.15)); }
+  for (const i of [T.road, T.roadH, T.roadV, T.cross]) {
+    rect(c, at(i), 0, TILE, TILE, SD.road); noise(at(i), SD.road, 0.5, 30);
+    if (SD.weather === 'rain') for (let k = 0; k < 3; k++) rect(c, at(i) + Math.floor(r() * 24), Math.floor(r() * 28), 6 + Math.floor(r() * 6), 2, '#2a4a6a'); // flooded
+  }
+  rect(c, at(T.roadH) + 4, 30, 10, 2, SD.roadLine); rect(c, at(T.roadH) + 20, 30, 10, 2, SD.roadLine);
+  rect(c, at(T.roadV) + 30, 4, 2, 10, SD.roadLine); rect(c, at(T.roadV) + 30, 20, 2, 10, SD.roadLine);
   for (let k = 2; k < TILE; k += 6) rect(c, at(T.cross) + k, 2, 3, 6, '#3a3c4a');
-  rect(c, at(T.park), 0, TILE, TILE, '#132a20'); noise(at(T.park), '#1a3a2a', 0.6, 60);
-  rect(c, at(T.sand), 0, TILE, TILE, '#3d3a30'); noise(at(T.sand), '#4a4636', 0.5, 50);
+  rect(c, at(T.park), 0, TILE, TILE, SD.park); noise(at(T.park), SD.parkHi, 0.6, 60);
+  rect(c, at(T.sand), 0, TILE, TILE, SD.sand); noise(at(T.sand), shade(SD.sand, 0.15), 0.5, 50);
   for (const [i, off] of [[T.waterA, 0], [T.waterB, 8]] as const) {
-    rect(c, at(i), 0, TILE, TILE, '#0a1c38');
-    for (let y = 4; y < TILE; y += 10) rect(c, at(i) + ((y + off) % 20), y, 8, 1, '#1d3f6e');
+    rect(c, at(i), 0, TILE, TILE, SD.water);
+    for (let y = 4; y < TILE; y += 10) rect(c, at(i) + ((y + off) % 20), y, 8, 1, SD.waterHi);
     rect(c, at(i) + ((off + 13) % 28), (off + 22) % 30, 3, 1, '#5aa0d8');
   }
   rect(c, at(T.dock), 0, TILE, TILE, '#3b2f28');
@@ -438,6 +493,7 @@ export function generateTextures(scene: Phaser.Scene) {
   pixelTex(scene, 'mech1', 44, 49, (c) => drawMech(c, 1));
   for (let v = 0; v < 6; v++) {
     pixelTex(scene, `car${v}`, 14, 9, (c) => drawCar(c, v));
+    if (v < 4) pixelTex(scene, `stall${v}`, 16, 14, (c) => drawStall(c, v));
     pixelTex(scene, `house${v}`, 30, 32, (c) => drawHouse(c, v));
     pixelTex(scene, `tower${v}`, 60, 86, (c) => drawTower(c, v));
   }
@@ -449,6 +505,37 @@ export function generateTextures(scene: Phaser.Scene) {
   pixelTex(scene, 'castle', 62, 106, drawCastle);
   pixelTex(scene, 'tvtower', 60, 150, drawTvTower);
   pixelTex(scene, 'torii', 30, 30, drawTorii);
+  pixelTex(scene, 'fueltank', 30, 32, drawFuelTank);
+  pixelTex(scene, 'crane', 60, 140, drawCrane);
+  softTex(scene, 'lantern', 24, 24, (c) => {
+    const g = c.createRadialGradient(12, 12, 1, 12, 12, 12);
+    g.addColorStop(0, 'rgba(255,190,90,0.95)');
+    g.addColorStop(0.3, 'rgba(255,120,40,0.55)');
+    g.addColorStop(1, 'rgba(255,80,20,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 24, 24);
+  });
+  softTex(scene, 'rain', 128, 128, (c) => {
+    const r = mulberry32(9);
+    c.strokeStyle = 'rgba(170,200,255,0.55)';
+    c.lineWidth = 1;
+    for (let i = 0; i < 70; i++) {
+      const x = r() * 128, y = r() * 128;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x - 4, y + 14);
+      c.stroke();
+    }
+  });
+  softTex(scene, 'snowfall', 128, 128, (c) => {
+    const r = mulberry32(11);
+    for (let i = 0; i < 60; i++) {
+      c.fillStyle = `rgba(255,255,255,${0.5 + r() * 0.5})`;
+      c.beginPath();
+      c.arc(r() * 128, r() * 128, 0.6 + r() * 1.4, 0, Math.PI * 2);
+      c.fill();
+    }
+  });
   // pickups & projectiles
   pixelTex(scene, 'gem', 7, 9, (c) => { poly(c, [3.5, 0, 7, 4.5, 3.5, 9, 0, 4.5], '#4dffb0'); rect(c, 2, 3, 2, 2, '#e8fff4'); });
   pixelTex(scene, 'gemBig', 11, 13, (c) => { poly(c, [5.5, 0, 11, 6.5, 5.5, 13, 0, 6.5], '#ff5fd2'); rect(c, 3, 4, 3, 3, '#fff0fb'); });

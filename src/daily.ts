@@ -14,7 +14,7 @@ export type BossId = (typeof BOSSES)[number];
 
 /** Content that exists in the game so far. A day only ever draws from these. */
 export const AVAILABLE = {
-  stages: ['bay'] as StageId[],
+  stages: ['bay', 'market', 'neon', 'harbor', 'snow', 'typhoon'] as StageId[],
   twists: ['glass', 'blackout', 'starving', 'air', 'giant', 'firestorm'] as TwistId[],
   threats: [] as ThreatId[],
   bosses: ['guardian'] as BossId[],
