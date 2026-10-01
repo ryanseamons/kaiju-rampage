@@ -2,13 +2,12 @@
 // (wave 2) and at tier 3 (wave 4, where Easy barely scratches it). Opt-in (slow): DIFF=1.
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
-import { getState } from './bot';
+import { getState, startFromTitle } from './bot';
 
 async function stationary(page: Page, level: string, wave: number, seconds: number) {
   await page.goto(`/?seed=5&mute=1&startWave=${wave}&difficulty=${level}`);
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
-  await page.keyboard.press('Enter');
-  await page.waitForFunction(() => (window as any).__kaiju?.state()?.phase === 'playing');
+  await startFromTitle(page);
   // Game seconds, not wall-clock: a loaded machine slows the frame rate, not the verdict.
   let s = await getState(page);
   const t0 = s?.elapsed ?? 0;

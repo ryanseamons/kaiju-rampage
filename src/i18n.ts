@@ -179,6 +179,7 @@ const S = {
   diffDesc_hard: { en: 'Tougher troops, fewer heals, more air strikes. Score ×1.5.', ja: '手強い部隊、少ない回復、増える空爆。スコア ×1.5。' },
   diffDaily: { en: 'The daily rampage is always Medium.', ja: 'デイリーは常に「ふつう」。' },
   h_diff: { en: 'Mode', ja: '難易度' },
+  s_volume: { en: 'Volume', ja: '音量' },
   s_music: { en: 'Music', ja: '音楽' },
   m_sound: { en: 'Sound test', ja: 'サウンドテスト' },
   soundOpen: { en: 'Open the sound test', ja: 'サウンドテストを開く' },

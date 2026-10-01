@@ -57,6 +57,7 @@ export class GameScene extends Phaser.Scene {
   private navT = 0;
   score = new Score();
   private stride = 0;
+  private stepT = new WeakMap<Enemy, number>();
   private peekAt: { x: number; y: number } | null = null;
   /** Landmarks flattened this run, in order. */
   landmarksDown: string[] = [];
@@ -221,11 +222,13 @@ export class GameScene extends Phaser.Scene {
     this.stats.startWave();
     const sub = n <= WAVES.length ? t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[n - 1]) : t('waveEndlessSub');
     this.ui.banner(n <= WAVES.length ? t('waveTitle', { n }) : t('waveEndless', { n }), sub);
+    sfx.waveStart();
   }
 
   pauseGame() {
     if (this.phase !== 'playing') return;
     this.phase = 'paused';
+    sfx.setRotor(0);
     this.player.setVelocity(0, 0);
     this.scene.pause();
     duckMusic(true);
@@ -336,6 +339,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.phase !== 'playing') {
       this.player?.syncDecor(this.gameTime);
+      sfx.setRotor(0);
       return;
     }
     if (this.hitStopLeft > 0) {
@@ -405,6 +409,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.weapons.update(dt);
     this.enemies.update(dt);
+    this.ambientSounds(dt);
     this.pickups.update(dt);
     this.director.update(dt);
     this.score.update(dt);
@@ -594,6 +599,7 @@ export class GameScene extends Phaser.Scene {
       e.stun = 0.14;
     }
     if (e.hp <= 0) this.killEnemy(e, false);
+    else sfx.hit(e.etype !== 'soldier' && e.etype !== 'rocket');
   }
 
   killEnemy(e: Enemy, crushed: boolean) {
@@ -606,6 +612,7 @@ export class GameScene extends Phaser.Scene {
         this.stats.soldiers++;
         this.fx.squish(e.x, e.y);
         if (crushed) sfx.crunch('soldier');
+        else sfx.kill();
         break;
       case 'tank':
       case 'cannon':
@@ -731,6 +738,7 @@ export class GameScene extends Phaser.Scene {
       const ox = d.sprite.x;
       this.tweens.add({ targets: d.sprite, x: ox + 2, duration: 30, yoyo: true, repeat: 1, onComplete: () => d.sprite.setX(ox) });
       this.fx.hit(d.x, d.y, 2);
+      sfx.buildingHit(d.kind === 'tower');
       if (Math.random() < 0.4) this.fx.dust(d.x, d.y + d.h / 3, 1);
     }
   }
@@ -803,6 +811,29 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (p.addMass(mass)) this.onTierUp();
+  }
+
+  /** Sounds that follow the world rather than events: helicopter rotors, mech and walker footfalls. */
+  private ambientSounds(dt: number) {
+    const p = this.player, view = this.cameras.main.worldView;
+    const reach = Math.max(view.width, view.height) * 0.75;
+    let rotor = 0;
+    for (const e of this.enemies.list) {
+      if (e.dead) continue;
+      const d = Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y);
+      if (e.etype === 'heli') rotor = Math.max(rotor, 1 - d / reach);
+      else if ((e.etype === 'mech' || e.etype === 'walker') && d < reach) {
+        const body = e.body as Phaser.Physics.Arcade.Body | null;
+        const moving = !!body && Math.hypot(body.velocity.x, body.velocity.y) > 8;
+        const st = (this.stepT.get(e) ?? 0) + (moving ? dt : 0);
+        if (st >= (e.etype === 'mech' ? 0.75 : 0.6)) {
+          this.stepT.set(e, 0);
+          sfx.mechStep(e.etype === 'mech');
+          if (d < reach * 0.6) this.shake(e.etype === 'mech' ? 0.004 : 0.0025, 90);
+        } else this.stepT.set(e, st);
+      }
+    }
+    sfx.setRotor(rotor);
   }
 
   private onTierUp() {

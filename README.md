@@ -51,6 +51,7 @@ npm run build
 | Enter (gamepad: A) | Start, dismiss the news card |
 | P or Esc, or the pause button beside mute | Pause / resume. From the pause screen, Q (or the button) exits to the title after a confirm |
 | M, or the speaker button in the bottom-right corner | Mute / unmute everything (remembered between runs) |
+| Settings → Volume / Music / Effects sliders; on the pause screen, − / + (or the - and = keys) | Volume (remembered) |
 | ←/→ on the title screen, or click | Difficulty: **Easy**, **Medium** (default) or **Hard** (remembered; the daily rampage is always Medium) |
 
 **The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**. **Landmarks** (Shiokaze Castle, the KBN-7 tower, the Old Town pagodas and their torii gates) are worth big points and growth, and the news desk notices when they fall.

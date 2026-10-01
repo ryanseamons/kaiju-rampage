@@ -84,7 +84,7 @@ export class Pickups {
       case 'heart':
         p.heal(p.maxHp * 0.15);
         s.fx.word(p.x, p.y - 20 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
-        sfx.levelup();
+        sfx.heart();
         break;
       case 'crate':
         s.openCrate();

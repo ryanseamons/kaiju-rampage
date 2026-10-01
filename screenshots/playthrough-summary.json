@@ -3,9 +3,9 @@
   "tier": 3,
   "maxTierReached": 3,
   "level": 13,
-  "hp": 420,
-  "minHpPct": 93,
-  "destroyed": 115,
+  "hp": 411,
+  "minHpPct": 89,
+  "destroyed": 184,
   "bulletinsShown": 2,
   "levelUpsShown": 12,
   "enemyTypesSpawned": [
@@ -14,13 +14,13 @@
     "tank"
   ],
   "upgradePoolSize": 16,
-  "damageTaken": 43,
+  "damageTaken": 56,
   "headlessAvgFps": 60,
   "shots": [
     "levelup",
     "tier1",
-    "bulletin",
     "tier2",
+    "bulletin",
     "tier3"
   ],
   "bulletinSource": "bank"

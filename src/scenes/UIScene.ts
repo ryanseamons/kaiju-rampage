@@ -12,6 +12,7 @@ import { sfx } from '../sfx';
 import { districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
 import { overlay } from '../ui/overlay';
 import { uiSound } from '../audio/ui-sounds';
+import { prefs, setMuted, setVolume } from '../audio/core';
 
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
   const ja = getLang() === 'ja';
@@ -435,22 +436,39 @@ export class UIScene extends Phaser.Scene {
       ...this.pauseButton(VIEW_W / 2 - 170, 184, 300, t('p_resume'), 0x4dffb0, sel === 0, () => this.resumeFromPause()),
       ...this.pauseButton(VIEW_W / 2 + 170, 184, 300, t('p_exit'), 0xff5577, sel === 1, () => this.showExitConfirm()),
     );
-    children.push(this.add.text(VIEW_W / 2, 238, t('yourMutations'), txt(18, '#ffe14a')).setOrigin(0.5));
+    // Volume, adjustable mid-run: [−] 80% [+], or the - and = keys.
+    const vol = Math.round((prefs.muted ? 0 : prefs.volume) * 100);
+    children.push(
+      this.add.text(VIEW_W / 2 - 130, 236, t('s_volume').toUpperCase(), txt(16, '#c9d0ea')).setOrigin(1, 0.5),
+      ...this.pauseButton(VIEW_W / 2 - 80, 236, 56, '−', 0x9ffcff, false, () => this.nudgeVolume(-0.1)),
+      this.add.text(VIEW_W / 2, 236, `${vol}%`, txt(18, '#ffffff')).setOrigin(0.5),
+      ...this.pauseButton(VIEW_W / 2 + 80, 236, 56, '+', 0x9ffcff, false, () => this.nudgeVolume(0.1)),
+      this.add.text(VIEW_W / 2 + 130, 236, '( -  = )', txt(13, '#8f97b8')).setOrigin(0, 0.5),
+    );
+    children.push(this.add.text(VIEW_W / 2, 280, t('yourMutations'), txt(18, '#ffe14a')).setOrigin(0.5));
     const owned = UPGRADES.filter((u) => this.gs.player.upgradeLevels[u.id]);
-    if (!owned.length) children.push(this.add.text(VIEW_W / 2, 280, t('noMutations'), txt(16, '#c9d0ea')).setOrigin(0.5));
+    if (!owned.length) children.push(this.add.text(VIEW_W / 2, 320, t('noMutations'), txt(16, '#c9d0ea')).setOrigin(0.5));
     owned.forEach((u, i) => {
       const col = i % 2, rowI = Math.floor(i / 2);
-      const x = VIEW_W / 2 - 520 + col * 540, y = 262 + rowI * 54;
+      const x = VIEW_W / 2 - 520 + col * 540, y = 300 + rowI * 52;
       const lv = this.gs.player.upgradeLevels[u.id];
       const c = KIND_COLOR[u.kind];
       children.push(
-        this.add.rectangle(x, y, 500, 48, 0x10121e, 0.92).setOrigin(0).setStrokeStyle(2, c),
-        this.add.text(x + 26, y + 24, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '26px', color: Phaser.Display.Color.IntegerToColor(c).rgba }).setOrigin(0.5),
+        this.add.rectangle(x, y, 500, 46, 0x10121e, 0.92).setOrigin(0).setStrokeStyle(2, c),
+        this.add.text(x + 26, y + 23, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '26px', color: Phaser.Display.Color.IntegerToColor(c).rgba }).setOrigin(0.5),
         this.add.text(x + 52, y + 5, `${up(upName(u.id))}  LV ${lv}/${u.max}`, txt(15, '#ffffff', { strokeThickness: 2 })),
         this.add.text(x + 52, y + 26, upDesc(u.id, Math.min(lv, 2)), txt(13, '#c9d0ea', { strokeThickness: 0, wordWrap: { width: 430 } })),
       );
     });
     this.openModal('paused', children);
+  }
+
+  private nudgeVolume(d: number) {
+    const now = prefs.muted ? 0 : prefs.volume;
+    setVolume(Math.round(Math.max(0, Math.min(1, now + d)) * 10) / 10);
+    if (prefs.volume === 0) setMuted(true);
+    uiSound.press(); // audible confirmation at the new level
+    this.showPaused(this.pauseSel);
   }
 
   private resumeFromPause() {
@@ -613,12 +631,15 @@ export class UIScene extends Phaser.Scene {
     }
     if (code === 'KeyP' || code === 'Escape') {
       if (this.modal === null && this.gs.phase === 'playing') {
+        uiSound.press();
         this.gs.pauseGame();
         this.showPaused(0);
       } else if (this.modal === 'paused') this.resumeFromPause();
       return;
     }
     if (this.modal === 'paused') {
+      if (code === 'Minus' || code === 'NumpadSubtract') return this.nudgeVolume(-0.1);
+      if (code === 'Equal' || code === 'NumpadAdd') return this.nudgeVolume(0.1);
       if (code === 'KeyQ') {
         uiSound.press();
         this.showExitConfirm();

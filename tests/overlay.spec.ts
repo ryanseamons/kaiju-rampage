@@ -18,10 +18,22 @@ test('title buttons update in place', async ({ page }) => {
   expect(await same(), 'keyboard keeps the poster').toBe(true);
   await page.locator('[data-item="settings"]').click();
   await expect(page.locator('.panel')).toBeVisible();
-  await page.locator('[data-set="sfx:off"]').click();
-  await expect(page.locator('[data-set="sfx:off"]')).toHaveClass(/on/);
-  await expect(page.locator('.scrim')).toHaveClass(/settled/); // toggling a setting doesn't re-pop the panel
-  await page.locator('[data-set="sfx:on"]').click();
+  // volume sliders apply live, without rebuilding the panel
+  await page.evaluate(() => ((document.querySelector('.scrim') as any).__mark = 1));
+  const setSlider = (what: string, v: number) =>
+    page.locator(`[data-vol="${what}"]`).evaluate((el: HTMLInputElement, val) => {
+      el.value = String(val);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, v);
+  await setSlider('sfx', 40);
+  await expect(page.locator('[data-vol="sfx"] + output')).toHaveText('40%');
+  await setSlider('volume', 55);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kaiju.audio') ?? '{}'));
+  expect(saved.sfxVol).toBeCloseTo(0.4);
+  expect(saved.volume).toBeCloseTo(0.55);
+  expect(await page.evaluate(() => (document.querySelector('.scrim') as any)?.__mark === 1), 'slider keeps the panel').toBe(true);
+  await setSlider('sfx', 100);
+  await setSlider('volume', 80);
   await page.locator('[data-close]').click();
   await expect(page.locator('.panel')).toHaveCount(0);
   expect(await same(), 'settings panel keeps the poster').toBe(true);

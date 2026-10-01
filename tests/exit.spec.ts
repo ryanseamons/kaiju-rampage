@@ -1,5 +1,6 @@
 // Exit to title from the pause menu, behind a confirm that defaults to "keep playing".
 import { test, expect } from '@playwright/test';
+import { startFromTitle } from './bot';
 
 const st = (page: import('@playwright/test').Page) => page.evaluate(() => (window as any).__kaiju.state());
 
@@ -7,8 +8,7 @@ test('pause → exit asks first, then returns to the title', async ({ page }) =>
   await page.goto('/?seed=5&mute=1&lang=en&difficulty=easy');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
   await expect(page.locator('#pause')).toBeHidden();
-  await page.keyboard.press('Enter');
-  await page.waitForFunction(() => (window as any).__kaiju.state().phase === 'playing');
+  await startFromTitle(page);
   await expect(page.locator('#pause')).toBeVisible();
   // the on-screen button pauses
   await page.locator('#pause').click();
@@ -29,8 +29,6 @@ test('pause → exit asks first, then returns to the title', async ({ page }) =>
   expect((await st(page)).phase).toBe('title');
   await expect(page.locator('#pause')).toBeHidden();
   // and a new run starts cleanly from there (Space works as well as Enter)
-  await page.waitForTimeout(400);
-  await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window as any).__kaiju.state().phase === 'playing');
+  await startFromTitle(page, 'Space');
   expect((await st(page)).wave).toBe(1);
 });

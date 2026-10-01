@@ -8,10 +8,14 @@ interface Prefs {
   muted: boolean;
   music: boolean;
   sfx: boolean;
+  /** 0..1 sliders. Music and effects at 0 also switch that bus off. */
+  volume: number;
+  musicVol: number;
+  sfxVol: number;
 }
 
 function loadPrefs(): Prefs {
-  const def: Prefs = { muted: false, music: true, sfx: true };
+  const def: Prefs = { muted: false, music: true, sfx: true, volume: 0.8, musicVol: 0.85, sfxVol: 1 };
   try {
     const legacy = localStorage.getItem('kaiju.muted') === '1';
     const raw = localStorage.getItem(PREFS_KEY);
@@ -69,7 +73,7 @@ function build(): Graph | null {
     comp.attack.value = 0.004;
     comp.release.value = 0.22;
     const master = ctx.createGain();
-    master.gain.value = prefs.muted ? 0 : 0.85;
+    master.gain.value = masterTarget();
     master.connect(comp).connect(ctx.destination);
     let tap: MediaStreamAudioDestinationNode | null = null;
     try {
@@ -79,10 +83,10 @@ function build(): Graph | null {
       tap = null;
     }
     const music = ctx.createGain();
-    music.gain.value = prefs.music ? MUSIC_LEVEL : 0;
+    music.gain.value = musicTarget();
     music.connect(master);
     const sfx = ctx.createGain();
-    sfx.gain.value = prefs.sfx ? SFX_LEVEL : 0;
+    sfx.gain.value = sfxTarget();
     sfx.connect(master);
     const conv = ctx.createConvolver();
     conv.buffer = impulse(ctx, 2.6, 2.4);
@@ -129,29 +133,65 @@ function ramp(p: AudioParam, v: number, sec = 0.25) {
   p.linearRampToValueAtTime(v, t + sec);
 }
 
+const MASTER_LEVEL = 0.85;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** Sliders are perceptual: a squared curve, so 50% sounds like half rather than barely quieter. */
+const curve = (v: number) => v * v;
+function masterTarget() {
+  return prefs.muted ? 0 : MASTER_LEVEL * curve(prefs.volume);
+}
+function musicTarget() {
+  return prefs.music ? MUSIC_LEVEL * curve(prefs.musicVol) * duckLevel : 0;
+}
+function sfxTarget() {
+  return prefs.sfx ? SFX_LEVEL * curve(prefs.sfxVol) : 0;
+}
+
 export function setMuted(m: boolean) {
   prefs.muted = m;
   savePrefs();
-  if (graph) ramp(graph.master.gain, m ? 0 : 0.85);
+  if (graph) ramp(graph.master.gain, masterTarget());
+}
+
+/** Master volume, 0..1. Raising it from zero also unmutes. */
+export function setVolume(v: number) {
+  prefs.volume = clamp01(v);
+  if (prefs.volume > 0 && prefs.muted) prefs.muted = false;
+  savePrefs();
+  if (graph) ramp(graph.master.gain, masterTarget(), 0.08);
+}
+export function setMusicVolume(v: number) {
+  prefs.musicVol = clamp01(v);
+  prefs.music = prefs.musicVol > 0;
+  savePrefs();
+  if (graph) ramp(graph.music.gain, musicTarget(), 0.08);
+}
+export function setSfxVolume(v: number) {
+  prefs.sfxVol = clamp01(v);
+  prefs.sfx = prefs.sfxVol > 0;
+  savePrefs();
+  if (graph) ramp(graph.sfx.gain, sfxTarget(), 0.08);
 }
 export const toggleMuted = () => (setMuted(!prefs.muted), prefs.muted);
 
 export function setMusicOn(on: boolean) {
   prefs.music = on;
   savePrefs();
-  if (graph) ramp(graph.music.gain, on ? MUSIC_LEVEL * duckLevel : 0, 0.4);
+  if (on && prefs.musicVol === 0) prefs.musicVol = 0.85;
+  if (graph) ramp(graph.music.gain, musicTarget(), 0.4);
 }
 export function setSfxOn(on: boolean) {
   prefs.sfx = on;
   savePrefs();
-  if (graph) ramp(graph.sfx.gain, on ? SFX_LEVEL : 0);
+  if (on && prefs.sfxVol === 0) prefs.sfxVol = 1;
+  if (graph) ramp(graph.sfx.gain, sfxTarget());
 }
 
 let duckLevel = 1;
 /** Pull the music down under menus and news cards. */
 export function duckMusic(on: boolean) {
   duckLevel = on ? 0.3 : 1;
-  if (graph && prefs.music) ramp(graph.music.gain, MUSIC_LEVEL * duckLevel, 0.5);
+  if (graph && prefs.music) ramp(graph.music.gain, musicTarget(), 0.5);
 }
 
 /** Records the master output (for the Playwright music clips). Resolves with a webm Blob. */

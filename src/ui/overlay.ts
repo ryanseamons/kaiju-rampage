@@ -6,7 +6,7 @@ import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
 import { DAILY, todayKey } from '../config';
 import { DIFFICULTIES, cycleDifficulty, difficultyId, difficultyLocked, setDifficulty, type DifficultyId } from '../difficulty';
 import { music } from '../audio/music';
-import { duckMusic, isRunning, onAudioReady, prefs, setMusicOn, setSfxOn, toggleMuted, unlock } from '../audio/core';
+import { duckMusic, isRunning, onAudioReady, prefs, setMusicOn, setMusicVolume, setSfxVolume, setVolume, toggleMuted, unlock } from '../audio/core';
 import { tracks } from '../audio/tracks';
 import { uiSound } from '../audio/ui-sounds';
 
@@ -410,6 +410,23 @@ class Overlay {
       }),
     );
     slot.querySelector<HTMLButtonElement>('[data-copy]')?.addEventListener('click', () => void this.copyPicks());
+    // Volume sliders apply live; a short tick on release lets you hear the new effects level.
+    slot.querySelectorAll<HTMLInputElement>('[data-vol]').forEach((el) => {
+      const out = el.parentElement?.querySelector('output');
+      el.addEventListener('input', () => {
+        unlock();
+        const v = Number(el.value) / 100;
+        if (el.dataset.vol === 'volume') setVolume(v);
+        if (el.dataset.vol === 'music') {
+          setMusicVolume(v);
+          if (v > 0) music.resume();
+        }
+        if (el.dataset.vol === 'sfx') setSfxVolume(v);
+        if (out) out.textContent = `${el.value}%`;
+        this.syncMute();
+      });
+      el.addEventListener('change', () => uiSound.press());
+    });
     slot.querySelectorAll<HTMLButtonElement>('[data-set]').forEach((b) =>
       b.addEventListener('click', () => {
         const [what, val] = (b.dataset.set as string).split(':');
@@ -417,7 +434,6 @@ class Overlay {
           setMusicOn(val === 'on');
           if (val === 'on') music.resume();
         }
-        if (what === 'sfx') setSfxOn(val === 'on');
         if (what === 'lang') return setLang(val as 'en' | 'ja'); // re-renders everything via onLang
         this.renderPanel();
       }),
@@ -550,13 +566,14 @@ class Overlay {
         <p class="lede" style="margin-top:1em"><b>${esc(t('today'))}</b> · ${esc(day)} · ${esc(t('dailyDesc'))}</p>${table(loadDaily(day))}
       </div></section>`;
     }
-    const toggle = (what: string, on: boolean) =>
-      `<div class="pill"><button data-set="${what}:on" class="${on ? 'on' : ''}">${esc(t('on'))}</button><button data-set="${what}:off" class="${on ? '' : 'on'}">${esc(t('off'))}</button></div>`;
+    const slider = (what: string, v: number) =>
+      `<label class="vol"><input type="range" min="0" max="100" step="5" value="${Math.round(v * 100)}" data-vol="${what}" aria-label="${esc(what)}"><output>${Math.round(v * 100)}%</output></label>`;
     return `<section class="panel narrow">${head(t('m_settings'))}<div class="body"><div class="settings">
       <span>${esc(t('s_language'))}</span>
       <div class="pill"><button data-set="lang:en" class="${getLang() === 'en' ? 'on' : ''}">English</button><button data-set="lang:ja" class="jp ${getLang() === 'ja' ? 'on' : ''}">日本語</button></div>
-      <span>${esc(t('s_music'))}</span>${toggle('music', prefs.music)}
-      <span>${esc(t('s_sfx'))}</span>${toggle('sfx', prefs.sfx)}
+      <span>${esc(t('s_volume'))}</span>${slider('volume', prefs.muted ? 0 : prefs.volume)}
+      <span>${esc(t('s_music'))}</span>${slider('music', prefs.music ? prefs.musicVol : 0)}
+      <span>${esc(t('s_sfx'))}</span>${slider('sfx', prefs.sfx ? prefs.sfxVol : 0)}
       <span>${esc(t('m_sound'))}</span><button class="sound-open" data-open="sound">♪ ${esc(t('soundOpen'))} →</button>
       <p class="note">${esc(t('jpNote'))}</p>
     </div></div></section>`;

@@ -140,7 +140,7 @@ export class Weapons {
           p.anims.stop();
           p.setTexture('kaiju2');
           s.time.delayedCall(this.beamDur * 1000, () => p.play('kaiju-walk', true));
-          sfx.breath();
+          sfx.breath(this.beamDur, evo.gamma);
         }
       }
     }
@@ -153,7 +153,7 @@ export class Weapons {
       s.fx.ring(p.x, p.y, r, ty ? 0x5ff6ff : 0x7dff9a, 300);
       s.tweens.add({ targets: p, angle: { from: 0, to: p.flipX ? -360 : 360 }, duration: 260, onComplete: () => p.setAngle(0) });
       this.cd.tail = (ty ? 1.6 : 4.2) * cdm;
-      sfx.swipe();
+      sfx.tail();
     }
 
     // Spine volley (Spine Storm: constant, +2 spines, each pierces three targets)
@@ -177,6 +177,7 @@ export class Weapons {
           this.spines.push(sp);
         }
         this.cd.spines = (storm ? 0.45 : 1.7) * cdm;
+        sfx.spines();
       }
     }
     for (const sp of [...this.spines]) {
@@ -194,6 +195,7 @@ export class Weapons {
       if (hit && tg) {
         this.area(sp.x, sp.y, 10 * k, sp.dmg, 80);
         s.fx.hit(sp.x, sp.y, 6);
+        sfx.spineHit();
         sp.hits--;
         sp.hitSet.add(tg);
         sp.target = sp.hits > 0 ? this.nearestEnemy(400 * k, sp.hitSet) : null;
@@ -210,6 +212,7 @@ export class Weapons {
       const rad = evo.radiant;
       const hits = this.area(p.x, p.y - 4 * k, (34 + 8 * m.aura) * k * (rad ? 1.6 : 1), 3 * (1 + 0.6 * (m.aura - 1)) * pow * (rad ? 1.5 : 1), 0);
       if (rad && hits) p.heal(Math.min(3, hits * 0.4));
+      sfx.aura(hits);
     }
   }
 

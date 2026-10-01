@@ -214,3 +214,16 @@ export class Bot {
     return s!;
   }
 }
+
+/** Start a run from the title screen. The title ignores a key in its first 250 ms (so a carried-over
+ * Enter can't start a run by accident), so keep pressing until the game is actually playing. */
+export async function startFromTitle(page: Page, key: 'Enter' | 'Space' = 'Enter') {
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press(key);
+    const ok = await page
+      .waitForFunction(() => (window as any).__kaiju?.state()?.phase === 'playing', null, { timeout: 1500 })
+      .then(() => true, () => false);
+    if (ok) return;
+  }
+  throw new Error('run never started from the title');
+}

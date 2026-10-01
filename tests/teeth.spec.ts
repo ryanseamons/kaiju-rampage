@@ -2,13 +2,12 @@
 // (tier 2: infantry at range, tanks with leading shells) has to take real damage within 35 seconds.
 // This is deliberately independent of the playthrough bot's dodging skill and of ?fast=1.
 import { test, expect } from '@playwright/test';
-import { getState } from './bot';
+import { getState, startFromTitle } from './bot';
 
 test('a kaiju that stands still gets hurt', async ({ page }) => {
   await page.goto('/?seed=5&mute=1&startWave=2&difficulty=easy');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
-  await page.keyboard.press('Enter');
-  await page.waitForFunction(() => (window as any).__kaiju?.state()?.phase === 'playing');
+  await startFromTitle(page);
   // 35 game seconds (not wall-clock, so a slow frame rate doesn't make the army look harmless).
   test.setTimeout(15 * 60_000);
   let s = await getState(page);

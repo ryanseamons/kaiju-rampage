@@ -460,3 +460,11 @@ html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weig
 .panel.sound .cand-note { font-size: 0.8em; color: var(--muted); margin: 0 0 0.6em; }
 .panel.sound .tag.sug { background: rgba(255, 210, 63, 0.16); color: var(--yellow); }
 .panel.sound .tag.new { background: #ff4b5c; color: #fff; font-weight: 700; letter-spacing: 0.08em; }
+
+/* Volume sliders */
+.settings .vol { justify-self: end; display: flex; align-items: center; gap: 0.7em; }
+.settings .vol output { width: 3em; text-align: right; font-size: 0.85em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.settings .vol input[type='range'] { -webkit-appearance: none; appearance: none; width: calc(var(--u) * 11); height: 0.35em; border-radius: 99em; background: rgba(243, 234, 210, 0.2); outline: none; cursor: pointer; }
+.settings .vol input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 1.1em; height: 1.1em; border-radius: 50%; background: var(--paper); border: 0.15em solid var(--yellow); }
+.settings .vol input[type='range']::-moz-range-thumb { width: 1.1em; height: 1.1em; border-radius: 50%; background: var(--paper); border: 0.15em solid var(--yellow); }
+.settings .vol input[type='range']:focus-visible { box-shadow: 0 0 0 0.15em var(--yellow); }
