@@ -9,3 +9,4 @@ playwright-report/
 public/music/
 public/sfx/es/
 .data/
+vendor/

@@ -4,6 +4,7 @@ import { RENDERER, VIEW_H, VIEW_W } from './config';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
+import { initLabs } from './labs';
 
 const game = new Phaser.Game({
   type: RENDERER === 'canvas' ? Phaser.CANVAS : Phaser.AUTO,
@@ -21,6 +22,7 @@ const game = new Phaser.Game({
   scene: [BootScene, GameScene, UIScene],
 });
 (window as unknown as { __kaijuGame: Phaser.Game }).__kaijuGame = game;
+void initLabs(); // Voyage Labs: who is playing (only in the Labs build, inside its player)
 
 // High-refresh displays (120 Hz ProMotion, 144 Hz monitors) would have Phaser update and draw at the
 // display's rate: double the work for no gameplay benefit, and stutter on a busy machine. Measure the

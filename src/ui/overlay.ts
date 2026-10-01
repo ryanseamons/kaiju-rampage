@@ -3,6 +3,7 @@
 import { evoDesc, evoGlyph, evoName, getLang, onLang, setLang, t, upDesc, upGlyph, upName } from '../i18n';
 import { EVOLUTIONS, UPGRADES, type UpgradeDef } from '../upgrades';
 import { loadBoard, loadDaily, type ScoreEntry } from '../scores';
+import { labsBoard, labsPlayer, onLabs, type LabsRow } from '../labs';
 import { DAILY, todayKey } from '../config';
 import { DIFFICULTIES, cycleDifficulty, difficultyId, difficultyLocked, setDifficulty, type DifficultyId } from '../difficulty';
 import { music } from '../audio/music';
@@ -58,6 +59,9 @@ class Overlay {
   private briefedOnce = false;
   /** Global daily board: undefined = not asked yet, null = loading or unreachable. */
   private globalBoard: Board | null | undefined = undefined;
+  /** The Voyage Labs leaderboard: undefined = not fetched, null = loading or unavailable. */
+  private labsRows: Awaited<ReturnType<typeof labsBoard>> | undefined = undefined;
+  private labsLoading = false;
 
   init(onStart: () => void) {
     this.onStart = onStart;
@@ -162,6 +166,7 @@ class Overlay {
   show() {
     this.open = true;
     this.globalBoard = undefined; // fetch fresh after every run
+    this.labsRows = undefined;
     this.panel = null;
     this.sel = 0;
     this.openedAt = performance.now();
@@ -435,6 +440,15 @@ class Overlay {
     );
     slot.querySelector<HTMLButtonElement>('[data-copy]')?.addEventListener('click', () => void this.copyPicks());
     slot.querySelector<HTMLButtonElement>('[data-dstart]')?.addEventListener('click', () => this.start());
+    if (this.panel === 'scores' && onLabs() && this.labsRows === undefined && !this.labsLoading) {
+      this.labsLoading = true;
+      void labsBoard(10).then((b) => {
+        this.labsLoading = false;
+        this.labsRows = b;
+        const wrap = this.root.querySelector('.labs-wrap');
+        if (wrap) wrap.innerHTML = this.labsBoardHtml();
+      });
+    }
     if (this.panel === 'daily' && DAILY && this.globalBoard === undefined) {
       const day = DAILY;
       this.globalBoard = null;
@@ -625,8 +639,9 @@ class Overlay {
               .join('')}</table>`
           : `<p>${esc(t('noRuns'))}</p>`;
       const day = DAILY ?? todayKey();
-      return `<section class="panel scores">${head(t('m_scores'))}<div class="body">
-        <p class="lede"><b>${esc(t('allTime'))}</b></p>${table(loadBoard())}
+      const labs = onLabs() ? `<div class="labs-wrap">${this.labsBoardHtml()}</div>` : '';
+      return `<section class="panel scores">${head(t('m_scores'))}<div class="body">${labs}
+        <p class="lede"${labs ? ' style="margin-top:1em"' : ''}><b>${esc(t(labs ? 'thisDevice' : 'allTime'))}</b></p>${table(loadBoard())}
         <p class="lede" style="margin-top:1em"><b>${esc(t('today'))}</b> · ${esc(day)} · ${esc(t('dailyDesc'))}</p>${table(loadDaily(day))}
       </div></section>`;
     }
@@ -641,6 +656,17 @@ class Overlay {
       <span>${esc(t('m_sound'))}</span><button class="sound-open" data-open="sound">♪ ${esc(t('soundOpen'))} →</button>
       <p class="note">${esc(t('jpNote'))}</p>
     </div></div></section>`;
+  }
+
+  /** The Voyage Labs board: everyone's top ten and the player's own best. */
+  private labsBoardHtml() {
+    const b = this.labsRows;
+    if (!b) return `<p class="lede"><b>${esc(t('labsBoard'))}</b></p><p>${esc(this.labsLoading || b === undefined ? t('labsLoading') : t('labsOffline'))}</p>`;
+    const tr = (e: LabsRow) =>
+      `<tr><td>${e.rank}</td><td><b>${esc(e.name)}</b></td><td>${e.score.toLocaleString()}</td><td>${esc(t(`diff_${e.difficulty}` as 'diff_easy'))}</td><td>${esc(e.endless ? t('resEndlessShort', { n: e.wave }) : e.victory ? t('resVictoryShort') : t('resWaveShort', { n: e.wave }))}</td></tr>`;
+    const head = `<tr><th>${esc(t('h_rank'))}</th><th>${esc(t('h_name'))}</th><th>${esc(t('h_score'))}</th><th>${esc(t('h_diff'))}</th><th>${esc(t('h_result'))}</th></tr>`;
+    const mine = b.mine ? `<p class="lede">${esc(t('labsMine'))}: <b>#${b.mine.rank}</b> · ${b.mine.score.toLocaleString()}</p>` : labsPlayer() ? '' : `<p class="lede">${esc(t('labsGuest'))}</p>`;
+    return `<p class="lede"><b>${esc(t('labsBoard'))}</b> · ${b.total.toLocaleString()}</p>${b.top.length ? `<table>${head}${b.top.map(tr).join('')}</table>` : `<p>${esc(t('noRuns'))}</p>`}${mine}`;
   }
 
   private resultShort(e: ScoreEntry) {

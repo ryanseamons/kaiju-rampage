@@ -113,10 +113,16 @@ The board is one small API (`src/shared/daily-api.ts`: one ranked score per play
 The game also runs on [Voyage Labs](https://voyage.io/labs) as **kaiju-rampage**: the same static build, no backend. `voyagelabs.config.js` points the Labs CLI at `dist/` with `startup: { mode: 'compatible' }` (the page shows once it loads; no ready handshake). Vite builds with `base: './'` so assets resolve under the Labs game path as well as at a site root. To ship a new build:
 
 ```bash
-npm run build && voyage-labs deploy --publish
+scripts/labs-sdk.sh
 ```
 
-The store page's cover is `marketing/cover.png`. To regenerate it, `scripts/gen-cover.ts` makes the key art (fal.ai, `FAL_KEY`), `marketing/cover.html` sets the title over it, and `scripts/render-cover.ts` renders it. The description is `marketing/DESCRIPTION.md`. On Labs, `localStorage` (best scores, settings) is per build, so it resets when a new build ships, and the daily board isn't wired up there.
+```bash
+npm run build:labs && voyage-labs deploy --publish
+```
+
+`scripts/labs-sdk.sh` fetches and builds the Voyage Labs browser SDK into `vendor/` (gitignored; it lives in Latitude's private repository and needs access to it), once. `npm run build:labs` is the normal build plus that SDK as a plain script (`dist/voyagelabs.js`); the public build never contains it, and the gate checks that. With it, `src/labs.ts` puts a signed-in player's best run on the game's `highscores` leaderboard (no initials to type), and High Scores shows everyone's top ten and your own best above this device's table. Guests and every other host keep the per-browser table.
+
+The store page's cover is `marketing/cover.png`. To regenerate it, `scripts/gen-cover.ts` makes the key art (fal.ai, `FAL_KEY`), `marketing/cover.html` sets the title over it, and `scripts/render-cover.ts` renders it. The description is `marketing/DESCRIPTION.md`. On Labs, `localStorage` is per build, so settings (volume, language, difficulty) and a guest's local scores reset when a new build ships; signed-in players' scores live on the Labs board. The daily board isn't wired up there.
 
 ## Tests
 

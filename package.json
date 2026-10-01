@@ -11,7 +11,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "playwright test",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name kaiju-rampage --branch main --commit-dirty=true"
+    "deploy": "npm run build && wrangler pages deploy dist --project-name kaiju-rampage --branch main --commit-dirty=true",
+    "build:labs": "npm run build && node scripts/build-labs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

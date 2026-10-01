@@ -6,7 +6,8 @@ import { districtAt } from '../city';
 import { CHANNEL, DEFAULT_MODEL, type Bulletin, type RunStats } from '../shared/narration';
 import { UPGRADES, type UpgradeDef } from '../upgrades';
 import type { GameScene, RunSummary } from './GameScene';
-import { lastName, submit } from '../scores';
+import { countsForBoards, lastName, submit } from '../scores';
+import { labsPlayer, labsSubmit } from '../labs';
 import { comboMult } from '../config';
 import { sfx } from '../sfx';
 import { dailyName, districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
@@ -54,7 +55,7 @@ export class UIScene extends Phaser.Scene {
   private pauseBtn: HTMLElement | null = null;
   /** Joystick and stomp button for touchscreens (hidden until the first touch). */
   touch!: TouchControls;
-  private results?: { summary: RunSummary; onDone: (c: ResultChoice) => void; name: string[]; cursor: number; sel: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string; buttons?: [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text, number][] };
+  private results?: { summary: RunSummary; onDone: (c: ResultChoice) => void; name: string[]; cursor: number; sel: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string; globalText?: Phaser.GameObjects.Text; buttons?: [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text, number][] };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
   private pad = { left: false, right: false, up: false, down: false, a: false };
@@ -575,7 +576,26 @@ export class UIScene extends Phaser.Scene {
     // A ranked daily run always goes on the global board, so it always asks for initials.
     const global = !!summary.daily && summary.ranked;
     this.results = { summary, onDone, name, cursor: 0, sel: 0, entering: summary.rank > 0 || global, saved: false };
+    // Signed in on Voyage Labs: no initials to type. The run goes on the game's Labs leaderboard (best
+    // per player, kept across builds) and on this browser's table under the last initials used.
+    if (labsPlayer() && !global && countsForBoards()) this.submitToLabs(summary);
     this.renderResults();
+  }
+
+  private submitToLabs(sm: RunSummary) {
+    const r = this.results!;
+    r.entering = false;
+    if (sm.rank > 0) {
+      sm.rank = submit({ name: lastName(), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', endless: sm.endless, level: sm.level, difficulty: sm.difficulty }).rank;
+      r.saved = true;
+    }
+    r.global = t('labsSaving');
+    void labsSubmit({ score: sm.score, difficulty: sm.difficulty, wave: sm.wave, level: sm.level, victory: sm.outcome === 'victory', endless: sm.endless }).then((res) => {
+      if (this.results !== r) return;
+      r.global = res ? t(res.best ? 'labsBest' : 'labsRank', { n: res.rank, total: res.total }) : t('labsOffline');
+      if (r.globalText?.active) r.globalText.setText(r.global);
+      else this.renderResults();
+    });
   }
 
   private renderResults() {
@@ -618,7 +638,7 @@ export class UIScene extends Phaser.Scene {
       ch.push(...this.pauseButton(VIEW_W / 2, 668, 260, t('nameSave'), 0x4dffb0, true, () => this.resultsKey('Enter')));
       this.updateName();
     } else {
-      if (r.global) ch.push(this.add.text(VIEW_W / 2, 540, r.global, txt(22, '#ffe14a')).setOrigin(0.5));
+      if (r.global) ch.push((r.globalText = this.add.text(VIEW_W / 2, 540, r.global, txt(22, '#ffe14a')).setOrigin(0.5)));
       else if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
       // Buttons: a new run straight away, back to the title, or (after a win) keep going.
       const opts = this.resultOptions();
