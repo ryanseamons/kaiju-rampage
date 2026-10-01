@@ -445,3 +445,13 @@ html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weig
 #overlay .sound-foot .copy, #overlay .sound-open { padding: 0.35em 1em; border: 0.08em solid var(--yellow); color: var(--yellow); background: transparent; }
 .sound-foot .copied { font-size: 0.8em; color: var(--muted); }
 .sound-foot textarea { width: 100%; font: inherit; font-size: 0.75em; }
+
+/* ── Settings: compact rows, fixed-width segmented controls ─────────────── */
+.panel.narrow { width: calc(var(--u) * 36); }
+.settings { grid-template-columns: auto auto; justify-content: space-between; gap: 0.7em 2em; }
+.settings > span { font-size: 0.95em; }
+.settings .pill { justify-self: end; }
+.settings .pill button { min-width: 5.2em; text-align: center; }
+#overlay .settings .sound-open { justify-self: end; padding: 0.3em 1em; border-radius: 99em; font-size: 0.85em; border: 0.08em solid var(--yellow); color: var(--yellow); background: transparent; }
+#overlay .settings .sound-open:hover { background: rgba(255, 210, 63, 0.12); }
+.settings .note { margin-top: 0.4em; padding-top: 0.8em; border-top: 0.06em solid rgba(243, 234, 210, 0.12); }

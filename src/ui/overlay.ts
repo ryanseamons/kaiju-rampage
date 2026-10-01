@@ -548,12 +548,12 @@ class Overlay {
     }
     const toggle = (what: string, on: boolean) =>
       `<div class="pill"><button data-set="${what}:on" class="${on ? 'on' : ''}">${esc(t('on'))}</button><button data-set="${what}:off" class="${on ? '' : 'on'}">${esc(t('off'))}</button></div>`;
-    return `<section class="panel">${head(t('m_settings'))}<div class="body"><div class="settings">
+    return `<section class="panel narrow">${head(t('m_settings'))}<div class="body"><div class="settings">
       <span>${esc(t('s_language'))}</span>
       <div class="pill"><button data-set="lang:en" class="${getLang() === 'en' ? 'on' : ''}">English</button><button data-set="lang:ja" class="jp ${getLang() === 'ja' ? 'on' : ''}">日本語</button></div>
       <span>${esc(t('s_music'))}</span>${toggle('music', prefs.music)}
       <span>${esc(t('s_sfx'))}</span>${toggle('sfx', prefs.sfx)}
-      <span>${esc(t('m_sound'))}</span><div><button class="sound-open" data-open="sound">♪ ${esc(t('soundOpen'))}</button></div>
+      <span>${esc(t('m_sound'))}</span><button class="sound-open" data-open="sound">♪ ${esc(t('soundOpen'))} →</button>
       <p class="note">${esc(t('jpNote'))}</p>
     </div></div></section>`;
   }
