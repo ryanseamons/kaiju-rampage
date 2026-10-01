@@ -98,9 +98,9 @@ export class Twists {
     const near: Destructible[] = [];
     s.city.grid.query(d.x, d.y, reach, near);
     for (const n of near) {
-      if (!n.alive || n === d || n.kind === 'car' || n.kind === 'tree' || rng.drop.frac() > 0.55) continue;
+      if (!n.alive || n === d || n.kind === 'car' || n.kind === 'tree' || rng.world.frac() > 0.55) continue;
       this.burning++;
-      s.time.delayedCall(rng.drop.float(500, 1300), () => {
+      s.time.delayedCall(rng.world.float(500, 1300), () => {
         this.burning--;
         if (!n.alive) return;
         s.fx.addFire(n.x, n.y - n.h * 0.2);

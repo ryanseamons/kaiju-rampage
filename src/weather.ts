@@ -40,7 +40,7 @@ export class Weather {
     if (STAGE_DEF.lightning && this.s.phase === 'playing') {
       this.nextStrike -= dt;
       if (this.nextStrike <= 0) {
-        this.nextStrike = rng.spawn.float(7, 13);
+        this.nextStrike = rng.world.float(7, 13);
         this.strike();
       }
     }
@@ -49,7 +49,7 @@ export class Weather {
   private strike() {
     const s = this.s, p = s.player, view = s.cameras.main.worldView;
     // Near the kaiju (so it matters), never right on top of it.
-    const a = rng.spawn.float(0, Math.PI * 2), d = rng.spawn.float(0.15, 0.4) * Math.min(view.width, view.height);
+    const a = rng.world.float(0, Math.PI * 2), d = rng.world.float(0.15, 0.4) * Math.min(view.width, view.height);
     const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d;
     const R = 46 * Math.max(1, p.scale * 0.8);
     const ring = s.add.circle(x, y, R, 0xbfd8ff, 0.12).setStrokeStyle(3, 0xbfd8ff, 0.9).setDepth(9300);

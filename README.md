@@ -103,7 +103,7 @@ For testing any of it outside the daily: `?stage=`, `?twist=a,b`, `?threat=` and
 
 The board is one small API (`src/shared/daily-api.ts`: one ranked score per player per day, plausibility checks, a per-IP cap) with two adapters:
 
-- **Public site:** a Cloudflare Pages Function (`functions/api/daily/[day]/scores.ts`) on a free D1 database `kaiju-daily`, bound to the Pages project as `DB` in the dashboard (Settings → Bindings). The table creates itself on first use.
+- **Public site:** a Cloudflare Pages Function (`functions/api/daily/[day]/scores.ts`) on a free D1 database `kaiju-daily`, bound to the Pages project as `DB` in the dashboard (Settings → Bindings). The table creates itself on first use. The binding lives in the dashboard on purpose: adding a `wrangler.toml` with `pages_build_output_dir` would switch the project to file-managed config and drop it, so copy the binding into the file if you ever do.
 - **Anywhere else:** `npm run dev`'s Node server serves the same routes from a JSON file (`DAILY_DATA_DIR`, default `.data/`). A self-hosted deploy (e.g. an internal one) can run that, or build with `VITE_DAILY_API=https://kaiju.ryanseamons.com` to share the public board (the function allows cross-origin requests).
 
 ## Tests

@@ -30,9 +30,12 @@ export const rng = {
   ai: new Stream(),
   /** Hearts, items and crates. */
   drop: new Stream(),
+  /** The world acting on its own: lightning, fire spreading. Kept apart so it can't shift spawns or drops. */
+  world: new Stream(),
   sowAll(seed: number) {
     rng.spawn.sow(seed ^ 0x51ed270b);
     rng.ai.sow(seed ^ 0x2c1b3c6d);
     rng.drop.sow(seed ^ 0x6a09e667);
+    rng.world.sow(seed ^ 0x3c6ef372);
   },
 };
