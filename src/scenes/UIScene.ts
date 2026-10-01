@@ -100,7 +100,14 @@ export class UIScene extends Phaser.Scene {
     // The on-screen pause button (HTML, beside mute) behaves like P.
     window.addEventListener('kaiju-pause', () => this.onKey('KeyP'));
     overlay.init(() => this.gs?.startRun());
-    onLang(() => this.rebuildHud());
+    this.buildLevelPool(); // ahead of the first level-up
+    onLang(() => {
+      this.rebuildHud();
+      if (this.levelPool) {
+        this.levelPool.root.destroy();
+        this.levelPool = undefined;
+      }
+    });
   }
 
   get currentModal(): Modal {
@@ -279,49 +286,92 @@ export class UIScene extends Phaser.Scene {
   }
 
   private closeModal() {
+    if (this.modal === 'levelup') this.hideLevelPool();
     this.modalRoot?.destroy();
     this.modalRoot = undefined;
     this.modal = null;
     this.cards = [];
   }
 
+  /** The level-up screen, built once and refilled for each offer: creating ~24 text objects per
+   * level-up (canvas, font measuring, a texture each) cost a ~70 ms hitch. Rebuilt on a language change. */
+  private levelPool?: {
+    root: Phaser.GameObjects.Container;
+    title: Phaser.GameObjects.Text;
+    sub: Phaser.GameObjects.Text;
+    cards: { c: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Rectangle; key: Phaser.GameObjects.Text; tag: Phaser.GameObjects.Text; glyph: Phaser.GameObjects.Text; name: Phaser.GameObjects.Text; desc: Phaser.GameObjects.Text; kind: Phaser.GameObjects.Text }[];
+    reroll: Phaser.GameObjects.Text;
+    skip: Phaser.GameObjects.Text;
+  };
+
+  private buildLevelPool() {
+    this.levelPool?.root.destroy();
+    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.7);
+    const title = this.add.text(VIEW_W / 2, 150, t('levelUp'), txt(56, '#4dffb0', { strokeThickness: 8 })).setOrigin(0.5);
+    const sub = this.add.text(VIEW_W / 2, 200, t('chooseMutation'), txt(18, '#e8e8f0')).setOrigin(0.5);
+    const cards = [0, 1, 2].map((i) => {
+      const bg = this.add.rectangle(0, 0, 310, 250, 0x10121e, 0.96).setStrokeStyle(4, 0xffffff);
+      const key = this.add.text(-140, -110, `[${i + 1}]`, txt(20, '#ffffff'));
+      const tag = this.add.text(140, -110, '', txt(16, '#ffe14a')).setOrigin(1, 0);
+      const glyph = this.add.text(0, -62, '', { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '40px', color: '#ffffff', stroke: '#05060d', strokeThickness: 6 }).setOrigin(0.5);
+      const name = this.add.text(0, -12, '', txt(22, '#ffffff', { align: 'center', wordWrap: { width: 280 } })).setOrigin(0.5);
+      const desc = this.add.text(0, 24, '', txt(16, '#e8e8f0', { align: 'center', wordWrap: { width: 270 }, strokeThickness: 2 })).setOrigin(0.5, 0);
+      const kind = this.add.text(0, 104, '', txt(12, '#8888aa')).setOrigin(0.5);
+      const c = this.add.container(0, 410, [bg, key, tag, glyph, name, desc, kind]).setSize(310, 250);
+      c.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.pick(i)).on('pointerover', () => this.select(i, true));
+      return { c, bg, key, tag, glyph, name, desc, kind };
+    });
+    const reroll = this.add.text(VIEW_W / 2 - 170, 580, '', txt(18, '#9ffcff')).setOrigin(0.5);
+    const skip = this.add.text(VIEW_W / 2 + 170, 580, t('skip'), txt(18, '#ff9fb0')).setOrigin(0.5);
+    reroll.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.rerollOffer()).on('pointerover', () => uiSound.hover());
+    skip.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.skipOffer()).on('pointerover', () => uiSound.hover());
+    const root = this.add.container(0, 0, [dim, title, sub, ...cards.map((k) => k.c), reroll, skip]).setDepth(50);
+    this.levelPool = { root, title, sub, cards, reroll, skip };
+    this.hideLevelPool();
+  }
+
+  private hideLevelPool() {
+    const lp = this.levelPool;
+    if (!lp) return;
+    lp.root.setVisible(false);
+    for (const k of lp.cards) k.c.disableInteractive();
+    lp.reroll.disableInteractive();
+    lp.skip.disableInteractive();
+  }
+
   showLevelUp(offer: UpgradeDef[], levels: Record<string, number>, onPick: (i: number) => void, opts?: LevelUpOpts) {
     this.onPick = onPick;
     this.levelOpts = opts;
     this.sel = 0;
-    const dim = this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.7);
-    const title = this.add.text(VIEW_W / 2, 150, t('levelUp'), txt(56, '#4dffb0', { strokeThickness: 8 })).setOrigin(0.5);
-    const sub = this.add.text(VIEW_W / 2, 200, t('chooseMutation'), txt(18, '#e8e8f0')).setOrigin(0.5);
-    const children: Phaser.GameObjects.GameObject[] = [dim, title, sub];
-    this.cards = offer.map((u, i) => {
-      const x = VIEW_W / 2 + (i - (offer.length - 1) / 2) * 340;
+    if (!this.levelPool) this.buildLevelPool();
+    const lp = this.levelPool!;
+    this.openModal('levelup', []);
+    lp.root.setVisible(true);
+    lp.cards.forEach((k, i) => {
+      const u = offer[i];
+      k.c.setVisible(!!u);
+      if (!u) return;
       const lv = levels[u.id] ?? 0;
       const col = KIND_COLOR[u.kind];
       const colS = Phaser.Display.Color.IntegerToColor(col).rgba;
-      const bg = this.add.rectangle(0, 0, 310, 250, 0x10121e, 0.96).setStrokeStyle(4, col);
-      const key = this.add.text(-140, -110, `[${i + 1}]`, txt(20, '#ffffff'));
-      const tag = this.add.text(140, -110, lv === 0 ? t('new') : `LV ${lv}→${lv + 1}`, txt(16, lv === 0 ? '#ffe14a' : '#9ffcff')).setOrigin(1, 0);
-      const glyph = this.add.text(0, -62, upGlyph(u.id), { fontFamily: JP_FONT, fontStyle: 'bold', fontSize: '40px', color: colS, stroke: '#05060d', strokeThickness: 6 }).setOrigin(0.5);
-      const name = this.add.text(0, -12, up(upName(u.id)), txt(22, colS, { align: 'center', wordWrap: { width: 280 } })).setOrigin(0.5);
-      const desc = this.add.text(0, 24, upDesc(u.id, lv + 1), txt(16, '#e8e8f0', { align: 'center', wordWrap: { width: 270 }, strokeThickness: 2 })).setOrigin(0.5, 0);
-      const kind = this.add.text(0, 104, t(`kind_${u.kind}` as 'kind_weapon'), txt(12, '#8888aa')).setOrigin(0.5);
-      const card = this.add.container(x, 410, [bg, key, tag, glyph, name, desc, kind]).setSize(310, 250);
-      card.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.pick(i)).on('pointerover', () => this.select(i, true));
-      card.setScale(0.6).setAlpha(0);
-      this.tweens.add({ targets: card, scale: 1, alpha: 1, duration: 200, delay: i * 70, ease: 'Back.easeOut' });
-      children.push(card);
-      return card;
+      k.bg.setStrokeStyle(4, col);
+      k.tag.setText(lv === 0 ? t('new') : `LV ${lv}→${lv + 1}`).setColor(lv === 0 ? '#ffe14a' : '#9ffcff');
+      k.glyph.setText(upGlyph(u.id)).setColor(colS);
+      k.name.setText(up(upName(u.id))).setColor(colS);
+      k.desc.setText(upDesc(u.id, lv + 1));
+      k.kind.setText(t(`kind_${u.kind}` as 'kind_weapon'));
+      this.tweens.killTweensOf(k.c);
+      k.c.setPosition(VIEW_W / 2 + (i - (offer.length - 1) / 2) * 340, 410).setScale(0.6).setAlpha(0);
+      k.c.setInteractive();
+      this.tweens.add({ targets: k.c, scale: 1, alpha: 1, duration: 200, delay: i * 70, ease: 'Back.easeOut' });
     });
-    const cardsOnly = children.slice(3) as Phaser.GameObjects.Container[];
+    this.cards = lp.cards.slice(0, offer.length).map((k) => k.c);
+    lp.reroll.setVisible(!!opts);
+    lp.skip.setVisible(!!opts);
     if (opts) {
-      const rr = this.add.text(VIEW_W / 2 - 170, 580, t('reroll', { n: opts.rerolls }), txt(18, opts.rerolls > 0 ? '#9ffcff' : '#555a70')).setOrigin(0.5);
-      const sk = this.add.text(VIEW_W / 2 + 170, 580, t('skip'), txt(18, '#ff9fb0')).setOrigin(0.5);
-      rr.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.rerollOffer()).on('pointerover', () => uiSound.hover());
-      sk.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.skipOffer()).on('pointerover', () => uiSound.hover());
-      children.push(rr, sk);
+      lp.reroll.setText(t('reroll', { n: opts.rerolls })).setColor(opts.rerolls > 0 ? '#9ffcff' : '#555a70').setInteractive();
+      lp.skip.setInteractive();
     }
-    this.openModal('levelup', children);
-    this.cards = cardsOnly;
     this.select(0);
   }
 
