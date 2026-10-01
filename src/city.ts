@@ -96,6 +96,12 @@ export class City {
   all: Destructible[] = [];
   private r: Rng;
   private special = new Map<string, LandmarkId>();
+  /** Streetlight glows and other static decoration (culled with the buildings). */
+  private decor: Phaser.GameObjects.Image[] = [];
+  private lanterns: Phaser.GameObjects.Image[] = [];
+  /** Rubble images, oldest first; capped (the ground under old rubble stays scorched). */
+  private rubble: Phaser.GameObjects.Image[] = [];
+  private cullT = 0;
   /** Every landmark placed, for the minimap-free player to find (and tests). */
   landmarks: Destructible[] = [];
 
@@ -314,22 +320,24 @@ export class City {
         const x = tx * TILE + 32, y = ty * TILE + 32;
         const neon = districtAt(x, y) === 'Neon Row';
         const tint = neon ? (((tx + ty) / 9) % 2 ? 0xff3fa4 : 0x3ff0ff) : 0xffc070;
-        s.add.image(x, y, 'glow').setTint(tint).setAlpha(neon ? 0.45 : 0.3).setScale(2.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
+        this.decor.push(s.add.image(x, y, 'glow').setTint(tint).setAlpha(neon ? 0.45 : 0.3).setScale(2.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50));
       }
     for (let tx = 2; tx < MAP_W; tx += 6)
-      s.add.image(tx * TILE, 86 * TILE, 'glow').setTint(0xffe0a0).setAlpha(0.25).setScale(1.8).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
+      this.decor.push(s.add.image(tx * TILE, 86 * TILE, 'glow').setTint(0xffe0a0).setAlpha(0.25).setScale(1.8).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50));
     // Night market: strings of paper lanterns along the streets.
     if (STAGE_DEF.weather === 'lanterns')
       for (let ty = 0; ty < 83; ty += 9)
         for (let tx = 0; tx < MAP_W; tx += 2) {
+          // flicker is driven by cull() for the lanterns on screen, not one tween each
           const l = s.add.image(tx * TILE + 16, ty * TILE + 4, 'lantern').setBlendMode(Phaser.BlendModes.ADD).setDepth(9000).setAlpha(0.85);
-          s.tweens.add({ targets: l, alpha: 0.55, yoyo: true, repeat: -1, duration: 700 + ((tx * 37 + ty) % 600) });
+          l.setData('ph', (tx * 37 + ty) % 628 / 100);
+          this.lanterns.push(l);
         }
     // Neon Megacity: a pink-and-cyan glow on every block corner.
     if (STAGE_DEF.weather === 'neon')
       for (let ty = 0; ty < 83; ty += 9)
         for (let tx = 4; tx < MAP_W; tx += 9)
-          s.add.image(tx * TILE + 16, ty * TILE + 48, 'glow').setTint((tx + ty) % 2 ? 0xff3fa4 : 0x3ff0ff).setAlpha(0.4).setScale(3.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50);
+          this.decor.push(s.add.image(tx * TILE + 16, ty * TILE + 48, 'glow').setTint((tx + ty) % 2 ? 0xff3fa4 : 0x3ff0ff).setAlpha(0.4).setScale(3.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50));
   }
 
   /** Centre of the nearest road tile (searches outward over the tilemap, so any street layout works). */
@@ -357,15 +365,45 @@ export class City {
   leaveRubble(d: Destructible) {
     const s = this.scene;
     if (d.kind === 'car' || d.kind === 'tree') {
-      s.add.image(d.x, d.y, 'rubble').setScale(0.35).setDepth(-60).setTint(d.kind === 'tree' ? 0x335533 : 0x555566);
+      this.rubble.push(s.add.image(d.x, d.y, 'rubble').setScale(0.35).setDepth(-60).setTint(d.kind === 'tree' ? 0x335533 : 0x555566));
+      while (this.rubble.length > 500) this.rubble.shift()!.destroy();
       return;
     }
+    // Scorch the ground under the footprint (free to draw: it's the tilemap), then add rubble images.
+    const x0 = Math.floor((d.x - d.w / 2) / TILE), x1 = Math.floor((d.x + d.w / 2 - 1) / TILE);
+    const y0 = Math.floor((d.y - d.h / 2) / TILE), y1 = Math.floor((d.y + d.h / 2 - 1) / TILE);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) this.map.putTileAt(T.scorch, tx, ty);
     const n = d.kind === 'house' ? 1 : 3;
     for (let i = 0; i < n; i++)
-      s.add
-        .image(d.x + (n > 1 ? Phaser.Math.Between(-16, 16) : 0), d.y + (n > 1 ? Phaser.Math.Between(-14, 14) : 0), 'rubble')
-        .setDepth(-60)
-        .setScale(d.kind === 'house' ? 1 : 1.3)
-        .setFlipX(Math.random() < 0.5);
+      this.rubble.push(
+        s.add
+          .image(d.x + (n > 1 ? Phaser.Math.Between(-16, 16) : 0), d.y + (n > 1 ? Phaser.Math.Between(-14, 14) : 0), 'rubble')
+          .setDepth(-60)
+          .setScale(d.kind === 'house' ? 1 : 1.3)
+          .setFlipX(Math.random() < 0.5),
+      );
+    while (this.rubble.length > 500) this.rubble.shift()!.destroy();
+  }
+
+  /**
+   * Hide what's off screen. Phaser draws every visible object each frame whether or not it's in view,
+   * and the city is thousands of them; this keeps the per-frame cost to roughly what's on screen.
+   */
+  cull(view: Phaser.Geom.Rectangle, dt: number) {
+    this.cullT -= dt;
+    if (this.cullT > 0) return;
+    this.cullT = 0.1;
+    const m = 220 + Math.max(view.width, view.height) * 0.15; // tall sprites and fast cameras
+    const x0 = view.x - m, x1 = view.right + m, y0 = view.y - m, y1 = view.bottom + m;
+    const inView = (x: number, y: number) => x > x0 && x < x1 && y > y0 && y < y1;
+    for (const d of this.all) if (d.alive) d.sprite.setVisible(inView(d.sprite.x, d.sprite.y));
+    for (const o of this.decor) o.setVisible(inView(o.x, o.y));
+    for (const o of this.rubble) o.setVisible(inView(o.x, o.y));
+    const t = this.scene.time.now / 1000;
+    for (const o of this.lanterns) {
+      const v = inView(o.x, o.y);
+      o.setVisible(v);
+      if (v) o.setAlpha(0.7 + 0.15 * Math.sin(t * 4 + (o.getData('ph') as number)));
+    }
   }
 }

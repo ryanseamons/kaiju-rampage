@@ -1,0 +1,88 @@
+{
+  "tier3 late": {
+    "workMean": 1.93,
+    "work50": 1,
+    "work95": 3.6,
+    "frames": 1033,
+    "p50": 16.7,
+    "p90": 16.7,
+    "p99": 33.3,
+    "fps": 61,
+    "destroyed": 0,
+    "enemies": 16,
+    "tier": 3,
+    "wave": 4,
+    "objects": {
+      "total": 1939,
+      "visible": 775,
+      "by": {
+        "TilemapLayer": 1,
+        "Image": 1899,
+        "ParticleEmitter": 20,
+        "Sprite": 17,
+        "Graphics": 1,
+        "Text": 1
+      },
+      "tweens": 3
+    },
+    "top": [
+      "91.4% (idle) :-1",
+      "2.5% (program) :-1",
+      "1.1% batchTexture index-3BhCogmz.js:27",
+      "0.7% batchQuad index-3BhCogmz.js:27",
+      "0.4% e.99517.e.exports index-3BhCogmz.js:7",
+      "0.3% e.99558.e.exports index-3BhCogmz.js:64",
+      "0.3% render index-3BhCogmz.js:0",
+      "0.2% e.19186.e.exports index-3BhCogmz.js:65",
+      "0.2% applyITRS index-3BhCogmz.js:7",
+      "0.2% setQuad index-3BhCogmz.js:7",
+      "0.2% update index-3BhCogmz.js:142",
+      "0.2% batchSprite index-3BhCogmz.js:27",
+      "0.1% sortByDepth index-3BhCogmz.js:2",
+      "0.1% update index-3BhCogmz.js:68"
+    ]
+  },
+  "market late": {
+    "workMean": 2.46,
+    "work50": 1.5,
+    "work95": 5.2,
+    "frames": 1012,
+    "p50": 16.7,
+    "p90": 16.7,
+    "p99": 33.3,
+    "fps": 60,
+    "destroyed": 0,
+    "enemies": 16,
+    "tier": 3,
+    "wave": 4,
+    "objects": {
+      "total": 2862,
+      "visible": 1184,
+      "by": {
+        "TilemapLayer": 1,
+        "Image": 2815,
+        "ParticleEmitter": 20,
+        "Zone": 8,
+        "Sprite": 17,
+        "Graphics": 1
+      },
+      "tweens": 1
+    },
+    "top": [
+      "86.8% (idle) :-1",
+      "2.9% (program) :-1",
+      "0.7% batchQuad index-3BhCogmz.js:27",
+      "0.7% batchSprite index-3BhCogmz.js:27",
+      "0.7% render index-3BhCogmz.js:0",
+      "0.7% set index-3BhCogmz.js:22",
+      "0.7% e.99517.e.exports index-3BhCogmz.js:7",
+      "0.7% batchTexture index-3BhCogmz.js:27",
+      "0.5% e.19186.e.exports index-3BhCogmz.js:65",
+      "0.3% update index-3BhCogmz.js:142",
+      "0.3% setQuad index-3BhCogmz.js:7",
+      "0.3% sortByDepth index-3BhCogmz.js:2",
+      "0.3% update index-3BhCogmz.js:68",
+      "0.3% render index-3BhCogmz.js:27"
+    ]
+  }
+}

@@ -67,6 +67,7 @@ export class GameScene extends Phaser.Scene {
   private navT = 0;
   score = new Score();
   private stride = 0;
+  private extrasCache?: { fuel: number; stalls: number; cranes: number };
   netImg?: Phaser.GameObjects.Image;
   /** False for daily practice runs (the day's ranked run is already done). */
   ranked = true;
@@ -378,11 +379,13 @@ export class GameScene extends Phaser.Scene {
       if (this.peekAt) {
         cam.centerOn(this.peekAt.x, this.peekAt.y);
         this.player?.syncDecor(this.gameTime);
+        this.city.cull(cam.worldView, delta / 1000);
         return;
       }
       cam.centerOn(WORLD_W / 2 + Math.sin(this.titleT / 21000) * 900, LAND_H - 700 + Math.sin(this.titleT / 13000) * 160);
       this.titleFx.forEach((f, i) => f.setRotation(-Math.PI / 2 + Math.sin(this.titleT / (2600 + i * 700) + i * 1.7) * 0.75));
       this.player?.syncDecor(this.gameTime);
+      this.city.cull(cam.worldView, delta / 1000);
       return;
     }
     if (this.phase !== 'playing') {
@@ -464,6 +467,7 @@ export class GameScene extends Phaser.Scene {
     this.weapons.update(dt);
     this.enemies.update(dt);
     this.twists.update(dt);
+    this.city.cull(this.cameras.main.worldView, dt);
     this.weather?.update(dt);
     this.ambientSounds(dt);
     this.pickups.update(dt);
@@ -970,6 +974,17 @@ export class GameScene extends Phaser.Scene {
         this.hurtPlayer(n, this.player.x, this.player.y);
       },
       heartChance: (base: number) => this.twists.heal(base),
+      /** Perf probe: how many display objects the game scene is drawing, by type. */
+      objects: () => {
+        const by: Record<string, number> = {};
+        for (const o of this.children.list) by[o.type] = (by[o.type] ?? 0) + 1;
+        return { total: this.children.list.length, visible: this.children.list.filter((o) => (o as unknown as { visible: boolean }).visible).length, by, tweens: this.tweens.getTweens().length };
+      },
+      /** Perf probe: flatten n buildings at random (as a long run would). */
+      flatten: (n: number) => {
+        const live = this.city.all.filter((d) => d.alive && d.kind !== 'car' && d.kind !== 'tree');
+        for (let i = 0; i < n && live.length; i++) this.destroyDestructible(live.splice(Math.floor(Math.random() * live.length), 1)[0], false, false);
+      },
       /** Finish off the boss (tests the victory path for every boss). */
       killBoss: () => {
         const b = this.enemies.boss;
@@ -1026,7 +1041,7 @@ export class GameScene extends Phaser.Scene {
       slowT: this.player.slowT,
       netT: this.player.netT,
       stage: STAGE_DEF.id,
-      cityExtras: { fuel: this.city.all.filter((d) => d.fuel).length, stalls: this.city.all.filter((d) => d.sprite.texture.key.startsWith('stall')).length, cranes: this.city.all.filter((d) => d.sprite.texture.key === 'crane').length },
+      cityExtras: (this.extrasCache ??= { fuel: this.city.all.filter((d) => d.fuel).length, stalls: this.city.all.filter((d) => d.sprite.texture.key.startsWith('stall')).length, cranes: this.city.all.filter((d) => d.sprite.texture.key === 'crane').length }),
       darkness: !!this.children.getByName('darkness'),
       ranked: this.ranked,
       enemyRoster: [...ENEMY_ROSTER],

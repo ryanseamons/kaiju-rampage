@@ -4,18 +4,18 @@
   "maxTierReached": 3,
   "level": 13,
   "hp": 420,
-  "minHpPct": 88,
-  "destroyed": 147,
+  "minHpPct": 90,
+  "destroyed": 118,
   "bulletinsShown": 2,
   "levelUpsShown": 12,
   "enemyTypesSpawned": [
     "soldier",
-    "rocket",
-    "tank"
+    "tank",
+    "rocket"
   ],
   "upgradePoolSize": 16,
-  "damageTaken": 79,
-  "headlessAvgFps": 60,
+  "damageTaken": 69,
+  "headlessAvgFps": 59,
   "shots": [
     "levelup",
     "tier1",

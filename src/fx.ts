@@ -169,22 +169,23 @@ export class Fx {
   }
 
   /** Big retro impact word, e.g. "KRAKOOM!" */
+  // Impact words come from a small pool: creating a Text means a new canvas and a texture upload,
+  // which stutters when a dozen fire at once. The text is drawn at a fixed size and scaled instead.
+  private words: Phaser.GameObjects.Text[] = [];
   word(x: number, y: number, text: string, color = '#ffe14a', size = 1) {
-    const t = this.scene.add
-      .text(x, y, text, {
-        fontFamily: gameFont(),
-        fontStyle: 'bold',
-        fontSize: `${Math.round(12 * size)}px`,
-        color,
-        stroke: '#1a0a14',
-        strokeThickness: Math.max(2, Math.round(3 * size)),
-      })
-      .setOrigin(0.5)
-      .setDepth(9500)
-      .setScale(0.4)
-      .setAngle(Phaser.Math.Between(-12, 12));
-    this.scene.tweens.add({ targets: t, scale: 1, duration: 120, ease: 'Back.easeOut' });
-    this.scene.tweens.add({ targets: t, y: y - 18 * size, alpha: 0, delay: 380, duration: 420, onComplete: () => t.destroy() });
+    let t = this.words.find((w) => !w.visible);
+    if (!t) {
+      if (this.words.length >= 24) return; // a busy moment: skip a word rather than build another canvas
+      t = this.scene.add.text(0, 0, '', { fontFamily: gameFont(), fontStyle: 'bold', fontSize: '24px', stroke: '#1a0a14', strokeThickness: 5 }).setOrigin(0.5).setDepth(9500);
+      this.words.push(t);
+    }
+    if (t.text !== text) t.setText(text);
+    t.setColor(color).setPosition(x, y).setAlpha(1).setVisible(true).setAngle(Phaser.Math.Between(-12, 12));
+    const k = size / 2; // 24px base ≈ the old 12px × size
+    t.setScale(0.4 * k);
+    this.scene.tweens.killTweensOf(t);
+    this.scene.tweens.add({ targets: t, scale: k, duration: 120, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: t, y: y - 18 * size, alpha: 0, delay: 380, duration: 420, onComplete: () => t!.setVisible(false) });
   }
 
   flash(obj: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite, ms = 60) {
