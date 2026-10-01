@@ -809,6 +809,8 @@ export class UIScene extends Phaser.Scene {
         uiSound.hover(false);
         this.showPaused(1 - this.pauseSel);
       } else if (code === 'Enter' || code === 'Space') {
+        // Not in its first moments: the Enter that closed the exit prompt mustn't also resume the run.
+        if (this.time.now - this.modalOpenedAt < 250) return;
         uiSound.press();
         if (this.pauseSel === 0) this.resumeFromPause();
         else this.showExitConfirm();
