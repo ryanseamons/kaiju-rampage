@@ -170,6 +170,7 @@ const S = {
   lm_castle: { en: 'Shiokaze Castle', ja: '潮風城' },
   lm_tvtower: { en: 'KBN-7 Tower', ja: 'KBN-7タワー' },
   lm_torii: { en: 'Torii Gate', ja: '鳥居' },
+  w_netted: { en: 'NETTED!', ja: '捕獲!' },
   landmarkDown: { en: 'LANDMARK DESTROYED', ja: '名所 崩壊' },
   diff_easy: { en: 'Easy', ja: 'やさしい' },
   diff_medium: { en: 'Medium', ja: 'ふつう' },

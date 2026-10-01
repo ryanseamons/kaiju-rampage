@@ -506,6 +506,40 @@ export function generateTextures(scene: Phaser.Scene) {
   pixelTex(scene, 'tvtower', 60, 150, drawTvTower);
   pixelTex(scene, 'torii', 30, 30, drawTorii);
   pixelTex(scene, 'fueltank', 30, 32, drawFuelTank);
+  // ── Daily threats ──
+  pixelTex(scene, 'maser', 22, 16, (c) => {
+    rect(c, 1, 3, 20, 11, '#2a3a4a'); rect(c, 1, 3, 20, 2, '#3a4e62');
+    rect(c, 0, 2, 22, 2, '#1a222c'); rect(c, 0, 13, 22, 2, '#1a222c');
+    ell(c, 9, 8, 5, 5, '#c8d8e8'); ell(c, 9, 8, 3, 3, '#5ff6ff'); rect(c, 13, 7, 9, 2, '#9aaabb');
+  });
+  pixelTex(scene, 'drone', 9, 9, (c) => {
+    rect(c, 3, 3, 3, 3, '#3a3f55'); rect(c, 4, 4, 1, 1, '#ff3355');
+    for (const [x, y] of [[0, 0], [6, 0], [0, 6], [6, 6]]) ell(c, x + 1.5, y + 1.5, 1.5, 1.5, '#9aa0b8');
+  });
+  pixelTex(scene, 'railgun', 30, 12, (c) => {
+    rect(c, 0, 3, 16, 8, '#4a3a3a'); rect(c, 0, 3, 16, 2, '#5a4848');
+    rect(c, 3, 10, 4, 2, '#1a1a1a'); rect(c, 10, 10, 4, 2, '#1a1a1a');
+    rect(c, 12, 5, 18, 3, '#8a8a96'); rect(c, 26, 4, 4, 5, '#ff3355');
+  });
+  pixelTex(scene, 'sub', 44, 16, (c) => {
+    ell(c, 22, 10, 21, 5, '#1c2430'); ell(c, 22, 8, 19, 3, '#2a3444');
+    rect(c, 18, 2, 8, 7, '#2a3444'); rect(c, 21, 0, 2, 3, '#5a6474'); rect(c, 34, 9, 6, 1, '#ffcc44');
+  });
+  for (let f = 0; f < 2; f++)
+    pixelTex(scene, `riot${f}`, 12, 11, (c) => {
+      rect(c, 3, 2, 4, 5, '#2a3048'); ell(c, 5, 2, 2, 2, '#1a1d2c');
+      rect(c, 3 + f, 7, 2, 3, '#1a1d2c'); rect(c, 6 - f, 7, 2, 3, '#1a1d2c');
+      rect(c, 7, 0, 4, 10, '#a8c0d8'); rect(c, 8, 1, 2, 8, '#d8e8f8'); rect(c, 7, 4, 4, 1, '#ffcc44');
+    });
+  pixelTex(scene, 'torpedo', 14, 4, (c) => { rect(c, 0, 1, 12, 2, '#5a6474'); rect(c, 12, 1, 2, 2, '#ff3355'); rect(c, 0, 0, 2, 4, '#3a4454'); }, false);
+  pixelTex(scene, 'net', 32, 32, (c) => {
+    c.strokeStyle = '#d8dce8';
+    c.lineWidth = 1.2;
+    for (let k = 2; k <= 30; k += 6) {
+      c.beginPath(); c.moveTo(k, 2); c.lineTo(k, 30); c.stroke();
+      c.beginPath(); c.moveTo(2, k); c.lineTo(30, k); c.stroke();
+    }
+  }, false);
   pixelTex(scene, 'crane', 60, 140, drawCrane);
   softTex(scene, 'lantern', 24, 24, (c) => {
     const g = c.createRadialGradient(12, 12, 1, 12, 12, 12);

@@ -5,7 +5,7 @@ import type { DailyRow } from './shared/daily-api';
 import { playerToken } from './daily';
 
 const BASE = (import.meta.env.VITE_DAILY_API as string | undefined) ?? '';
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 10_000; // the board loads in the background, so a slow network costs nothing
 
 export interface Board {
   total: number;

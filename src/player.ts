@@ -14,6 +14,10 @@ export class Kaiju extends Phaser.Physics.Arcade.Sprite {
   facing = new Phaser.Math.Vector2(1, 0);
   stompCd = 0;
   invuln = 0;
+  /** Freeze Tank shells: seconds of slowed movement. */
+  slowT = 0;
+  /** Net Helicopter: seconds pinned under a net. */
+  netT = 0;
   shadow: Phaser.GameObjects.Image;
   auraGlow: Phaser.GameObjects.Image;
 

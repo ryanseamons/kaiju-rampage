@@ -16,9 +16,16 @@ export type BossId = (typeof BOSSES)[number];
 export const AVAILABLE = {
   stages: ['bay', 'market', 'neon', 'harbor', 'snow', 'typhoon'] as StageId[],
   twists: ['glass', 'blackout', 'starving', 'air', 'giant', 'firestorm'] as TwistId[],
-  threats: [] as ThreatId[],
+  threats: ['maser', 'drones', 'freeze', 'netheli', 'railgun', 'sub', 'riot'] as ThreatId[],
   bosses: ['guardian'] as BossId[],
 };
+
+/** Debug: `?threat=drones` forces a featured threat in any mode. */
+export const THREAT_PARAM = ((): ThreatId | null => {
+  if (typeof location === 'undefined') return null; // imported by node-side tests
+  const v = new URLSearchParams(location.search).get('threat');
+  return v && (THREATS as readonly string[]).includes(v) ? (v as ThreatId) : null;
+})();
 
 /** Daily #1. */
 export const EPOCH = '2026-09-30';

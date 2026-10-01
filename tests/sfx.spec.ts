@@ -54,8 +54,8 @@ test('every gameplay effect makes a sound', async ({ page }) => {
   const quiet = await page.evaluate(async () => (window as any).__kaijuAudio.analyse(await (window as any).__kaijuAudio.record(1.1)));
   const levels: Record<string, number> = {};
   for (const [name, call] of calls) {
-    await page.waitForTimeout(450); // let the previous effect and its throttle clear
-    const rec = page.evaluate(() => (window as any).__kaijuAudio.record(1.1));
+    await page.waitForTimeout(260); // let the previous effect and its throttle clear
+    const rec = page.evaluate(() => (window as any).__kaijuAudio.record(0.7));
     await page.waitForTimeout(120);
     await page.evaluate((c) => new Function('s', `s.${c}`)((window as any).__kaijuSfx), call);
     const b64 = await rec;

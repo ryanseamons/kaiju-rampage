@@ -71,6 +71,13 @@ export const REWARDS = {
   cannon: { mass: 6, xp: 8, score: 250 },
   walker: { mass: 40, xp: 25, score: 1500 },
   mech: { mass: 0, xp: 0, score: 10000 },
+  maser: { mass: 6, xp: 8, score: 300 },
+  drone: { mass: 0.2, xp: 1, score: 30 },
+  freeze: { mass: 5, xp: 6, score: 200 },
+  netheli: { mass: 3, xp: 7, score: 250 },
+  railgun: { mass: 5, xp: 8, score: 300 },
+  sub: { mass: 10, xp: 15, score: 800 },
+  riot: { mass: 1, xp: 2, score: 60 },
 };
 
 export interface WaveDef {

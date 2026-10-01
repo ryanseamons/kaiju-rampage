@@ -44,6 +44,6 @@ test('the briefing shows the global board from the server', async ({ page, reque
   expect([201, 409]).toContain(r.status());
   await page.goto('/?daily=1&mute=1&lang=en');
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
-  await expect(page.locator('.panel.daily .dlabel')).toContainText('Global board', { timeout: 10_000 });
+  await expect(page.locator('.panel.daily .dlabel')).toContainText('Global board', { timeout: 20_000 });
   await expect(page.locator('.panel.daily .dboard')).toContainText('ZZT');
 });

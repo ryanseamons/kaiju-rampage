@@ -22,7 +22,7 @@ import { Score } from '../score';
 import { NavField } from '../nav';
 import { gradeFor, qualifies } from '../scores';
 import { rng } from '../rand';
-import { dailyConfig, markRanked, rankedUsed, type DailyConfig } from '../daily';
+import { THREAT_PARAM, dailyConfig, markRanked, rankedUsed, type DailyConfig, type ThreatId } from '../daily';
 import { TWIST_PARAM, Twists } from '../twists';
 import { Weather } from '../weather';
 import { STAGE_DEF } from '../stages';
@@ -67,10 +67,13 @@ export class GameScene extends Phaser.Scene {
   private navT = 0;
   score = new Score();
   private stride = 0;
+  netImg?: Phaser.GameObjects.Image;
   /** False for daily practice runs (the day's ranked run is already done). */
   ranked = true;
   /** Today's twists (or `?twist=` for testing). */
   twists: Twists = new Twists(this, []);
+  /** Today's featured threat (or `?threat=`). */
+  threat: ThreatId | null = null;
   private weather?: Weather;
   /** Today's daily content, or null outside the daily. */
   readonly dailyCfg: DailyConfig | null = DAILY ? dailyConfig(DAILY) : null;
@@ -218,6 +221,7 @@ export class GameScene extends Phaser.Scene {
     this.titleFx = [];
     sfx.unlock();
     this.twists = new Twists(this, this.dailyCfg?.twists ?? TWIST_PARAM);
+    this.threat = this.dailyCfg?.threat ?? THREAT_PARAM;
     // Giant from the Start: begin at wave 3 at Behemoth size, with three mutations to choose.
     const startWave = this.twists.has('giant') && START_WAVE < 3 ? 3 : START_WAVE;
     this.waveIdx = startWave - 1;
@@ -239,10 +243,13 @@ export class GameScene extends Phaser.Scene {
     music.play(`tier${this.tier}` as 'tier1');
     this.startWave();
     this.twists.start();
+    this.netImg = this.add.image(0, 0, 'net').setVisible(false);
     this.weather = new Weather(this);
     if (this.twists.has('giant')) this.pendingLevelUps += 3;
     // Announce the day's twists after the wave banner.
     [...this.twists.on].forEach((id, i) => this.time.delayedCall(2600 + i * 2400, () => this.ui.banner(`${t('dailyTwist').toUpperCase()}: ${dailyName('twist', id)}`, dailyDesc('twist', id), true)));
+    const threat = this.threat;
+    if (threat) this.time.delayedCall(2600 + this.twists.on.size * 2400, () => this.ui.banner(`${t('dailyThreat').toUpperCase()}: ${dailyName('threat', threat)}`, dailyDesc('threat', threat), true));
   }
 
   private startWave() {
@@ -399,7 +406,13 @@ export class GameScene extends Phaser.Scene {
       this.padA = pad.A;
     }
     const len = Math.hypot(mx, my);
-    const speed = p.tier.speed * p.mods.speed * (p.mods.rage > 0 ? 1.3 : 1);
+    p.slowT = Math.max(0, p.slowT - dt);
+    p.netT = Math.max(0, p.netT - dt);
+    // Frozen: slower and icy blue. Netted: barely moving (mashing keys still inches you along).
+    const speed = p.tier.speed * p.mods.speed * (p.mods.rage > 0 ? 1.3 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.netT > 0 ? 0.12 : 1);
+    if (p.slowT > 0 && !p.isTinted) p.setTint(0x9fe8ff);
+    else if (p.slowT <= 0 && p.netT <= 0 && p.tintTopLeft === 0x9fe8ff) p.clearTint();
+    this.netImg?.setVisible(p.netT > 0).setPosition(p.x, p.y - 8 * p.scale).setScale(p.scale * 1.2).setDepth(p.depth + 1);
     if (len > 0.01) {
       p.setVelocity((mx / len) * speed * Math.min(1, len), (my / len) * speed * Math.min(1, len));
       p.facing.set(mx / len, my / len);
@@ -620,7 +633,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   damageEnemy(e: Enemy, dmg: number, kx: number, ky: number) {
-    if (e.dead) return;
+    if (e.dead || e.submerged) return;
     dmg = this.twists.dealt(dmg);
     e.hp -= dmg;
     this.fx.hit(e.x, e.y, 3);
@@ -646,6 +659,8 @@ export class GameScene extends Phaser.Scene {
     switch (e.etype) {
       case 'soldier':
       case 'rocket':
+      case 'riot':
+      case 'drone':
         this.stats.soldiers++;
         this.fx.squish(e.x, e.y);
         if (crushed) sfx.crunch('soldier');
@@ -653,7 +668,11 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'tank':
       case 'cannon':
-        if (e.etype === 'tank') this.stats.tanks++;
+      case 'maser':
+      case 'freeze':
+      case 'railgun':
+      case 'sub':
+        if (e.etype === 'tank' || e.etype === 'freeze' || e.etype === 'maser') this.stats.tanks++;
         else this.stats.cannons++;
         this.fx.explode(e.x, e.y, 40);
         this.fx.word(e.x, e.y - 10, t('w_kaboom'), '#ffb13b', big);
@@ -665,6 +684,7 @@ export class GameScene extends Phaser.Scene {
         this.maybeDropItem(e.x, e.y, 0.04);
         break;
       case 'heli':
+      case 'netheli':
         this.stats.helis++;
         this.fx.explode(e.x, e.y, 46);
         this.fx.explode(e.x + 10, e.y + 28, 30);
@@ -987,6 +1007,9 @@ export class GameScene extends Phaser.Scene {
       spawnLog: this.enemies.spawnLog,
       daily: this.dailyCfg,
       twists: [...this.twists.on],
+      threat: this.threat,
+      slowT: this.player.slowT,
+      netT: this.player.netT,
       stage: STAGE_DEF.id,
       cityExtras: { fuel: this.city.all.filter((d) => d.fuel).length, stalls: this.city.all.filter((d) => d.sprite.texture.key.startsWith('stall')).length, cranes: this.city.all.filter((d) => d.sprite.texture.key === 'crane').length },
       darkness: !!this.children.getByName('darkness'),

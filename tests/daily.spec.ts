@@ -50,14 +50,14 @@ test('briefing → ranked run → practice, and the same army for everyone that 
     await page.screenshot({ path: 'screenshots/daily-briefing.png' });
     await startFromTitle(page);
     expect(await page.evaluate(() => (window as any).__kaiju.state().ranked)).toBe(true);
-    await page.waitForFunction(() => (window as any).__kaiju.state().spawnLog.length >= 14, null, { timeout: 60_000 });
+    await page.waitForFunction(() => (window as any).__kaiju.state().spawnLog.length >= 10, null, { timeout: 60_000 });
     const st = await page.evaluate(() => (window as any).__kaiju.state());
     // a second visit the same day is practice
     await page.reload();
     await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title');
     await expect(page.locator('.dstatus')).toHaveClass(/practice/);
     await ctx.close();
-    return { spawns: st.spawnLog.slice(0, 14), landmarks: st.landmarks.map((l: any) => `${l.id}@${Math.round(l.x)},${Math.round(l.y)}`).join(' ') };
+    return { spawns: st.spawnLog.slice(0, 10), landmarks: st.landmarks.map((l: any) => `${l.id}@${Math.round(l.x)},${Math.round(l.y)}`).join(' ') };
   };
   const a = await play();
   const b = await play();

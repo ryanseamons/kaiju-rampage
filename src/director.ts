@@ -22,6 +22,8 @@ export class Director {
   private walkerAt = -1;
   private nextJet = -1;
   private jetsAnnounced = false;
+  private threatAcc = 0;
+  private threatT = 10;
 
   constructor(private s: GameScene) {}
 
@@ -45,6 +47,9 @@ export class Director {
     const jets = w.jets || air || (this.s.diff.jetGap < 1 && n >= 3);
     this.nextJet = jets ? 12 * TIME_SCALE + 4 : -1;
     this.jetsAnnounced = false;
+    // the first one turns up a couple of seconds into the wave
+    this.threatAcc = 0.9;
+    this.threatT = 3 * TIME_SCALE;
   }
 
   update(dt: number) {
@@ -75,6 +80,9 @@ export class Director {
     const cannonRate = w.cannonRate || (df.heavy > 1 && w.wave >= 3 ? 0.04 : 0);
     const cannonMax = w.cannonMax || (df.heavy > 1 && w.wave >= 3 ? 2 : 0);
     this.cannonAcc = this.spawnKind('cannon', tier >= 3 ? cannonRate * heavy * ramp : 0, Math.round(cannonMax * df.cap * Math.sqrt(heavy)), this.cannonAcc, dt);
+
+    // the day's featured threat, all run long
+    this.spawnThreat(dt, ramp);
 
     // set pieces
     if (this.elitesAt.length && this.time >= this.elitesAt[0]) {
@@ -118,6 +126,44 @@ export class Director {
       const prefetchAt = Math.max(this.duration * BULLETIN_MIN_FRACTION, this.duration - BULLETIN_LEAD_S);
       if (this.time >= prefetchAt && s.news.prefetchedFor !== w.wave) s.news.prefetch(s.snapshot('wave-cleared'));
       if (this.time >= this.duration) s.endWave('wave-cleared');
+    }
+  }
+
+  private spawnThreat(dt: number, ramp: number) {
+    const s = this.s, th = s.threat, e = s.enemies, n = this.wave.wave, df = s.diff;
+    if (!th) return;
+    this.threatT -= dt;
+    switch (th) {
+      case 'maser':
+        this.threatAcc = this.spawnKind('maser', (n >= 2 ? 0.05 : 0.025) * ramp * df.spawn, 1 + Math.floor(n / 2), this.threatAcc, dt);
+        break;
+      case 'freeze':
+        this.threatAcc = this.spawnKind('freeze', (0.04 + 0.015 * n) * ramp * df.spawn, 2 + n, this.threatAcc, dt);
+        break;
+      case 'netheli':
+        this.threatAcc = this.spawnKind('netheli', (n >= 2 ? 0.04 : 0.02) * ramp * df.spawn, 1 + Math.floor(n / 2), this.threatAcc, dt);
+        break;
+      case 'railgun':
+        this.threatAcc = this.spawnKind('railgun', (n >= 2 ? 0.035 : 0.018) * ramp * df.spawn, 1 + Math.floor(n / 3), this.threatAcc, dt);
+        break;
+      case 'drones':
+        if (this.threatT <= 0) {
+          this.threatT = (20 - Math.min(n, 4) * 2) * TIME_SCALE;
+          e.spawnSwarm(Math.round((5 + 2 * n) * df.cap));
+        }
+        break;
+      case 'riot':
+        if (this.threatT <= 0) {
+          this.threatT = 26 * TIME_SCALE;
+          e.spawnRiotLine(Math.round((5 + n) * df.cap));
+        }
+        break;
+      case 'sub':
+        if (this.threatT <= 0 && e.count('sub') < (n >= 4 ? 2 : 1)) {
+          this.threatT = 15 * TIME_SCALE;
+          e.spawnSub();
+        }
+        break;
     }
   }
 

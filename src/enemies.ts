@@ -8,12 +8,15 @@
 //  mech     – the flagship boss
 // plus jet bombing runs (an event, not a unit) and elites (gold, 3× HP, drop crates).
 import Phaser from 'phaser';
-import { LAND_H, SIZE, TILE, WORLD_W } from './config';
+import { COAST_ROW, LAND_H, MAP_H, SIZE, TILE, WORLD_W } from './config';
 import type { GameScene } from './scenes/GameScene';
 import { sfx } from './sfx';
 import { rng } from './rand';
+import { t } from './i18n';
 
-export type EnemyType = 'soldier' | 'rocket' | 'heli' | 'tank' | 'cannon' | 'walker' | 'mech';
+export type EnemyType = 'soldier' | 'rocket' | 'heli' | 'tank' | 'cannon' | 'walker' | 'mech'
+  // daily featured threats
+  | 'maser' | 'drone' | 'freeze' | 'netheli' | 'railgun' | 'sub' | 'riot';
 /** Everything the military can field (jets are a bombing-run event). */
 export const ENEMY_ROSTER = ['soldier', 'rocket', 'heli', 'tank', 'cannon', 'walker', 'mech', 'jet'] as const;
 
@@ -32,6 +35,13 @@ const KINDS: Record<EnemyType, Kind> = {
   cannon: { hp: 90, size: SIZE.tank, tex: 'cannon', scale: 1.6 },
   walker: { hp: 900, size: 4, tex: 'mech0', scale: 2.4 },
   mech: { hp: 3200, size: SIZE.mech, tex: 'mech0', scale: 3.8 },
+  maser: { hp: 110, size: SIZE.tank, tex: 'maser', scale: 1.6 },
+  drone: { hp: 5, size: 4, tex: 'drone', scale: 1.4, flying: true },
+  freeze: { hp: 80, size: SIZE.tank, tex: 'tankHull', scale: 1.5 },
+  netheli: { hp: 60, size: 4, tex: 'heli0', scale: 1.6, flying: true },
+  railgun: { hp: 80, size: SIZE.tank, tex: 'railgun', scale: 1.6 },
+  sub: { hp: 160, size: 4, tex: 'sub', scale: 1.8 },
+  riot: { hp: 45, size: SIZE.house, tex: 'riot0', scale: 1.2 },
 };
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
@@ -77,14 +87,27 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (type === 'soldier' || type === 'rocket') {
       this.play(type === 'soldier' ? 'soldier-walk' : 'rocket-walk');
       body.setCircle(4, 0.5, 1);
-    } else if (type === 'tank') {
+    } else if (type === 'tank' || type === 'freeze') {
       body.setSize(18, 14);
       this.turret = scene.add.image(x, y, 'tankTurret').setOrigin(0.3, 0.5).setScale(this.scale);
-    } else if (type === 'cannon') {
+      if (type === 'freeze') {
+        this.setTint(0x9fe8ff);
+        this.turret.setTint(0x9fe8ff);
+      }
+    } else if (type === 'riot') {
+      this.play('riot-walk');
+      body.setCircle(5, 1, 0);
+    } else if (type === 'drone') {
+      body.setCircle(4, 0.5, 0.5);
+    } else if (type === 'sub') {
+      body.setSize(40, 12);
+      this.mode = 'walk';
+    } else if (type === 'cannon' || type === 'maser' || type === 'railgun') {
       body.setSize(20, 12);
       this.telegraph = scene.add.graphics().setDepth(9040);
-    } else if (type === 'heli') {
+    } else if (type === 'heli' || type === 'netheli') {
       this.play('heli-fly');
+      if (type === 'netheli') this.setTint(0xc0b0ff);
       body.setCircle(9, 2, 1);
       this.shadow = scene.add.image(x, y, 'shadow').setScale(1.4, 0.8).setDepth(-40).setAlpha(0.6);
     } else {
@@ -98,6 +121,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (elite) this.setTint(0xffd24a);
   }
 
+  /** Submarine: only hittable while surfaced. */
+  get submerged() {
+    return this.etype === 'sub' && this.mode !== 'charge' && this.mode !== 'salvo';
+  }
+
   destroyAll() {
     this.turret?.destroy();
     this.shadow?.destroy();
@@ -107,7 +135,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 }
 
 interface Projectile extends Phaser.Physics.Arcade.Image {
-  kind: 'bullet' | 'shell' | 'missile' | 'rocket';
+  kind: 'bullet' | 'shell' | 'missile' | 'rocket' | 'torpedo';
+  /** Freeze Tank shells slow the kaiju. */
+  effect?: 'freeze';
   dmg: number;
   life: number;
   splash: number;
@@ -126,6 +156,15 @@ interface JetRun {
   bombsDone: number;
 }
 const JET_WARN = 1.4;
+
+/** Beam trucks: the lightning cannon, and two daily threats that share its telegraph-then-fire loop. */
+const BEAMS = {
+  cannon: { keep: 520, charge: 1.8, lock: 0.35, track: 0.9, color: 0x9ffcff, sight: 2, grow: 6, width: 22, dmg: 22, cooldown: 5 },
+  // Maser Tank: closer, a fatter beam you can see coming from further off.
+  maser: { keep: 300, charge: 1.3, lock: 0.3, track: 1.5, color: 0x5ff6ff, sight: 3, grow: 8, width: 30, dmg: 20, cooldown: 4 },
+  // Railgun Truck: far away, a thin laser sight that tracks fast, then an instant heavy round.
+  railgun: { keep: 680, charge: 1.6, lock: 0.25, track: 3.0, color: 0xff3355, sight: 1, grow: 1, width: 12, dmg: 26, cooldown: 4.5 },
+};
 const JET_SPEED = 950;
 
 export class EnemyManager {
@@ -175,6 +214,35 @@ export class EnemyManager {
     return this.spawn(type, x, y, elite);
   }
 
+  /** Drone swarm: a tight cluster arriving from off screen. */
+  spawnSwarm(n: number) {
+    const lead = this.spawnOffscreen('drone');
+    for (let i = 1; i < n; i++) this.spawn('drone', lead.x + rng.spawn.between(-30, 30), lead.y + rng.spawn.between(-30, 30));
+  }
+
+  /** Riot line: shields shoulder to shoulder across the kaiju's path, on screen. */
+  spawnRiotLine(n: number) {
+    const p = this.s.player;
+    const a = rng.spawn.frac() * Math.PI * 2;
+    const R = this.viewRadius(0) * 0.6;
+    const cx = p.x + Math.cos(a) * R, cy = p.y + Math.sin(a) * R;
+    const px = -Math.sin(a), py = Math.cos(a);
+    for (let i = 0; i < n; i++) {
+      const off = (i - (n - 1) / 2) * 16;
+      const x = Phaser.Math.Clamp(cx + px * off, 20, WORLD_W - 20), y = Phaser.Math.Clamp(cy + py * off, 20, LAND_H - 30);
+      this.spawn('riot', x, y);
+    }
+  }
+
+  /** Submarine: surfaces from the bay near the kaiju's longitude. */
+  spawnSub() {
+    const p = this.s.player;
+    const x = Phaser.Math.Clamp(p.x + rng.spawn.between(-400, 400), 60, WORLD_W - 60);
+    const e = this.spawn('sub', x, (MAP_H - 4) * TILE);
+    e.modeT = 2;
+    return e;
+  }
+
   /** A closing ring of infantry around the kaiju, on screen. */
   encircle(n: number, rocketShare: number) {
     const p = this.s.player;
@@ -219,8 +287,8 @@ export class EnemyManager {
     this.jets = [];
   }
 
-  private fire(kind: Projectile['kind'], x: number, y: number, angle: number, speed: number, dmg: number, life: number, splash = 0, turn = 0) {
-    const tex = kind === 'bullet' ? 'bullet' : kind === 'shell' ? 'shell' : 'missile';
+  private fire(kind: Projectile['kind'], x: number, y: number, angle: number, speed: number, dmg: number, life: number, splash = 0, turn = 0, effect?: 'freeze') {
+    const tex = kind === 'bullet' ? 'bullet' : kind === 'shell' ? 'shell' : kind === 'torpedo' ? 'torpedo' : 'missile';
     const p = this.s.physics.add.image(x, y, tex) as Projectile;
     this.shots.add(p);
     p.kind = kind;
@@ -229,7 +297,9 @@ export class EnemyManager {
     p.splash = splash;
     p.turn = turn;
     p.speed = speed;
+    p.effect = effect;
     p.setDepth(9100).setRotation(angle);
+    if (effect === 'freeze') p.setTint(0x9fe8ff);
     // Keep projectiles readable when the camera is zoomed out at higher tiers.
     const zs = Math.max(1, 0.85 / this.s.cameras.main.zoom);
     p.setScale((kind === 'missile' ? 2 : kind === 'rocket' ? 1.4 : kind === 'shell' ? 1.5 : 1) * zs);
@@ -334,13 +404,26 @@ export class EnemyManager {
           this.updateInfantry(e, d, dx, dy, ux, uy, tier);
           break;
         case 'tank':
+        case 'freeze':
           this.updateTank(e, d, dx, dy, ux, uy, tier);
           break;
         case 'heli':
+        case 'netheli':
           this.updateHeli(e, dt, d, ux);
           break;
         case 'cannon':
+        case 'maser':
+        case 'railgun':
           this.updateCannon(e, dt, d, ux, uy);
+          break;
+        case 'drone':
+          this.updateDrone(e, dt, d, ux, uy);
+          break;
+        case 'riot':
+          this.updateRiot(e, d, ux, uy);
+          break;
+        case 'sub':
+          this.updateSub(e, dt, d);
           break;
         default:
           this.updateMech(e, dt, d, ux, uy);
@@ -427,7 +510,7 @@ export class EnemyManager {
       // Gunners lead the target on its current velocity: a straight-line runner gets hit; a sidestep still dodges.
       const speed = 340;
       const { angle, dist } = this.lead(e, speed, [0.08, 0.06, 0.05][tier - 1]);
-      this.fire('shell', e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, angle, speed, [10, 14, 18][tier - 1], (dist + 30) / speed, 20 + tier * 10);
+      this.fire('shell', e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, angle, speed, [10, 14, 18][tier - 1] * (e.etype === 'freeze' ? 0.7 : 1), (dist + 30) / speed, 20 + tier * 10, 0, e.etype === 'freeze' ? 'freeze' : undefined);
       this.s.fx.hit(e.x + Math.cos(aim) * muzzle, e.y + Math.sin(aim) * muzzle, 3);
       sfx.cannon();
     }
@@ -446,6 +529,7 @@ export class EnemyManager {
     body.setVelocity((vx / L) * Math.min(sp, L * 2), (vy / L) * Math.min(sp, L * 2));
     e.setFlipX(ux < 0);
     e.shadow?.setPosition(e.x + 10, e.y + 28);
+    if (e.etype === 'netheli') return this.netDrop(e, dt, d, R);
     if (d < R + 140 && e.fireCd <= 0) {
       if (e.shotsLeft <= 0) e.shotsLeft = 3;
       e.shotsLeft--;
@@ -462,7 +546,8 @@ export class EnemyManager {
     const body = e.body as Phaser.Physics.Arcade.Body;
     const g = e.telegraph!;
     g.clear();
-    const keep = 520;
+    const cfg = BEAMS[e.etype as 'cannon'];
+    const keep = cfg.keep;
     if (e.mode !== 'charge') {
       const sp = 44;
       const [ax, ay] = this.toward(e, ux, uy);
@@ -473,7 +558,7 @@ export class EnemyManager {
       if (body.velocity.lengthSq() > 1) e.setRotation(Math.atan2(body.velocity.y, body.velocity.x));
       if (d < keep + 200 && e.fireCd <= 0) {
         e.mode = 'charge';
-        e.modeT = 1.8;
+        e.modeT = cfg.charge;
         e.aim = Math.atan2(p.y - e.y, p.x - e.x);
         sfx.charge();
       }
@@ -483,31 +568,128 @@ export class EnemyManager {
     e.modeT -= dt;
     const L = 1600;
     // tracks slowly while charging, locks for the last 0.35s
-    if (e.modeT > 0.35) e.aim = Phaser.Math.Angle.RotateTo(e.aim, Math.atan2(p.y - e.y, p.x - e.x), 0.9 * dt);
+    if (e.modeT > cfg.lock) e.aim = Phaser.Math.Angle.RotateTo(e.aim, Math.atan2(p.y - e.y, p.x - e.x), cfg.track * dt);
     const x2 = e.x + Math.cos(e.aim) * L, y2 = e.y + Math.sin(e.aim) * L;
     if (e.modeT > 0) {
-      const a = 0.25 + 0.6 * (1 - e.modeT / 1.8);
-      g.lineStyle(2 + 6 * (1 - e.modeT / 1.8), 0x9ffcff, a).lineBetween(e.x, e.y, x2, y2);
+      const k = 1 - e.modeT / cfg.charge;
+      g.lineStyle(cfg.sight + cfg.grow * k, cfg.color, 0.25 + 0.6 * k).lineBetween(e.x, e.y, x2, y2);
       if (Math.random() < 0.4) s.fx.hit(e.x + Math.cos(e.aim) * 14, e.y + Math.sin(e.aim) * 14, 1);
       return;
     }
     // fire
-    g.lineStyle(22, 0x5ff6ff, 0.45).lineBetween(e.x, e.y, x2, y2);
-    g.lineStyle(8, 0xffffff, 0.95).lineBetween(e.x, e.y, x2, y2);
+    g.lineStyle(cfg.width, cfg.color, 0.45).lineBetween(e.x, e.y, x2, y2);
+    g.lineStyle(cfg.width * 0.36, 0xffffff, 0.95).lineBetween(e.x, e.y, x2, y2);
     const line = new Phaser.Geom.Line(e.x, e.y, x2, y2);
     const pt = Phaser.Geom.Line.GetNearestPoint(line, new Phaser.Geom.Point(p.x, p.y));
     const ahead = (pt.x - e.x) * Math.cos(e.aim) + (pt.y - e.y) * Math.sin(e.aim) > 0;
-    if (ahead && Phaser.Math.Distance.Between(pt.x, pt.y, p.x, p.y) < p.radius + 12) s.hurtPlayer(22 * this.dmgMult, pt.x, pt.y);
+    if (ahead && Phaser.Math.Distance.Between(pt.x, pt.y, p.x, p.y) < p.radius + cfg.width * 0.5) s.hurtPlayer(cfg.dmg * this.dmgMult, pt.x, pt.y);
     s.shake(0.006, 120);
     sfx.zap();
     e.mode = 'walk';
-    e.fireCd = 5 + rng.ai.frac() * 2;
+    e.fireCd = cfg.cooldown + rng.ai.frac() * 2;
     this.s.time.delayedCall(140, () => e.telegraph?.clear());
+  }
+
+  /** Drone swarm: a loose orbit that tightens, then a kamikaze dive. */
+  private updateDrone(e: Enemy, dt: number, d: number, ux: number, uy: number) {
+    const p = this.s.player, body = e.body as Phaser.Physics.Arcade.Body;
+    e.orbit += e.orbitDir * dt * 2.2;
+    e.modeT += dt;
+    const R = Math.max(0, 90 - e.modeT * 14) * Math.max(1, p.scale * 0.6);
+    const tx = p.x + Math.cos(e.orbit) * R, ty = p.y - 8 * p.scale + Math.sin(e.orbit) * R;
+    const vx = tx - e.x, vy = ty - e.y, L = Math.hypot(vx, vy) || 1;
+    const sp = 175;
+    body.setVelocity((vx / L) * sp, (vy / L) * sp);
+    if (d < p.radius + 8) {
+      this.s.hurtPlayer(3 * this.dmgMult, e.x, e.y);
+      this.s.fx.hit(e.x, e.y, 4);
+      sfx.hit(true);
+      this.remove(e);
+    }
+    void ux;
+    void uy;
+  }
+
+  /** Riot line: shields up, shoulder to shoulder, a slow advance. Soaks damage; crushable from Behemoth. */
+  private updateRiot(e: Enemy, d: number, ux: number, uy: number) {
+    const body = e.body as Phaser.Physics.Arcade.Body;
+    const sp = 34;
+    if (d > 26) body.setVelocity(ux * sp, uy * sp);
+    else body.setVelocity(0, 0);
+    e.setFlipX(ux < 0);
+  }
+
+  /** Submarine: patrols the bay under water, surfaces near the kaiju, fires torpedoes up the streets. */
+  private updateSub(e: Enemy, dt: number, d: number) {
+    const p = this.s.player, body = e.body as Phaser.Physics.Arcade.Body;
+    const shore = (COAST_ROW + 2) * TILE, floor = (MAP_H - 2) * TILE;
+    e.modeT -= dt;
+    const tx = Phaser.Math.Clamp(p.x + Math.sin(e.orbit) * 160, 40, WORLD_W - 40);
+    const ty = Phaser.Math.Clamp(shore + 30, shore, floor);
+    if (e.mode === 'walk') {
+      // submerged: a dark shape, quick
+      e.setAlpha(0.3);
+      const vx = tx - e.x, vy = ty - e.y, L = Math.hypot(vx, vy) || 1;
+      body.setVelocity((vx / L) * Math.min(90, L), (vy / L) * Math.min(90, L));
+      if (e.modeT <= 0 && d < 760) {
+        e.mode = 'charge'; // surfaced
+        e.modeT = 4.5;
+        e.shotsLeft = 2;
+        e.fireCd = 0.8;
+        this.s.fx.dust(e.x, e.y, 6);
+      }
+    } else {
+      e.setAlpha(1);
+      body.setVelocity(0, 0);
+      if (e.fireCd <= 0 && e.shotsLeft > 0) {
+        e.shotsLeft--;
+        e.fireCd = 1.4;
+        const a = Math.atan2(p.y - e.y, p.x - e.x);
+        this.fire('torpedo', e.x, e.y - 6, a, 230, 16, 4.2, 34);
+        sfx.cannon();
+      }
+      if (e.modeT <= 0) {
+        e.mode = 'walk';
+        e.modeT = rng.ai.float(4, 7);
+        e.orbit = rng.ai.frac() * Math.PI * 2;
+      }
+    }
+    e.setFlipX(p.x < e.x);
+  }
+
+  /** Net Helicopter: instead of strafing, drops a weighted net on where the kaiju is standing. */
+  private netDrop(e: Enemy, dt: number, d: number, R: number) {
+    const s = this.s, p = s.player, g = (e.telegraph ??= s.add.graphics().setDepth(9040));
+    if (e.mode === 'charge') {
+      e.modeT -= dt;
+      const r = 30 * Math.max(1, p.scale * 0.8);
+      g.clear().lineStyle(3, 0xc0b0ff, 0.5 + 0.5 * Math.sin(e.modeT * 30)).strokeCircle(e.aim, e.shotsLeft, r);
+      if (e.modeT <= 0) {
+        g.clear();
+        e.mode = 'walk';
+        e.fireCd = rng.ai.float(5, 7);
+        s.fx.dust(e.aim, e.shotsLeft, 4);
+        if (Phaser.Math.Distance.Between(p.x, p.y, e.aim, e.shotsLeft) < r + p.radius * 0.4) {
+          p.netT = 1.4;
+          s.fx.word(p.x, p.y - 24 * p.scale, t('w_netted'), '#c0b0ff', 1 + s.player.tierIdx * 0.6);
+          sfx.hit(true);
+        }
+      }
+      return;
+    }
+    if (d < R + 160 && e.fireCd <= 0) {
+      // mark the spot (stored in aim/shotsLeft to avoid new fields)
+      e.mode = 'charge';
+      e.modeT = 1.0;
+      e.aim = p.x;
+      e.shotsLeft = p.y;
+    }
   }
 
   /** Called by GameScene when a projectile touches the kaiju. */
   impact(obj: Projectile) {
     if (!obj.active) return;
+    if (obj.effect === 'freeze') this.s.player.slowT = 2.4;
     if (obj.splash > 0) this.splash(obj);
     else this.s.hurtPlayer(obj.dmg, obj.x, obj.y);
     obj.destroy();
