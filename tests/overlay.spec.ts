@@ -14,7 +14,7 @@ test('title buttons update in place', async ({ page }) => {
   await page.keyboard.press('ArrowLeft');
   await expect(page.locator('[data-diff="medium"]')).toHaveClass(/on/);
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[data-item="daily"]')).toHaveClass(/sel/);
+  await expect(page.locator('[data-item="how"]')).toHaveClass(/sel/);
   expect(await same(), 'keyboard keeps the poster').toBe(true);
   await page.locator('[data-item="settings"]').click();
   await expect(page.locator('.panel')).toBeVisible();

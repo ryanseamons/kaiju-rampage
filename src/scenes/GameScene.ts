@@ -917,15 +917,17 @@ export class GameScene extends Phaser.Scene {
 
   /** A fuel tank goes up: a big blast that hurts the army and sets off neighbouring tanks. */
   private fuelBlast(d: Destructible) {
-    const R = 95;
-    this.fx.explode(d.x, d.y - 10, 70);
+    const R = 58;
+    this.fx.explode(d.x, d.y - 10, 50);
     this.fx.addFire(d.x, d.y);
     sfx.explode(true);
-    this.shake(0.016, 280);
-    for (const e of [...this.enemies.list]) if (!e.dead && Phaser.Math.Distance.Between(e.x, e.y, d.x, d.y) < R) this.damageEnemy(e, 90, (e.x - d.x) * 3, (e.y - d.y) * 3);
+    this.shake(0.01, 200);
+    for (const e of [...this.enemies.list]) if (!e.dead && Phaser.Math.Distance.Between(e.x, e.y, d.x, d.y) < R) this.damageEnemy(e, 50, (e.x - d.x) * 2, (e.y - d.y) * 2);
     const near: Destructible[] = [];
-    this.city.grid.query(d.x, d.y, R + 30, near);
-    for (const n of near) if (n.alive && n !== d) this.time.delayedCall(n.fuel ? 220 : 120, () => this.damageDestructible(n, n.fuel ? 999 : 35, true));
+    // Only touching tanks catch, and only sometimes; other buildings just get scorched.
+    this.city.grid.query(d.x, d.y, R, near);
+    for (const n of near)
+      if (n.alive && n !== d && (!n.fuel || rng.world.frac() < 0.45)) this.time.delayedCall(n.fuel ? 260 : 120, () => this.damageDestructible(n, n.fuel ? 999 : 12, true));
   }
 
   private onTierUp() {

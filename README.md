@@ -88,7 +88,7 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 
 ## Daily rampage and the global board
 
-`?daily=1` (or **Daily rampage** on the title) opens today's briefing: the UTC day's stage, twist, featured threat and boss, a reset timer, and today's top five. Everyone gets the same city, army and upgrade offers (seeded spawn, AI and drop streams in `src/rand.ts`); the first run of the day is ranked, later ones are practice. `src/daily.ts` maps a date to its content.
+**Hidden for now:** the title menu doesn't list it (add `'daily'` back to `ITEMS` in `src/ui/overlay.ts` to show it), but `?daily=1` still opens today's briefing: the UTC day's stage, twist, featured threat and boss, a reset timer, and today's top five. Everyone gets the same city, army and upgrade offers (seeded spawn, AI and drop streams in `src/rand.ts`); the first run of the day is ranked, later ones are practice. `src/daily.ts` maps a date to its content.
 
 Each day draws from rotating cycles, so everything comes round regularly:
 
@@ -105,6 +105,16 @@ The board is one small API (`src/shared/daily-api.ts`: one ranked score per play
 
 - **Public site:** a Cloudflare Pages Function (`functions/api/daily/[day]/scores.ts`) on a free D1 database `kaiju-daily`, bound to the Pages project as `DB` in the dashboard (Settings → Bindings). The table creates itself on first use. The binding lives in the dashboard on purpose: adding a `wrangler.toml` with `pages_build_output_dir` would switch the project to file-managed config and drop it, so copy the binding into the file if you ever do.
 - **Anywhere else:** `npm run dev`'s Node server serves the same routes from a JSON file (`DAILY_DATA_DIR`, default `.data/`). A self-hosted deploy (e.g. an internal one) can run that, or build with `VITE_DAILY_API=https://kaiju.ryanseamons.com` to share the public board (the function allows cross-origin requests).
+
+## Voyage Labs
+
+The game also runs on [Voyage Labs](https://voyage.io/labs) as **kaiju-rampage**: the same static build, no backend. `voyagelabs.config.js` points the Labs CLI at `dist/` with `startup: { mode: 'compatible' }` (the page shows once it loads; no ready handshake). Vite builds with `base: './'` so assets resolve under the Labs game path as well as at a site root. To ship a new build:
+
+```bash
+npm run build && voyage-labs deploy --publish
+```
+
+The store page's cover is `marketing/cover.png`. To regenerate it, `scripts/gen-cover.ts` makes the key art (fal.ai, `FAL_KEY`), `marketing/cover.html` sets the title over it, and `scripts/render-cover.ts` renders it. The description is `marketing/DESCRIPTION.md`. On Labs, `localStorage` (best scores, settings) is per build, so it resets when a new build ships, and the daily board isn't wired up there.
 
 ## Tests
 

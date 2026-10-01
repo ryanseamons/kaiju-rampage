@@ -35,7 +35,8 @@ function saveVotes(v: Record<string, Vote>) {
   }
 }
 type Item = 'start' | 'daily' | 'how' | 'codex' | 'scores' | 'settings';
-const ITEMS: Item[] = ['start', 'daily', 'how', 'codex', 'scores', 'settings'];
+// The daily rampage is hidden for now (still reachable with ?daily=1); add 'daily' back to show it.
+const ITEMS: Item[] = ['start', 'how', 'codex', 'scores', 'settings'];
 const KIND_COLOR: Record<UpgradeDef['kind'], string> = { weapon: '#ff7a2a', body: '#56c46a', stomp: '#5ff6ff', growth: '#ff5fd2' };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);

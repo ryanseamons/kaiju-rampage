@@ -31,8 +31,8 @@ export interface DifficultyDef {
 
 export const DIFFICULTY: Record<DifficultyId, DifficultyDef> = {
   easy: { id: 'easy', hp: 1, dmg: 1, spawn: 1, cap: 1, heal: 1, tier3Dmg: 1, heavy: 1, elites: 1, jetGap: 1, ring: 1, score: 0.75 },
-  medium: { id: 'medium', hp: 1.25, dmg: 1.35, spawn: 1.25, cap: 1.3, heal: 0.75, tier3Dmg: 1.3, heavy: 1.8, elites: 2, jetGap: 0.8, ring: 1.3, score: 1 },
-  hard: { id: 'hard', hp: 1.5, dmg: 1.75, spawn: 1.5, cap: 1.6, heal: 0.5, tier3Dmg: 1.6, heavy: 2.6, elites: 3, jetGap: 0.6, ring: 1.6, score: 1.5 },
+  medium: { id: 'medium', hp: 1.4, dmg: 1.55, spawn: 1.4, cap: 1.45, heal: 0.62, tier3Dmg: 1.45, heavy: 2.1, elites: 2, jetGap: 0.72, ring: 1.4, score: 1 },
+  hard: { id: 'hard', hp: 1.75, dmg: 2.0, spawn: 1.7, cap: 1.8, heal: 0.42, tier3Dmg: 1.8, heavy: 3.0, elites: 3, jetGap: 0.55, ring: 1.7, score: 1.5 },
 };
 
 const KEY = 'kaiju.difficulty';
