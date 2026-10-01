@@ -60,8 +60,12 @@ class D1Store implements DailyStore {
   }
 }
 
+// Open to other origins, so another deployment (e.g. an internal one built with VITE_DAILY_API pointing
+// here) shares this board. Scores are honour-system anyway; the rules live in daily-api.ts.
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' };
+
 async function handle({ request, env }: Ctx) {
-  if (!env.DB) return new Response(JSON.stringify({ error: 'board-not-configured' }), { status: 503, headers: { 'content-type': 'application/json' } });
+  if (!env.DB) return new Response(JSON.stringify({ error: 'board-not-configured' }), { status: 503, headers: { 'content-type': 'application/json', ...CORS } });
   const db = env.DB;
   ready ??= db.exec(SCHEMA);
   await ready;
@@ -69,8 +73,9 @@ async function handle({ request, env }: Ctx) {
   const body = request.method === 'POST' ? await request.json().catch(() => null) : null;
   const ip = await hashIp(request.headers.get('CF-Connecting-IP') ?? 'unknown', env.DAILY_SALT ?? 'kaiju');
   const r = await handleDaily({ method: request.method, path: url.pathname, query: url.searchParams, body, ip, now: new Date() }, new D1Store(db));
-  return new Response(JSON.stringify(r.body), { status: r.status, headers: { 'content-type': 'application/json', 'cache-control': r.status === 200 ? 'public, max-age=15' : 'no-store' } });
+  return new Response(JSON.stringify(r.body), { status: r.status, headers: { 'content-type': 'application/json', 'cache-control': r.status === 200 ? 'public, max-age=15' : 'no-store', ...CORS } });
 }
 
 export const onRequestGet = handle;
 export const onRequestPost = handle;
+export const onRequestOptions = () => new Response(null, { status: 204, headers: CORS });

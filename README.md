@@ -86,6 +86,15 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 | `?music=composed` | Use the procedural composer instead of the recorded tracks |
 | `?renderer=canvas` | Force the Canvas renderer instead of WebGL |
 
+## Daily rampage and the global board
+
+`?daily=1` (or **Daily rampage** on the title) opens today's briefing: the UTC day's stage, twist, featured threat and boss, a reset timer, and today's top five. Everyone gets the same city, army and upgrade offers (seeded spawn, AI and drop streams in `src/rand.ts`); the first run of the day is ranked, later ones are practice. `src/daily.ts` maps a date to its content.
+
+The board is one small API (`src/shared/daily-api.ts`: one ranked score per player per day, plausibility checks, a per-IP cap) with two adapters:
+
+- **Public site:** a Cloudflare Pages Function (`functions/api/daily/[day]/scores.ts`) on a free D1 database `kaiju-daily`, bound to the Pages project as `DB` in the dashboard (Settings → Bindings). The table creates itself on first use.
+- **Anywhere else:** `npm run dev`'s Node server serves the same routes from a JSON file (`DAILY_DATA_DIR`, default `.data/`). A self-hosted deploy (e.g. an internal one) can run that, or build with `VITE_DAILY_API=https://kaiju.ryanseamons.com` to share the public board (the function allows cross-origin requests).
+
 ## Tests
 
 ```bash
