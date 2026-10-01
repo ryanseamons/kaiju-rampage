@@ -122,5 +122,5 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 - Music on the deployed site is 14 licensed Epidemic Sound tracks that rotate per stage (title, each tier, boss, victory, defeat). They're not in this repository, so a clone plays the procedural composer instead (see ASSETS.md). Effects are Kenney CC0 samples layered over WebAudio synthesis.
 - Text uses the system `Courier New`/monospace font; no pixel font is bundled.
 - The gamepad path uses Phaser's standard mapping and has only been checked in code, not with a physical pad.
-- In headless Chromium (SwiftShader, no GPU) the game runs at about 15–30 FPS. On this laptop's browser it runs at about 140 FPS (see NOTES.md).
+- Headless Chromium renders in software (SwiftShader) by default, about 12 FPS under load; on macOS the Playwright config switches it to Metal (about 54 FPS), which is what keeps the full suite near 2 minutes. On this laptop's browser the game runs at about 140 FPS (see NOTES.md).
 - `?fast=1` (used by the quick tests) plays easier than normal speed. Normal-speed balance is covered by the opt-in `pacing.spec.ts`, which won a full run in 14 minutes of wall-clock time.

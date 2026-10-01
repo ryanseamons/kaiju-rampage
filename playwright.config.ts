@@ -14,7 +14,11 @@ export default defineConfig({
     actionTimeout: 60_000,
     baseURL: 'http://localhost:5174',
     viewport: { width: 1280, height: 720 },
-    launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+    // Render with the Mac's GPU (Metal) instead of SwiftShader: ~54 fps instead of ~12 in headless Chromium,
+    // so game-driven specs run several times faster and stay well inside the stop hook's 5 minutes.
+    launchOptions: {
+      args: ['--autoplay-policy=no-user-gesture-required', ...(process.platform === 'darwin' ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] : [])],
+    },
   },
   webServer: [
     { command: 'node tests/mock-anthropic.mjs', port: 8790, env: { MOCK_PORT: '8790' }, reuseExistingServer: false },

@@ -18,6 +18,7 @@ test('a kaiju that stands still gets hurt', async ({ page }) => {
     if (!s) break;
     if (s.modal === 'levelup') await page.keyboard.press('Digit1'); // claws kill walk-ins; keep the game running
     if (s.phase === 'dying' || s.phase === 'gameover') break;
+    if (s.damageTaken >= 40) break; // the point is proven; no need to wait out the clock
     await page.waitForTimeout(500);
   }
   console.log('TEETH', JSON.stringify({ damageTaken: s?.damageTaken, hp: Math.round(s?.hp ?? 0), maxHp: s?.maxHp, phase: s?.phase, enemies: s?.enemies.length }));
