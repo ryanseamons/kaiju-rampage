@@ -196,6 +196,24 @@ const S = {
   st_boss: { en: 'Boss', ja: 'ボス戦' },
   st_victory: { en: 'Victory', ja: '勝利' },
   st_defeat: { en: 'Defeat', ja: '敗北' },
+  dailyTitle: { en: "TODAY'S RAMPAGE #{n}", ja: '本日の大暴れ #{n}' },
+  dailyResets: { en: 'new rampage in {h}h {m}m', ja: '次の大暴れまで {h}時間{m}分' },
+  dailySame: { en: 'same city, same army, same offers for everyone', ja: '全員が同じ街・同じ軍・同じ強化' },
+  dailyStage: { en: 'Stage', ja: 'ステージ' },
+  dailyTwist: { en: 'Twist', ja: '本日の仕掛け' },
+  dailyThreat: { en: 'Featured threat', ja: '注目の敵' },
+  dailyBoss: { en: 'Final boss', ja: 'ボス' },
+  dailyNone: { en: 'None today', ja: '本日はなし' },
+  dailyNoneDesc: { en: 'A straight fight.', ja: '小細工なしの勝負。' },
+  dailyRanked: { en: 'Your one ranked run today. Make it count.', ja: '本日の公式記録は1回だけ。全力で。' },
+  dailyPractice: { en: "Your ranked run is in. Practice runs don't count.", ja: '公式記録は登録済み。練習はカウントされない。' },
+  dailyStart: { en: 'START RANKED RUN', ja: '公式ランを開始' },
+  dailyStartPractice: { en: 'PRACTICE', ja: '練習' },
+  dailyFirst: { en: 'No scores yet today. Be the first.', ja: '本日の記録はまだない。一番乗りを。' },
+  dailyCopy: { en: '[C] copy result', ja: '[C] 結果をコピー' },
+  dailyCopied: { en: 'Copied!', ja: 'コピーしました' },
+  dailyRankedTag: { en: 'DAILY #{n} · RANKED', ja: 'デイリー #{n} · 公式' },
+  dailyPracticeTag: { en: 'DAILY #{n} · PRACTICE', ja: 'デイリー #{n} · 練習' },
   st_candidate: { en: '8-bit candidates (not in the game yet)', ja: '8ビット候補曲（未採用）' },
   candNote: { en: 'Each one is tagged with the stage it was picked for. Keep the ones you like and they can join the rotation.', ja: 'それぞれ、想定した場面のタグ付き。気に入った曲を「残す」にすれば、ローテーションに加えられます。' },
   s_sfx: { en: 'Sound effects', ja: '効果音' },
@@ -378,3 +396,42 @@ export const EVO_TEXT: Record<string, { glyph: string; en: { name: string; desc:
 export const evoName = (id: string) => EVO_TEXT[id]?.[lang].name ?? id;
 export const evoDesc = (id: string) => EVO_TEXT[id]?.[lang].desc ?? '';
 export const evoGlyph = (id: string) => EVO_TEXT[id]?.glyph ?? '?';
+
+// ── Daily rampage content ────────────────────────────────────────────────────
+type Pair = { name: string; desc: string };
+export const DAILY_TEXT: Record<'stage' | 'twist' | 'threat' | 'boss', Record<string, { glyph: string; en: Pair; ja: Pair }>> = {
+  stage: {
+    bay: { glyph: '湾', en: { name: 'Shiokaze Bay', desc: 'The harbor city where it all began.' }, ja: { name: '潮風湾', desc: 'すべてが始まった港町。' } },
+    market: { glyph: '灯', en: { name: 'Lantern Night Market', desc: 'Old Town at festival time: paper lanterns, food stalls, packed streets.' }, ja: { name: '提灯夜市', desc: '祭りの夜の旧市街。提灯、屋台、人の波。' } },
+    neon: { glyph: '電', en: { name: 'Neon Megacity', desc: 'Towers wall to wall, signs that never switch off.' }, ja: { name: 'ネオン巨大都市', desc: '高層ビルが林立し、看板は眠らない。' } },
+    harbor: { glyph: '港', en: { name: 'Harbor Industrial', desc: 'Cranes, warehouses and fuel tanks that go up in a chain.' }, ja: { name: '臨海工業地帯', desc: 'クレーン、倉庫、連鎖爆発する燃料タンク。' } },
+    snow: { glyph: '雪', en: { name: 'Snow Mountain Town', desc: 'A ski town in deep winter, pine forest on every side.' }, ja: { name: '雪山の町', desc: '真冬のスキー町。四方を松林が囲む。' } },
+    typhoon: { glyph: '嵐', en: { name: 'Typhoon', desc: 'The city in a storm: rain, lightning, flooded streets.' }, ja: { name: '台風', desc: '嵐の街。豪雨、稲妻、冠水した道路。' } },
+  },
+  twist: {
+    glass: { glyph: '硝', en: { name: 'Glass Kaiju', desc: 'You deal double damage, and take double damage.' }, ja: { name: 'ガラスの怪獣', desc: '与えるダメージも受けるダメージも2倍。' } },
+    blackout: { glyph: '闇', en: { name: 'Blackout', desc: 'The power is out. Short sight lines, and searchlights hunting you.' }, ja: { name: '大停電', desc: '停電の夜。視界は狭く、探照灯が追ってくる。' } },
+    starving: { glyph: '飢', en: { name: 'Starving', desc: 'No hearts. You heal only by eating the city.' }, ja: { name: '飢餓', desc: '回復アイテムなし。街を食べて回復するしかない。' } },
+    air: { glyph: '空', en: { name: 'Air Superiority', desc: 'Jets from the start, twice as often.' }, ja: { name: '制空権', desc: '序盤から戦闘機が2倍の頻度で飛来。' } },
+    giant: { glyph: '巨', en: { name: 'Giant from the Start', desc: 'You hatch already huge. So does the army.' }, ja: { name: '最初から巨大', desc: '最初から巨大な姿で孵化。軍も最初から本気だ。' } },
+    firestorm: { glyph: '炎', en: { name: 'Firestorm', desc: 'Burning buildings set their neighbours alight.' }, ja: { name: '大火災', desc: '燃える建物が隣へと延焼する。' } },
+  },
+  threat: {
+    maser: { glyph: '光', en: { name: 'Maser Tank', desc: 'Charges a beam you can see coming. Sidestep it.' }, ja: { name: 'メーサー戦車', desc: '予兆の見えるビームを溜める。横へかわせ。' } },
+    drones: { glyph: '蜂', en: { name: 'Drone Swarm', desc: 'Dozens of tiny fliers that sting from every side.' }, ja: { name: 'ドローン群', desc: '四方から襲う小型の飛行体の群れ。' } },
+    freeze: { glyph: '氷', en: { name: 'Freeze Tank', desc: 'Cryo shells that slow you down.' }, ja: { name: '冷凍戦車', desc: '当たると動きが鈍る冷凍弾。' } },
+    netheli: { glyph: '網', en: { name: 'Net Helicopter', desc: 'Drops a steel net that pins you in place.' }, ja: { name: '捕獲ヘリ', desc: '鋼鉄の網を落として動きを封じる。' } },
+    railgun: { glyph: '弾', en: { name: 'Railgun Truck', desc: 'A long-range sniper. Watch for the laser sight.' }, ja: { name: 'レールガン車両', desc: '長距離狙撃。照準レーザーに注意。' } },
+    sub: { glyph: '潜', en: { name: 'Submarine', desc: 'Surfaces in the bay and fires torpedoes up the streets.' }, ja: { name: '潜水艦', desc: '湾に浮上し、通りへ魚雷を放つ。' } },
+    riot: { glyph: '盾', en: { name: 'Riot Line', desc: 'Shield walls that soak up damage. Break through.' }, ja: { name: '機動隊の盾列', desc: 'ダメージを吸収する盾の壁。突破せよ。' } },
+  },
+  boss: {
+    guardian: { glyph: '守', en: { name: 'M-01 Shiokaze Guardian', desc: 'The flagship mech: missiles, a laser sweep, and a stomp.' }, ja: { name: 'M-01 潮風ガーディアン', desc: '旗艦メカ。ミサイル、レーザー掃射、踏みつけ。' } },
+    tetsuryu: { glyph: '龍', en: { name: 'Tetsuryu, the Iron Dragon', desc: 'A robot dragon that coils through the streets and breathes plasma.' }, ja: { name: '鉄龍', desc: '街を這い回り、プラズマを吐く機械の龍。' } },
+    kumo: { glyph: '艦', en: { name: 'Sky Fortress Kumo', desc: 'A flying fortress. Bring it down from below.' }, ja: { name: '空中要塞クモ', desc: '空飛ぶ要塞。下から撃ち落とせ。' } },
+    hikari: { glyph: '蛾', en: { name: 'Hikari, the Moth Queen', desc: 'A rival kaiju: a giant moth who wants this city too.' }, ja: { name: '蛾の女王ヒカリ', desc: 'この街を狙うライバル怪獣、巨大な蛾。' } },
+  },
+};
+export const dailyName = (kind: keyof typeof DAILY_TEXT, id: string) => DAILY_TEXT[kind][id]?.[lang].name ?? id;
+export const dailyDesc = (kind: keyof typeof DAILY_TEXT, id: string) => DAILY_TEXT[kind][id]?.[lang].desc ?? '';
+export const dailyGlyph = (kind: keyof typeof DAILY_TEXT, id: string) => DAILY_TEXT[kind][id]?.glyph ?? '?';

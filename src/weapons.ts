@@ -5,6 +5,7 @@ import type { GameScene } from './scenes/GameScene';
 import type { Enemy } from './enemies';
 import { circleHits, type Destructible } from './city';
 import { sfx } from './sfx';
+import { rng } from './rand';
 
 interface Spine extends Phaser.GameObjects.Image {
   target: Enemy | null;
@@ -162,7 +163,7 @@ export class Weapons {
       const n = m.spines + (storm ? 2 : 0);
       const targets = [...s.enemies.list]
         .filter((e) => Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y) < 320 * k)
-        .sort(() => Math.random() - 0.5)
+        .sort(() => rng.ai.frac() - 0.5)
         .slice(0, n);
       if (targets.length) {
         for (let i = 0; i < n; i++) {

@@ -11,6 +11,7 @@ import Phaser from 'phaser';
 import { LAND_H, SIZE, TILE, WORLD_W } from './config';
 import type { GameScene } from './scenes/GameScene';
 import { sfx } from './sfx';
+import { rng } from './rand';
 
 export type EnemyType = 'soldier' | 'rocket' | 'heli' | 'tank' | 'cannon' | 'walker' | 'mech';
 /** Everything the military can field (jets are a bombing-run event). */
@@ -52,8 +53,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   shotsLeft = 0;
   aim = 0;
   telegraph?: Phaser.GameObjects.Graphics;
-  orbit = Math.random() * Math.PI * 2;
-  orbitDir = Math.random() < 0.5 ? -1 : 1;
+  orbit = rng.ai.frac() * Math.PI * 2;
+  orbitDir = rng.ai.frac() < 0.5 ? -1 : 1;
   // detour steering around buildings
   detourX = 0;
   detourY = 0;
@@ -70,7 +71,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.elite = elite;
     this.hp = this.maxHp = Math.round(k.hp * hpMult * (elite ? 3 : 1));
     this.sizeClass = k.size;
-    this.fireCd = Phaser.Math.FloatBetween(0.8, 2.2);
+    this.fireCd = rng.ai.float(0.8, 2.2);
     this.setScale(k.scale * (elite ? 1.35 : 1));
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (type === 'soldier' || type === 'rocket') {
@@ -132,6 +133,8 @@ export class EnemyManager {
   group: Phaser.Physics.Arcade.Group;
   shots: Phaser.Physics.Arcade.Group;
   spawnedTypes = new Set<string>();
+  /** First spawns of the run, in order (debug/tests: the daily must give everyone the same army). */
+  spawnLog: string[] = [];
   boss: Enemy | null = null;
   jets: JetRun[] = [];
   /** Wave scaling, set by the director. */
@@ -164,7 +167,7 @@ export class EnemyManager {
     const R = this.viewRadius(type === 'mech' || type === 'walker' ? 0 : 40);
     const p = this.s.player;
     for (let i = 0; i < 8; i++) {
-      const a = Math.random() * Math.PI * 2;
+      const a = rng.spawn.frac() * Math.PI * 2;
       const [x, y] = this.s.city.snapToRoad(p.x + Math.cos(a) * R, p.y + Math.sin(a) * R);
       if (x > 20 && x < WORLD_W - 20 && y > 20 && y < LAND_H - 30) return this.spawn(type, x, y, elite);
     }
@@ -177,10 +180,10 @@ export class EnemyManager {
     const p = this.s.player;
     const R = this.viewRadius(0) * 0.62;
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + Math.random() * 0.1;
+      const a = (i / n) * Math.PI * 2 + rng.spawn.frac() * 0.1;
       const [x, y] = this.s.city.snapToRoad(p.x + Math.cos(a) * R, p.y + Math.sin(a) * R);
       if (x < 20 || x > WORLD_W - 20 || y < 20 || y > LAND_H - 30) continue;
-      this.spawn(Math.random() < rocketShare ? 'rocket' : 'soldier', x, y);
+      this.spawn(rng.spawn.frac() < rocketShare ? 'rocket' : 'soldier', x, y);
     }
   }
 
@@ -189,6 +192,7 @@ export class EnemyManager {
     this.group.add(e);
     this.list.push(e);
     this.spawnedTypes.add(type);
+    if (this.spawnLog.length < 40) this.spawnLog.push(elite ? `${type}*` : type);
     if (type === 'mech') this.boss = e;
     return e;
   }
@@ -240,13 +244,13 @@ export class EnemyManager {
     const d = Math.hypot(p.x - e.x, p.y - e.y);
     const t = d / speed;
     const tx = p.x + pv.x * t, ty = p.y + pv.y * t;
-    return { angle: Math.atan2(ty - e.y, tx - e.x) + Phaser.Math.FloatBetween(-noise, noise), dist: Math.hypot(tx - e.x, ty - e.y) };
+    return { angle: Math.atan2(ty - e.y, tx - e.x) + rng.ai.float(-noise, noise), dist: Math.hypot(tx - e.x, ty - e.y) };
   }
 
   /** Jet bombing run along a line through the kaiju's position. */
   jetRun() {
     const p = this.s.player;
-    const a = Math.random() * Math.PI;
+    const a = rng.ai.frac() * Math.PI;
     const L = this.viewRadius(200);
     const run: JetRun = {
       x0: p.x - Math.cos(a) * L, y0: p.y - Math.sin(a) * L, x1: p.x + Math.cos(a) * L, y1: p.y + Math.sin(a) * L,
@@ -374,8 +378,8 @@ export class EnemyManager {
       else if (d < 70) { vx = -ux * sp * 0.6; vy = -uy * sp * 0.6; }
       if (d < 220 && e.fireCd <= 0) {
         // Tier 1 rifles are a nuisance, not a death sentence: a stationary hatchling should last ~30s+.
-        e.fireCd = 1.8 + Math.random() * 1.0;
-        this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.12, 0.12), 200, 2, 1.6);
+        e.fireCd = 1.8 + rng.ai.frac() * 1.0;
+        this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + rng.ai.float(-0.12, 0.12), 200, 2, 1.6);
         sfx.shot();
       }
     } else {
@@ -388,14 +392,14 @@ export class EnemyManager {
       else { vx = -uy * sp * 0.5 * e.orbitDir; vy = ux * sp * 0.5 * e.orbitDir; }
       if (rocket) {
         if (d < range && e.fireCd <= 0) {
-          e.fireCd = 3.2 + Math.random();
+          e.fireCd = 3.2 + rng.ai.frac();
           this.fire('rocket', e.x, e.y, Math.atan2(dy, dx), 170, 7, 4, 16, 1.4);
           sfx.shot();
         }
       } else {
         if (d < range && e.fireCd <= 0) {
-          e.fireCd = (tier === 2 ? 2 : 3.5) + Math.random() * 1.5;
-          this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + Phaser.Math.FloatBetween(-0.1, 0.1), 240, tier === 2 ? 3 : 2, 2.4);
+          e.fireCd = (tier === 2 ? 2 : 3.5) + rng.ai.frac() * 1.5;
+          this.fire('bullet', e.x, e.y, Math.atan2(dy, dx) + rng.ai.float(-0.1, 0.1), 240, tier === 2 ? 3 : 2, 2.4);
           sfx.shot();
         }
       }
@@ -418,7 +422,7 @@ export class EnemyManager {
     const aim = Math.atan2(dy, dx);
     e.turret?.setPosition(e.x, e.y).setRotation(aim).setDepth(e.y + 1);
     if (d < keep + 260 && e.fireCd <= 0) {
-      e.fireCd = (tier === 3 ? 1.5 : 2.4) + Math.random();
+      e.fireCd = (tier === 3 ? 1.5 : 2.4) + rng.ai.frac();
       const muzzle = 16;
       // Gunners lead the target on its current velocity: a straight-line runner gets hit; a sidestep still dodges.
       const speed = 340;
@@ -445,7 +449,7 @@ export class EnemyManager {
     if (d < R + 140 && e.fireCd <= 0) {
       if (e.shotsLeft <= 0) e.shotsLeft = 3;
       e.shotsLeft--;
-      e.fireCd = e.shotsLeft > 0 ? 0.16 : 2.4 + Math.random();
+      e.fireCd = e.shotsLeft > 0 ? 0.16 : 2.4 + rng.ai.frac();
       const { angle } = this.lead(e, 280, 0.06);
       this.fire('bullet', e.x, e.y, angle, 280, 3, 2.2);
       sfx.shot();
@@ -497,7 +501,7 @@ export class EnemyManager {
     s.shake(0.006, 120);
     sfx.zap();
     e.mode = 'walk';
-    e.fireCd = 5 + Math.random() * 2;
+    e.fireCd = 5 + rng.ai.frac() * 2;
     this.s.time.delayedCall(140, () => e.telegraph?.clear());
   }
 
@@ -535,7 +539,7 @@ export class EnemyManager {
       }
       if (e.modeT <= 0) {
         body.setVelocity(0, 0);
-        const r = Math.random();
+        const r = rng.ai.frac();
         e.mode = mini ? (r < 0.6 ? 'salvo' : 'quake') : r < 0.4 ? 'salvo' : r < 0.75 ? 'laser' : 'quake';
         e.modeT = e.mode === 'salvo' ? 1.4 : e.mode === 'laser' ? 1.9 : 1.6;
         e.shotsLeft = mini ? 4 : 8;
@@ -593,7 +597,7 @@ export class EnemyManager {
     }
     if (e.modeT <= 0) {
       e.mode = 'walk';
-      e.modeT = Phaser.Math.FloatBetween(2.2, 3.2);
+      e.modeT = rng.ai.float(2.2, 3.2);
     }
   }
 }

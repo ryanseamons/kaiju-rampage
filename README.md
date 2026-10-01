@@ -81,7 +81,7 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 | `?startWave=5` | Debug: start at a later wave with that wave's expected size (for example, to see the boss) |
 | `?mute=1` | No sound |
 | `?difficulty=easy` | Force a difficulty (`easy`, `medium`, `hard`) for this load; the tests pin `easy` |
-| `?daily=1` | Today's daily rampage (same city and upgrade rolls for everyone, Medium) |
+| `?daily=1` | Today's daily rampage (UTC day; same city, army and offers for everyone; Medium). `?daily=2026-10-05` pins a date |
 | `?lang=ja` | Japanese UI |
 | `?music=composed` | Use the procedural composer instead of the recorded tracks |
 | `?renderer=canvas` | Force the Canvas renderer instead of WebGL |

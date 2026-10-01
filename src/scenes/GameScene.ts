@@ -21,6 +21,8 @@ import { Pickups, type PickupKind } from '../pickups';
 import { Score } from '../score';
 import { NavField } from '../nav';
 import { gradeFor, qualifies } from '../scores';
+import { rng } from '../rand';
+import { dailyConfig, markRanked, rankedUsed, type DailyConfig } from '../daily';
 
 export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory' | 'results';
 
@@ -42,6 +44,10 @@ export interface RunSummary {
   evolutions: string[];
   daily: string | null;
   difficulty: DifficultyId;
+  /** Daily runs: the first of the day is ranked; later ones are practice. */
+  ranked: boolean;
+  dailyNumber: number | null;
+  stage: string;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -57,6 +63,10 @@ export class GameScene extends Phaser.Scene {
   private navT = 0;
   score = new Score();
   private stride = 0;
+  /** False for daily practice runs (the day's ranked run is already done). */
+  ranked = true;
+  /** Today's daily content, or null outside the daily. */
+  readonly dailyCfg: DailyConfig | null = DAILY ? dailyConfig(DAILY) : null;
   private stepT = new WeakMap<Enemy, number>();
   private peekAt: { x: number; y: number } | null = null;
   /** Landmarks flattened this run, in order. */
@@ -191,6 +201,12 @@ export class GameScene extends Phaser.Scene {
     if (this.phase !== 'title') return;
     this.diff = difficulty();
     this.score.diffMult = this.diff.score;
+    // Same seed, same city, army, drops and offers: the daily rampage is the same run for everyone.
+    rng.sowAll(SEED);
+    // The day's first daily run is the ranked one; mark it at the start so restarting can't fish for a better one.
+    this.ranked = !DAILY || !rankedUsed(DAILY);
+    if (DAILY && this.ranked) markRanked(DAILY);
+    this.rand = mulberry32(SEED ^ 0x9e3779b9);
     for (const f of this.titleFx) f.destroy();
     this.titleFx = [];
     sfx.unlock();
@@ -288,9 +304,12 @@ export class GameScene extends Phaser.Scene {
     const kills = this.stats.soldiers + this.stats.tanks + this.stats.helis + this.stats.cannons + this.stats.walkers + (this.stats.bossDefeated ? 1 : 0);
     const summary: RunSummary = {
       outcome, endless: this.endless, score: this.score.score, grade: gradeFor(this.score.score, outcome === 'victory' || this.endless),
-      rank: qualifies(this.score.score), wave: this.wave.wave, seconds: Math.round(this.stats.elapsed), buildings: this.stats.buildings, kills,
+      rank: this.ranked ? qualifies(this.score.score) : 0, wave: this.wave.wave, seconds: Math.round(this.stats.elapsed), buildings: this.stats.buildings, kills,
       bestCombo: this.score.bestCombo, level: this.player.level, tier: this.maxTierReached, evolutions: this.stats.evolutions, daily: DAILY,
       difficulty: this.diff.id,
+      ranked: this.ranked,
+      dailyNumber: this.dailyCfg?.number ?? null,
+      stage: this.dailyCfg?.stage ?? 'bay',
     };
     this.lastSummary = summary;
     this.ui.showResults(summary, (choice) => {
@@ -544,8 +563,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private maybeDropItem(x: number, y: number, chance: number) {
-    if (Math.random() >= chance) return;
-    this.pickups.drop(x, y, Phaser.Utils.Array.GetRandom(['magnet', 'magnet', 'quake', 'rage'] as const));
+    if (rng.drop.frac() >= chance) return;
+    this.pickups.drop(x, y, rng.drop.pick(['magnet', 'magnet', 'quake', 'rage'] as const));
   }
 
   // ── Combat & destruction ───────────────────────────────────────────────────
@@ -624,7 +643,7 @@ export class GameScene extends Phaser.Scene {
         this.hitStop(50);
         sfx.explode(false);
         this.add.image(e.x, e.y, 'rubble').setScale(0.7).setDepth(-60).setTint(0x3a3a2a);
-        if (Math.random() < 0.08 * this.diff.heal) this.pickups.drop(e.x, e.y, 'heart');
+        if (rng.drop.frac() < 0.08 * this.diff.heal) this.pickups.drop(e.x, e.y, 'heart');
         this.maybeDropItem(e.x, e.y, 0.04);
         break;
       case 'heli':
@@ -763,7 +782,7 @@ export class GameScene extends Phaser.Scene {
       d.sprite.destroy();
       this.city.leaveRubble(d);
       if (crushed && this.tier === 1) this.shake(0.002, 60);
-      if (credit && d.kind === 'car' && Math.random() < 0.04 * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
+      if (credit && d.kind === 'car' && rng.drop.frac() < 0.04 * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
@@ -788,7 +807,7 @@ export class GameScene extends Phaser.Scene {
       if (tower || d.kind === 'warehouse') this.fx.addFire(d.x, d.y - d.h * 0.2);
       if (!credit) return;
       if (p.mods.rampageHeal) p.heal(p.mods.rampageHeal);
-      if (Math.random() < (tower ? 0.08 : 0.03) * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
+      if (rng.drop.frac() < (tower ? 0.08 : 0.03) * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
       this.maybeDropItem(d.x, d.y, tower ? 0.03 : 0.004);
     }
     if (!credit) return;
@@ -918,6 +937,9 @@ export class GameScene extends Phaser.Scene {
       world: { w: WORLD_W, h: LAND_H },
       enemies: this.enemies.list.filter((e) => near(e.x, e.y, 700 * Math.max(1, k * 0.5))).map((e) => ({ type: e.etype, x: e.x, y: e.y, hp: e.hp, elite: e.elite, flying: e.flying })),
       enemyTypesSpawned: [...this.enemies.spawnedTypes],
+      spawnLog: this.enemies.spawnLog,
+      daily: this.dailyCfg,
+      ranked: this.ranked,
       enemyRoster: [...ENEMY_ROSTER],
       jets: this.enemies.jets.map((j) => ({ x0: j.x0, y0: j.y0, x1: j.x1, y1: j.y1, t: j.t })),
       pickups: this.pickups.nearby(p.x, p.y, 500 * Math.max(1, k * 0.5)),

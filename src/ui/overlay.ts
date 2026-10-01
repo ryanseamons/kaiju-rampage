@@ -8,12 +8,14 @@ import { DIFFICULTIES, cycleDifficulty, difficultyId, difficultyLocked, setDiffi
 import { music } from '../audio/music';
 import { duckMusic, isRunning, onAudioReady, prefs, setMusicOn, setMusicVolume, setSfxVolume, setVolume, toggleMuted, unlock } from '../audio/core';
 import { tracks } from '../audio/tracks';
+import { dailyConfig, msToReset, rankedUsed } from '../daily';
+import { dailyDesc, dailyGlyph, dailyName } from '../i18n';
 import { uiSound } from '../audio/ui-sounds';
 
 const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
 const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
-type Panel = null | 'how' | 'codex' | 'scores' | 'settings' | 'sound';
+type Panel = null | 'how' | 'codex' | 'scores' | 'settings' | 'sound' | 'daily';
 const STAGES = ['title', 'tier1', 'tier2', 'tier3', 'boss', 'victory', 'defeat', 'candidate'] as const;
 const VOTES_KEY = 'kaiju.trackVotes';
 type Vote = 'keep' | 'cut';
@@ -51,6 +53,7 @@ class Overlay {
   private entrance = true;
   /** The panel currently in the DOM, so re-rendering it (a settings toggle) doesn't replay its pop-in. */
   private shownPanel: Panel = null;
+  private briefedOnce = false;
 
   init(onStart: () => void) {
     this.onStart = onStart;
@@ -160,6 +163,11 @@ class Overlay {
     this.entrance = true;
     this.shownPanel = null;
     this.root.hidden = false;
+    // Arriving at the daily (?daily=1) opens today's briefing straight away.
+    if (DAILY && !this.briefedOnce) {
+      this.panel = 'daily';
+      this.briefedOnce = true;
+    }
     duckMusic(false); // a run that ended on the results screen left the music ducked
     document.getElementById('pause')?.toggleAttribute('hidden', true);
     this.place();
@@ -207,10 +215,15 @@ class Overlay {
   private activate(item: Item, fromKey = false) {
     if (item === 'start') return this.start(fromKey);
     if (item === 'daily') {
-      // The daily seed is read at load time, so the daily run is a fresh page with ?daily=1.
+      // The daily seed is read at load time, so the daily run is a fresh page with ?daily=1,
+      // which opens straight onto today's briefing. Already in it: show the briefing again.
+      if (DAILY) {
+        this.panel = 'daily';
+        this.renderPanel();
+        return;
+      }
       const q = new URLSearchParams(location.search);
-      if (DAILY) q.delete('daily');
-      else q.set('daily', '1');
+      q.set('daily', '1');
       location.search = q.toString();
       return;
     }
@@ -229,6 +242,12 @@ class Overlay {
     if (code === 'KeyL') {
       handled();
       setLang(getLang() === 'en' ? 'ja' : 'en');
+      return;
+    }
+    if (this.panel === 'daily' && (code === 'Enter' || code === 'Space')) {
+      handled();
+      uiSound.press();
+      this.start(true);
       return;
     }
     if (this.panel) {
@@ -410,6 +429,7 @@ class Overlay {
       }),
     );
     slot.querySelector<HTMLButtonElement>('[data-copy]')?.addEventListener('click', () => void this.copyPicks());
+    slot.querySelector<HTMLButtonElement>('[data-dstart]')?.addEventListener('click', () => this.start());
     // Volume sliders apply live; a short tick on release lets you hear the new effects level.
     slot.querySelectorAll<HTMLInputElement>('[data-vol]').forEach((el) => {
       const out = el.parentElement?.querySelector('output');
@@ -523,6 +543,30 @@ class Overlay {
       ).join('');
       return `<section class="panel">${head(t('m_codex'))}<div class="body"><p>${esc(t('codexIntro'))}</p><div class="codex">${cards}</div>
         <p class="lede" style="margin-top:1.2em"><b>${esc(t('evolutions'))}</b> ${esc(t('evoHow'))}</p><div class="codex">${evos}</div></div></section>`;
+    }
+    if (p === 'daily' && DAILY) {
+      const c = dailyConfig(DAILY);
+      const ms = msToReset();
+      const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000);
+      const card = (kind: 'stage' | 'twist' | 'threat' | 'boss', label: string, id: string | null) =>
+        `<div class="dcard ${kind}"><div class="glyph" lang="ja">${id ? dailyGlyph(kind, id) : '—'}</div><div><small>${esc(label)}</small><b>${esc(id ? dailyName(kind, id) : t('dailyNone'))}</b><p>${esc(id ? dailyDesc(kind, id) : t('dailyNoneDesc'))}</p></div></div>`;
+      const twists = c.twists.length ? c.twists.map((tw) => card('twist', t('dailyTwist'), tw)).join('') : card('twist', t('dailyTwist'), null);
+      const ranked = !rankedUsed(DAILY);
+      const board = loadDaily(DAILY).slice(0, 5);
+      const rows = board.length
+        ? `<ol class="dboard">${board.map((e) => `<li><b>${esc(e.name)}</b><span>${e.score.toLocaleString()}</span><em>${esc(e.grade)}</em></li>`).join('')}</ol>`
+        : `<p class="muted">${esc(t('dailyFirst'))}</p>`;
+      return `<section class="panel daily">
+        <header><h2>${esc(t('dailyTitle', { n: c.number }))}</h2><button data-close>${esc(t('back'))}</button></header>
+        <div class="body">
+          <p class="dmeta">${esc(c.key)} · ${esc(t('dailyResets', { h, m }))} · ${esc(t('dailySame'))}</p>
+          <div class="dgrid">${card('stage', t('dailyStage'), c.stage)}${twists}${card('threat', t('dailyThreat'), c.threat)}${card('boss', t('dailyBoss'), c.boss)}</div>
+          <div class="dfoot">
+            <div><p class="dstatus ${ranked ? 'ranked' : 'practice'}">${esc(ranked ? t('dailyRanked') : t('dailyPractice'))}</p>${rows}</div>
+            <button class="dstart" data-dstart>${esc(ranked ? t('dailyStart') : t('dailyStartPractice'))}</button>
+          </div>
+        </div>
+      </section>`;
     }
     if (p === 'sound') {
       const all = tracks.all();

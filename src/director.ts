@@ -7,6 +7,7 @@ import type { GameScene } from './scenes/GameScene';
 import { t } from './i18n';
 import { sfx } from './sfx';
 import { music } from './audio/music';
+import { rng } from './rand';
 
 export class Director {
   wave!: WaveDef;
@@ -60,9 +61,9 @@ export class Director {
     if (infantry < w.soldierMax * df.cap) {
       while (this.soldierAcc >= squad) {
         this.soldierAcc -= squad;
-        const kind: EnemyType = Math.random() < w.rocketShare ? 'rocket' : 'soldier';
+        const kind: EnemyType = rng.spawn.frac() < w.rocketShare ? 'rocket' : 'soldier';
         const lead = e.spawnOffscreen(kind);
-        for (let i = 1; i < squad; i++) e.spawn(Math.random() < w.rocketShare ? 'rocket' : 'soldier', lead.x + Phaser.Math.Between(-24, 24), lead.y + Phaser.Math.Between(-24, 24));
+        for (let i = 1; i < squad; i++) e.spawn(rng.spawn.frac() < w.rocketShare ? 'rocket' : 'soldier', lead.x + rng.spawn.between(-24, 24), lead.y + rng.spawn.between(-24, 24));
       }
     }
     this.soldierAcc = Math.min(this.soldierAcc, squad * 2);
@@ -77,7 +78,7 @@ export class Director {
     // set pieces
     if (this.elitesAt.length && this.time >= this.elitesAt[0]) {
       this.elitesAt.shift();
-      const kind: EnemyType = tier >= 3 ? 'tank' : tier === 2 ? Phaser.Utils.Array.GetRandom(['rocket', 'tank']) : 'soldier';
+      const kind: EnemyType = tier >= 3 ? 'tank' : tier === 2 ? rng.spawn.pick(['rocket', 'tank']) : 'soldier';
       e.spawnOffscreen(kind, true);
     }
     if (this.ringAt >= 0 && this.time >= this.ringAt) {
@@ -93,7 +94,7 @@ export class Director {
       sfx.alarm();
     }
     if (this.nextJet >= 0 && this.time >= this.nextJet && tier >= 2) {
-      this.nextJet = this.time + Phaser.Math.FloatBetween(16, 24) * (w.endless ? 0.7 : 1) * df.jetGap;
+      this.nextJet = this.time + rng.spawn.float(16, 24) * (w.endless ? 0.7 : 1) * df.jetGap;
       if (!this.jetsAnnounced) {
         this.jetsAnnounced = true;
         s.ui.banner(t('airStrike'), t('airStrikeSub'), true);

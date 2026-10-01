@@ -9,9 +9,10 @@ import type { GameScene, RunSummary } from './GameScene';
 import { lastName, submit } from '../scores';
 import { comboMult } from '../config';
 import { sfx } from '../sfx';
-import { districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
+import { dailyName, districtName, gameFont, getLang, JP_FONT, onLang, t, tierName, upDesc, upGlyph, upName } from '../i18n';
 import { overlay } from '../ui/overlay';
 import { uiSound } from '../audio/ui-sounds';
+import { shareLine } from '../daily';
 import { prefs, setMuted, setVolume } from '../audio/core';
 
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
@@ -46,7 +47,7 @@ export class UIScene extends Phaser.Scene {
   private onPick?: (i: number) => void;
   private onContinue?: () => void;
   private levelOpts?: LevelUpOpts;
-  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text };
+  private results?: { summary: RunSummary; onDone: (c: 'new' | 'endless') => void; name: string[]; cursor: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
   private pad = { left: false, right: false, up: false, down: false, a: false };
@@ -511,7 +512,7 @@ export class UIScene extends Phaser.Scene {
     ch.push(this.add.rectangle(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H, 0x05060d, 0.88));
     const title = sm.outcome === 'victory' && !sm.endless ? t('resVictory') : sm.endless ? t('resEndless') : t('resDefeat');
     ch.push(this.add.text(VIEW_W / 2, 78, title, txt(48, sm.outcome === 'victory' ? '#ffe14a' : '#ff5577', { strokeThickness: 8 })).setOrigin(0.5));
-    if (sm.daily) ch.push(this.add.text(VIEW_W / 2, 120, t('dailyBadge', { date: sm.daily }), txt(16, '#9ffcff')).setOrigin(0.5));
+    if (sm.daily) ch.push(this.add.text(VIEW_W / 2, 120, t(sm.ranked ? 'dailyRankedTag' : 'dailyPracticeTag', { n: sm.dailyNumber ?? 0 }), txt(16, sm.ranked ? '#ffe14a' : '#9ffcff')).setOrigin(0.5));
     const diffCol = { easy: '#7fd48a', medium: '#ffc94a', hard: '#ff4b5c' }[sm.difficulty];
     ch.push(this.add.text(VIEW_W / 2, sm.daily ? 142 : 120, `${t('s_difficulty')}: ${t(`diff_${sm.difficulty}` as 'diff_easy')}`.toUpperCase(), txt(15, diffCol)).setOrigin(0.5));
     ch.push(this.add.text(VIEW_W / 2 - 250, 170, t('finalScore'), txt(18, '#8f97b8')).setOrigin(0.5));
@@ -545,6 +546,10 @@ export class UIScene extends Phaser.Scene {
       if (r.saved && sm.rank) ch.push(this.add.text(VIEW_W / 2, 540, t('newHigh', { n: sm.rank }), txt(22, '#ffe14a')).setOrigin(0.5));
       const opts = [t('resNew'), ...(sm.outcome === 'victory' && !sm.endless ? [t('resEndlessGo')] : [])];
       const foot = this.add.text(VIEW_W / 2, 600, opts.join('      '), txt(22, '#ffffff')).setOrigin(0.5);
+      if (sm.daily) {
+        r.copyText = this.add.text(VIEW_W / 2, 642, r.copied ? t('dailyCopied') : t('dailyCopy'), txt(16, '#9ffcff')).setOrigin(0.5);
+        ch.push(r.copyText);
+      }
       this.tweens.add({ targets: foot, alpha: 0.4, yoyo: true, repeat: -1, duration: 550 });
       ch.push(foot);
     }
@@ -585,6 +590,20 @@ export class UIScene extends Phaser.Scene {
         return;
       }
       this.updateName();
+      return;
+    }
+    if (code === 'KeyC' && r.summary.daily) {
+      uiSound.press();
+      const sm = r.summary;
+      const text = shareLine({
+        number: sm.dailyNumber ?? 0, stageName: dailyName('stage', sm.stage), score: sm.score, grade: sm.grade,
+        buildings: sm.buildings, kills: sm.kills, victory: sm.outcome === 'victory', wave: sm.wave, ranked: sm.ranked,
+      });
+      void navigator.clipboard?.writeText(text).then(() => {
+        r.copied = true;
+        r.copyText?.setText(t('dailyCopied'));
+      });
+      (window as unknown as { __kaijuShare?: string }).__kaijuShare = text; // for tests
       return;
     }
     if (code === 'Enter' || code === 'Space') {

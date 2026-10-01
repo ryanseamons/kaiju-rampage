@@ -5,18 +5,17 @@ const params = new URLSearchParams(location.search);
  * playthrough spec). Gameplay rules are unchanged. */
 const FAST_LEVEL = params.get('fast') === '2' ? 2 : params.get('fast') === '1' ? 1 : 0;
 export const FAST = FAST_LEVEL > 0;
-/** Local calendar date, YYYY-MM-DD: the key for the daily rampage. */
-export const todayKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+/** UTC calendar date, YYYY-MM-DD: the key for the daily rampage. UTC so the whole world shares one
+ * day (and one leaderboard), whatever the local time zone. */
+export const todayKey = (d = new Date()) => d.toISOString().slice(0, 10);
 export const dailySeed = (key: string) => {
   let h = 2166136261;
   for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return (h >>> 0) % 1_000_000_000;
 };
-/** `?daily=1`: everyone gets the same city and upgrade rolls today. */
-export const DAILY = params.get('daily') === '1' ? todayKey() : null;
+/** `?daily=1`: today's daily rampage. `?daily=2026-10-05` pins a date (for testing a given day's content). */
+const dailyParam = params.get('daily');
+export const DAILY = dailyParam === '1' ? todayKey() : dailyParam && /^\d{4}-\d{2}-\d{2}$/.test(dailyParam) ? dailyParam : null;
 export const SEED = DAILY ? dailySeed(DAILY) : Number(params.get('seed') ?? Math.floor(Math.random() * 1e9));
 export const RENDERER = params.get('renderer') === 'canvas' ? 'canvas' : 'auto';
 /** Debug: start at a later wave (e.g. `?startWave=5` to see the boss). Also grants that wave's expected tier. */
