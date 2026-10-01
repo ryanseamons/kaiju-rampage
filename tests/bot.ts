@@ -221,7 +221,7 @@ export async function startFromTitle(page: Page, key: 'Enter' | 'Space' = 'Enter
   for (let i = 0; i < 20; i++) {
     await page.keyboard.press(key);
     const ok = await page
-      .waitForFunction(() => (window as any).__kaiju?.state()?.phase === 'playing', null, { timeout: 1500 })
+      .waitForFunction(() => { const p = (window as any).__kaiju?.state()?.phase; return !!p && p !== 'title'; }, null, { timeout: 1500 })
       .then(() => true, () => false);
     if (ok) return;
   }

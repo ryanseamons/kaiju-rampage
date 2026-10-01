@@ -4,8 +4,8 @@
   "maxTierReached": 3,
   "level": 13,
   "hp": 420,
-  "minHpPct": 95,
-  "destroyed": 126,
+  "minHpPct": 93,
+  "destroyed": 98,
   "bulletinsShown": 2,
   "levelUpsShown": 12,
   "enemyTypesSpawned": [
@@ -19,8 +19,8 @@
   "shots": [
     "levelup",
     "tier1",
-    "bulletin",
     "tier2",
+    "bulletin",
     "tier3"
   ],
   "bulletinSource": "bank"

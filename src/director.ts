@@ -41,7 +41,8 @@ export class Director {
     this.ringAt = w.ring ? d * 0.5 : -1;
     this.walkerAt = w.walker ? (w.endless ? d * 0.3 : d * 0.55) : -1;
     // Harder settings bring the air force in a wave early (wave 3).
-    const jets = w.jets || (this.s.diff.jetGap < 1 && n >= 3);
+    const air = this.s.twists?.has('air') ?? false;
+    const jets = w.jets || air || (this.s.diff.jetGap < 1 && n >= 3);
     this.nextJet = jets ? 12 * TIME_SCALE + 4 : -1;
     this.jetsAnnounced = false;
   }
@@ -93,8 +94,9 @@ export class Director {
       s.ui.banner(t('walkerTitle'), t('walkerSub'), true);
       sfx.alarm();
     }
-    if (this.nextJet >= 0 && this.time >= this.nextJet && tier >= 2) {
-      this.nextJet = this.time + rng.spawn.float(16, 24) * (w.endless ? 0.7 : 1) * df.jetGap;
+    const air = s.twists?.has('air') ?? false;
+    if (this.nextJet >= 0 && this.time >= this.nextJet && (tier >= 2 || air)) {
+      this.nextJet = this.time + rng.spawn.float(16, 24) * (w.endless ? 0.7 : 1) * df.jetGap * (air ? 0.5 : 1);
       if (!this.jetsAnnounced) {
         this.jetsAnnounced = true;
         s.ui.banner(t('airStrike'), t('airStrikeSub'), true);

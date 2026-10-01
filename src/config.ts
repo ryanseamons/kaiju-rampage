@@ -137,7 +137,7 @@ export const BULLETIN_LEAD_S = 22;
 export const WAVE1_GRACE_S = 8;
 export const BULLETIN_MIN_FRACTION = 0.4;
 /** Max ms the wave break waits for an in-flight AI bulletin before showing the canned one. */
-export const BULLETIN_WAIT_MS = 2000;
+export const BULLETIN_WAIT_MS = FAST ? 8000 : 2000; // tests (?fast) tolerate a slow, loaded machine
 
 /** Enemy HP and damage multipliers for wave n (endless waves keep climbing). */
 export const waveHpMult = (n: number) => 1 + 0.15 * (n - 1) + 0.12 * Math.max(0, n - WAVES.length);

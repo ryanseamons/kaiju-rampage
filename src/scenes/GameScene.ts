@@ -23,6 +23,8 @@ import { NavField } from '../nav';
 import { gradeFor, qualifies } from '../scores';
 import { rng } from '../rand';
 import { dailyConfig, markRanked, rankedUsed, type DailyConfig } from '../daily';
+import { TWIST_PARAM, Twists } from '../twists';
+import { dailyDesc, dailyName } from '../i18n';
 
 export type Phase = 'title' | 'playing' | 'paused' | 'levelup' | 'bulletin' | 'dying' | 'gameover' | 'victory' | 'results';
 
@@ -65,6 +67,8 @@ export class GameScene extends Phaser.Scene {
   private stride = 0;
   /** False for daily practice runs (the day's ranked run is already done). */
   ranked = true;
+  /** Today's twists (or `?twist=` for testing). */
+  twists: Twists = new Twists(this, []);
   /** Today's daily content, or null outside the daily. */
   readonly dailyCfg: DailyConfig | null = DAILY ? dailyConfig(DAILY) : null;
   private stepT = new WeakMap<Enemy, number>();
@@ -210,10 +214,13 @@ export class GameScene extends Phaser.Scene {
     for (const f of this.titleFx) f.destroy();
     this.titleFx = [];
     sfx.unlock();
-    this.waveIdx = START_WAVE - 1;
-    sfx.setTier(START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0);
-    if (START_WAVE > 1) {
-      const ti = START_WAVE >= 4 ? 2 : START_WAVE >= 2 ? 1 : 0;
+    this.twists = new Twists(this, this.dailyCfg?.twists ?? TWIST_PARAM);
+    // Giant from the Start: begin at wave 3 at Behemoth size, with three mutations to choose.
+    const startWave = this.twists.has('giant') && START_WAVE < 3 ? 3 : START_WAVE;
+    this.waveIdx = startWave - 1;
+    sfx.setTier(startWave >= 4 ? 2 : startWave >= 2 ? 1 : 0);
+    if (startWave > 1) {
+      const ti = startWave >= 4 ? 2 : startWave >= 2 ? 1 : 0;
       this.player.mass = TIERS[ti].massToReach;
       this.player.tierIdx = ti;
       this.player.hp = this.player.maxHp;
@@ -228,6 +235,10 @@ export class GameScene extends Phaser.Scene {
     duckMusic(false);
     music.play(`tier${this.tier}` as 'tier1');
     this.startWave();
+    this.twists.start();
+    if (this.twists.has('giant')) this.pendingLevelUps += 3;
+    // Announce the day's twists after the wave banner.
+    [...this.twists.on].forEach((id, i) => this.time.delayedCall(2600 + i * 2400, () => this.ui.banner(`${t('dailyTwist').toUpperCase()}: ${dailyName('twist', id)}`, dailyDesc('twist', id), true)));
   }
 
   private startWave() {
@@ -428,6 +439,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.weapons.update(dt);
     this.enemies.update(dt);
+    this.twists.update(dt);
     this.ambientSounds(dt);
     this.pickups.update(dt);
     this.director.update(dt);
@@ -492,7 +504,7 @@ export class GameScene extends Phaser.Scene {
       this.stats.upgraded(u.name);
     }
     // Levelling up is the hatchling's only reliable heal, so it matters most in wave 1.
-    p.heal(p.maxHp * (u ? 0.15 : 0.25) * this.diff.heal);
+    p.heal(p.maxHp * (u ? 0.15 : 0.25) * this.diff.heal * this.twists.heal(1));
     this.fx.word(p.x, p.y - 24 * p.scale, '+HP', '#ff6688', 1 + p.tierIdx * 0.6);
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.offer = [];
@@ -590,7 +602,7 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     if (p.invuln > 0 || this.phase !== 'playing') return;
     // Tier 3 outgrows most of the army; harder settings keep what's left dangerous.
-    const real = dmg * (1 - p.mods.armor) * (this.tier === 3 ? this.diff.tier3Dmg : 1);
+    const real = this.twists.taken(dmg * (1 - p.mods.armor) * (this.tier === 3 ? this.diff.tier3Dmg : 1));
     p.hp -= real;
     this.damageTaken += real;
     p.invuln = 0.06;
@@ -604,6 +616,7 @@ export class GameScene extends Phaser.Scene {
 
   damageEnemy(e: Enemy, dmg: number, kx: number, ky: number) {
     if (e.dead) return;
+    dmg = this.twists.dealt(dmg);
     e.hp -= dmg;
     this.fx.hit(e.x, e.y, 3);
     e.setTintFill(0xffffff);
@@ -643,7 +656,7 @@ export class GameScene extends Phaser.Scene {
         this.hitStop(50);
         sfx.explode(false);
         this.add.image(e.x, e.y, 'rubble').setScale(0.7).setDepth(-60).setTint(0x3a3a2a);
-        if (rng.drop.frac() < 0.08 * this.diff.heal) this.pickups.drop(e.x, e.y, 'heart');
+        if (rng.drop.frac() < this.twists.heal(0.08 * this.diff.heal)) this.pickups.drop(e.x, e.y, 'heart');
         this.maybeDropItem(e.x, e.y, 0.04);
         break;
       case 'heli':
@@ -744,8 +757,10 @@ export class GameScene extends Phaser.Scene {
     this.damageDestructible(d, 10 * this.player.power);
   }
 
-  damageDestructible(d: Destructible, dmg: number) {
-    if (!d.alive || d.sizeClass > this.tier + 1) return;
+  /** `fire`: Firestorm spreading, which ignores the size rule and the damage twist. */
+  damageDestructible(d: Destructible, dmg: number, fire = false) {
+    if (!d.alive || (!fire && d.sizeClass > this.tier + 1)) return;
+    if (!fire) dmg = this.twists.dealt(dmg);
     d.hp -= dmg;
     if (d.hp <= 0) return this.destroyDestructible(d, false);
     const now = this.gameTime;
@@ -772,6 +787,11 @@ export class GameScene extends Phaser.Scene {
       this.nav.unblock(d);
     }
     if (credit) this.stats.destroyed(d.kind, d.district);
+    this.twists.spread(d);
+    if (credit) {
+      const eat = this.twists.eatHeal(d.kind, this.player.tierIdx);
+      if (eat) this.player.heal(eat);
+    }
     const p = this.player;
     const small = d.kind === 'car' || d.kind === 'tree';
     const rew = small ? REWARDS.car : d.kind === 'tower' ? REWARDS.tower : REWARDS.house;
@@ -782,7 +802,7 @@ export class GameScene extends Phaser.Scene {
       d.sprite.destroy();
       this.city.leaveRubble(d);
       if (crushed && this.tier === 1) this.shake(0.002, 60);
-      if (credit && d.kind === 'car' && rng.drop.frac() < 0.04 * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
+      if (credit && d.kind === 'car' && rng.drop.frac() < this.twists.heal(0.04 * this.diff.heal)) this.pickups.drop(d.x, d.y, 'heart');
     } else {
       const tower = d.kind === 'tower';
       this.fx.collapse(d.x, d.y, tower ? 'tower' : 'house');
@@ -807,7 +827,7 @@ export class GameScene extends Phaser.Scene {
       if (tower || d.kind === 'warehouse') this.fx.addFire(d.x, d.y - d.h * 0.2);
       if (!credit) return;
       if (p.mods.rampageHeal) p.heal(p.mods.rampageHeal);
-      if (rng.drop.frac() < (tower ? 0.08 : 0.03) * this.diff.heal) this.pickups.drop(d.x, d.y, 'heart');
+      if (rng.drop.frac() < this.twists.heal((tower ? 0.08 : 0.03) * this.diff.heal)) this.pickups.drop(d.x, d.y, 'heart');
       this.maybeDropItem(d.x, d.y, tower ? 0.03 : 0.004);
     }
     if (!credit) return;
@@ -894,6 +914,14 @@ export class GameScene extends Phaser.Scene {
 
   // ── Test/debug surface (read-only snapshot) ────────────────────────────────
   private exposeDebug() {
+    // Test hooks: deal a hit to the kaiju, and read a heart chance through the active twists.
+    (window as unknown as { __kaijuDebug: unknown }).__kaijuDebug = {
+      hurt: (n: number) => {
+        this.player.invuln = 0;
+        this.hurtPlayer(n, this.player.x, this.player.y);
+      },
+      heartChance: (base: number) => this.twists.heal(base),
+    };
     const w = window as unknown as { __kaiju: unknown };
     w.__kaiju = {
       state: () => this.debugState(),
@@ -939,6 +967,8 @@ export class GameScene extends Phaser.Scene {
       enemyTypesSpawned: [...this.enemies.spawnedTypes],
       spawnLog: this.enemies.spawnLog,
       daily: this.dailyCfg,
+      twists: [...this.twists.on],
+      darkness: !!this.children.getByName('darkness'),
       ranked: this.ranked,
       enemyRoster: [...ENEMY_ROSTER],
       jets: this.enemies.jets.map((j) => ({ x0: j.x0, y0: j.y0, x1: j.x1, y1: j.y1, t: j.t })),
