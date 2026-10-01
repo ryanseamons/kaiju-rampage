@@ -14,7 +14,8 @@ const game = new Phaser.Game({
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: 'arcade', arcade: { debug: false } },
-  input: { gamepad: true },
+  // Three pointers: a thumb on the joystick and another on stomp at the same time.
+  input: { gamepad: true, activePointers: 3 },
   fps: { target: 60 },
   render: { powerPreference: 'high-performance' },
   scene: [BootScene, GameScene, UIScene],

@@ -15,6 +15,7 @@ import { uiSound } from '../audio/ui-sounds';
 import { shareLine } from '../daily';
 import { submitScore } from '../leaderboard';
 import { prefs, setMuted, setVolume } from '../audio/core';
+import { TouchControls } from '../ui/touch';
 
 const txt = (size: number, color = '#ffffff', extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => {
   const ja = getLang() === 'ja';
@@ -51,6 +52,8 @@ export class UIScene extends Phaser.Scene {
   private onContinue?: () => void;
   private levelOpts?: LevelUpOpts;
   private pauseBtn: HTMLElement | null = null;
+  /** Joystick and stomp button for touchscreens (hidden until the first touch). */
+  touch!: TouchControls;
   private results?: { summary: RunSummary; onDone: (c: ResultChoice) => void; name: string[]; cursor: number; sel: number; entering: boolean; saved: boolean; nameText?: Phaser.GameObjects.Text; copyText?: Phaser.GameObjects.Text; copied?: boolean; global?: string; buttons?: [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text, number][] };
   private sel = 0;
   private cards: Phaser.GameObjects.Container[] = [];
@@ -101,6 +104,11 @@ export class UIScene extends Phaser.Scene {
     window.addEventListener('kaiju-pause', () => this.onKey('KeyP'));
     overlay.init(() => this.gs?.startRun());
     this.buildLevelPool(); // ahead of the first level-up
+    this.touch = new TouchControls(this);
+    // A tap anywhere dismisses the news card (the keyboard's Enter / Space).
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      if (this.modal === 'bulletin') this.continueFromBulletin();
+    });
     onLang(() => {
       this.rebuildHud();
       if (this.levelPool) {
@@ -206,6 +214,7 @@ export class UIScene extends Phaser.Scene {
     const pausable = !overlay.isOpen() && (gs.phase === 'playing' || gs.phase === 'paused');
     if (pauseBtn && pauseBtn.hidden === pausable) pauseBtn.hidden = !pausable;
     const p = gs.player;
+    this.touch.update(gs.phase === 'playing' && this.modal === null, p.stompCd <= 0 ? 1 : 1 - p.stompCd / (5 * p.mods.stompCd));
     const hpF = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
     this.hpBar.width = 280 * hpF;
     this.hpBar.fillColor = hpF < 0.25 ? (Math.floor(this.time.now / 200) % 2 ? 0xff3355 : 0xffffff) : 0xff3355;
@@ -605,6 +614,8 @@ export class UIScene extends Phaser.Scene {
       const nameText = this.add.text(VIEW_W / 2, 578, '', { fontFamily: '"Courier New", monospace', fontStyle: 'bold', fontSize: '44px', color: '#ffffff', stroke: '#05060d', strokeThickness: 6 }).setOrigin(0.5);
       r.nameText = nameText;
       ch.push(nameText, this.add.text(VIEW_W / 2, 624, t('nameHint'), txt(14, '#8f97b8')).setOrigin(0.5));
+      // Save without a keyboard (touch, or a mouse player): keeps the initials shown.
+      ch.push(...this.pauseButton(VIEW_W / 2, 668, 260, t('nameSave'), 0x4dffb0, true, () => this.resultsKey('Enter')));
       this.updateName();
     } else {
       if (r.global) ch.push(this.add.text(VIEW_W / 2, 540, r.global, txt(22, '#ffe14a')).setOrigin(0.5));

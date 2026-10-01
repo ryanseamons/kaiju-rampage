@@ -45,6 +45,7 @@ npm run build
 | Input | Action |
 |---|---|
 | WASD / arrow keys (gamepad: left stick or d-pad) | Move |
+| Touchscreen (landscape) | A joystick appears wherever your left thumb lands; the **STOMP** button on the right fills as it recharges. Tap cards, buttons and the news card. Controls show only after the first touch (`src/ui/touch.ts`) |
 | automatic | Claw swipe, plus any weapons you unlock |
 | Space or Shift (gamepad: A) | **Stomp**: shockwave, 5s cooldown |
 | 1 / 2 / 3, or ←/→ then Enter, or click (gamepad: d-pad + A) | Pick an upgrade on level-up |

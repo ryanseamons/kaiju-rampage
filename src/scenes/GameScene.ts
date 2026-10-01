@@ -426,6 +426,12 @@ export class GameScene extends Phaser.Scene {
       if (pad.A && !this.padA) stompPressed = true;
       this.padA = pad.A;
     }
+    const touch = this.ui.touch;
+    if (touch.move.lengthSq() > 0) {
+      mx = touch.move.x;
+      my = touch.move.y;
+    }
+    if (touch.takeStomp()) stompPressed = true;
     const len = Math.hypot(mx, my);
     p.slowT = Math.max(0, p.slowT - dt);
     p.netT = Math.max(0, p.netT - dt);

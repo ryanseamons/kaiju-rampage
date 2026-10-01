@@ -656,7 +656,7 @@ class Overlay {
     const bar = pl.querySelector('.bar i') as HTMLElement;
     if (!np || prefs.muted || !prefs.music) {
       pl.classList.add('silent');
-      title.textContent = !isRunning() ? t('soundHint') : t('musicOff');
+      title.textContent = !isRunning() ? t(matchMedia('(pointer: coarse)').matches ? 'soundHintTouch' : 'soundHint') : t('musicOff');
       meta.textContent = '';
       bar.style.width = '0';
       return;

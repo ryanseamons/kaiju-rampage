@@ -231,6 +231,7 @@ const S = {
   jpNote: { en: 'The Japanese text was written by an AI and has not yet been reviewed by a native speaker.', ja: '日本語テキストはAIが作成したもので、ネイティブによる校正はまだ行われていません。' },
   nowPlaying: { en: 'NOW PLAYING', ja: '再生中' },
   soundHint: { en: 'Click or press any key for sound', ja: 'クリックかキー入力でサウンド開始' },
+  soundHintTouch: { en: 'Tap for sound', ja: 'タップでサウンド開始' },
   musicOff: { en: 'Music off (M)', ja: '音楽オフ（M）' },
   credits: {
     en: 'A SHIOKAZE BAY DISASTER IN FIVE WAVES · STARRING TIDEMAW · WITH THE KBN-7 NIGHT DESK',
@@ -267,6 +268,7 @@ const S = {
   grade: { en: 'GRADE', ja: '評価' },
   newHigh: { en: 'NEW HIGH SCORE! RANK {n}', ja: 'ハイスコア更新! {n}位' },
   enterName: { en: 'ENTER YOUR NAME', ja: '名前を入力' },
+  nameSave: { en: 'SAVE  ·  ENTER', ja: '保存  ·  ENTER' },
   nameHint: { en: '↑↓ letter · ←→ move · type A–Z · ENTER / SPACE confirm', ja: '↑↓ 文字 · ←→ 移動 · A–Z 入力 · ENTER / SPACE 決定' },
   r_waves: { en: 'Waves survived', ja: '生き延びたウェーブ' },
   r_time: { en: 'Time', ja: 'タイム' },

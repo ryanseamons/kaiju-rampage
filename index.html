@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Kaiju Rampage · 怪獣大暴れ</title>
     <meta name="description" content="Grow from a tiny kaiju into a city-ender while the city's news desk reacts to your run. 怪獣になって街を踏み潰せ。" />
     <meta name="theme-color" content="#05060d" />
@@ -10,11 +10,20 @@
       html, body { margin: 0; height: 100%; background: #05060d; overflow: hidden; }
       #game { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
       canvas { image-rendering: pixelated; }
+      /* Touch: no page scrolling, pinch-zoom or double-tap zoom while playing. */
+      html, body, #game { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      #rotate { display: none; }
+      @media (pointer: coarse) and (orientation: portrait) {
+        #rotate { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: #05060d; color: #f3ead2;
+          font: 700 1.2rem/1.4 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; text-align: center; padding: 2rem; }
+        #rotate b { display: block; font-size: 3rem; margin-bottom: 0.4em; }
+      }
     </style>
   </head>
   <body>
     <div id="game"></div>
     <div id="overlay" hidden></div>
+    <div id="rotate" role="status"><div><b>⟳</b>Turn your phone sideways to play.<br /><span lang="ja">横向きにしてプレイ</span></div></div>
     <button id="pause" type="button" aria-label="Pause (P)" title="Pause (P)" hidden><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
     <button id="mute" type="button" aria-label="Mute" title="Mute (M)"></button>
     <script type="module" src="/src/main.ts"></script>
