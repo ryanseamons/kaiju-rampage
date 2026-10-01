@@ -309,7 +309,8 @@ export class GameScene extends Phaser.Scene {
     // Only one end-of-wave card at a time (e.g. dying during the mech's death sequence).
     if (this.phase !== 'playing' && this.phase !== 'dying') return;
     if (this.phase === 'dying' && outcome !== 'defeat') return;
-    duckMusic(true);
+    // Between waves the news card sits over the stage music; the victory and defeat songs play out in full.
+    duckMusic(outcome === 'wave-cleared');
     if (outcome === 'wave-cleared') this.score.bonus(1000 * this.wave.wave);
     if (outcome === 'victory') this.score.bonus(25_000 + Math.max(0, 900 - this.stats.elapsed) * 20);
     if (outcome !== 'wave-cleared') music.play(outcome === 'victory' ? 'victory' : 'defeat');
