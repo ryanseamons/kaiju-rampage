@@ -518,7 +518,8 @@ class Overlay {
         const rows = all.filter((x) => x.contexts[0] === st).sort((a, b) => order(a) - order(b)).map((x) => {
           const v = votes[x.id];
           const sug = x.suggest ? `<span class="tag sug">→ ${esc(t(`st_${x.suggest}` as 'st_title'))}</span>` : '';
-          const tags = sug + (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');
+          const fresh = x.new ? '<span class="tag new">NEW</span>' : '';
+          const tags = fresh + sug + (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');
           return `<div class="track${x.id === playing ? ' now' : ''}" data-track="${x.id}">
             <button class="play" data-play="${x.id}" aria-label="Play ${esc(x.title)}">${x.id === playing ? '♪' : '▶'}</button>
             <div class="info"><b>${esc(x.title)}</b><small>${esc(x.artist)}</small><div class="tags">${tags}</div></div>

@@ -459,3 +459,4 @@ html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weig
 .panel.sound h3.cand { margin-top: 1.6em; padding-top: 1em; border-top: 0.06em solid rgba(255, 95, 210, 0.35); color: #ff9fe6; }
 .panel.sound .cand-note { font-size: 0.8em; color: var(--muted); margin: 0 0 0.6em; }
 .panel.sound .tag.sug { background: rgba(255, 210, 63, 0.16); color: var(--yellow); }
+.panel.sound .tag.new { background: #ff4b5c; color: #fff; font-weight: 700; letter-spacing: 0.08em; }

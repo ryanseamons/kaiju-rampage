@@ -10,6 +10,8 @@ export interface TrackInfo {
   contexts: (MusicContext | 'candidate')[];
   /** Candidates: the stage it was picked for. */
   suggest?: MusicContext;
+  /** Added in the latest batch (badged in the Sound Test). */
+  new?: boolean;
   /** Epidemic's genre and mood tags, for the Sound Test. */
   tags?: string[];
 }
@@ -33,7 +35,7 @@ function shuffle<T>(xs: T[]) {
 export const tracks = {
   load(): Promise<TrackInfo[]> {
     if (disabled) return Promise.resolve((list = []));
-    loading ??= fetch(`${import.meta.env.BASE_URL}music/tracks.json`)
+    loading ??= fetch(`${import.meta.env.BASE_URL}music/tracks.json`, { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : { tracks: [] }))
       .then((j: { tracks?: TrackInfo[] }) => (list = Array.isArray(j.tracks) ? j.tracks : []))
       .catch(() => (list = []));
