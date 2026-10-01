@@ -224,8 +224,10 @@ export const music = {
     const t = tracks.all().find((x) => x.id === id);
     const g = audio();
     if (!t || !g) return;
-    wanted = t.contexts[0];
-    start(g, t.contexts[0], t);
+    // A candidate isn't in any stage yet; it previews under the title context.
+    const ctx = t.contexts[0] === 'candidate' ? 'title' : t.contexts[0];
+    wanted = ctx;
+    start(g, ctx, t);
   },
   /** The recorded track playing now, if any. */
   currentTrackId(): string | null {

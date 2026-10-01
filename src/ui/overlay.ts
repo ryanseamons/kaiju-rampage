@@ -14,7 +14,7 @@ const SPEAKER_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
 type Panel = null | 'how' | 'codex' | 'scores' | 'settings' | 'sound';
-const STAGES = ['title', 'tier1', 'tier2', 'tier3', 'boss', 'victory', 'defeat'] as const;
+const STAGES = ['title', 'tier1', 'tier2', 'tier3', 'boss', 'victory', 'defeat', 'candidate'] as const;
 const VOTES_KEY = 'kaiju.trackVotes';
 type Vote = 'keep' | 'cut';
 function loadVotes(): Record<string, Vote> {
@@ -444,7 +444,7 @@ class Overlay {
       const list = tracks.all().filter((x) => x.contexts[0] === st);
       if (!list.length) continue;
       lines.push('', `${t(`st_${st}` as 'st_title')}:`);
-      for (const x of list) lines.push(`  ${votes[x.id] === 'keep' ? '👍 keep' : votes[x.id] === 'cut' ? '👎 cut ' : '·  —   '}  ${x.title} (${x.artist})`);
+      for (const x of list) lines.push(`  ${votes[x.id] === 'keep' ? '👍 keep' : votes[x.id] === 'cut' ? '👎 cut ' : '·  —   '}  ${x.title} (${x.artist})${x.suggest ? ` → ${t(`st_${x.suggest}` as 'st_title')}` : ''}`);
     }
     const text = lines.join('\n');
     const note = this.root.querySelector('.sound-foot .copied');
@@ -516,14 +516,16 @@ class Overlay {
       const groups = STAGES.map((st) => {
         const rows = all.filter((x) => x.contexts[0] === st).map((x) => {
           const v = votes[x.id];
-          const tags = (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');
+          const sug = x.suggest ? `<span class="tag sug">→ ${esc(t(`st_${x.suggest}` as 'st_title'))}</span>` : '';
+          const tags = sug + (x.tags ?? []).map((g) => `<span class="tag${/8-bit/i.test(g) ? ' bit' : ''}">${esc(g)}</span>`).join('');
           return `<div class="track${x.id === playing ? ' now' : ''}" data-track="${x.id}">
             <button class="play" data-play="${x.id}" aria-label="Play ${esc(x.title)}">${x.id === playing ? '♪' : '▶'}</button>
             <div class="info"><b>${esc(x.title)}</b><small>${esc(x.artist)}</small><div class="tags">${tags}</div></div>
             <div class="pill vote"><button data-vote="${x.id}:keep" class="${v === 'keep' ? 'on keep' : ''}">👍 ${esc(t('soundKeep'))}</button><button data-vote="${x.id}:cut" class="${v === 'cut' ? 'on cut' : ''}">👎 ${esc(t('soundCut'))}</button></div>
           </div>`;
         }).join('');
-        return rows ? `<h3>${esc(t(`st_${st}` as 'st_title'))}</h3>${rows}` : '';
+        const intro = st === 'candidate' ? `<p class="cand-note">${esc(t('candNote'))}</p>` : '';
+        return rows ? `<h3${st === 'candidate' ? ' class="cand"' : ''}>${esc(t(`st_${st}` as 'st_title'))}</h3>${intro}${rows}` : '';
       }).join('');
       return `<section class="panel sound">${head(t('m_sound'))}<div class="body">
         <p class="lede">${esc(t('soundIntro'))}</p>${groups}

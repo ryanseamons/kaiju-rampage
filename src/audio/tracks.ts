@@ -6,7 +6,10 @@ export interface TrackInfo {
   id: string;
   title: string;
   artist: string;
-  contexts: MusicContext[];
+  /** Where it plays. 'candidate': only in the Sound Test, waiting for a vote. */
+  contexts: (MusicContext | 'candidate')[];
+  /** Candidates: the stage it was picked for. */
+  suggest?: MusicContext;
   /** Epidemic's genre and mood tags, for the Sound Test. */
   tags?: string[];
 }

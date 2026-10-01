@@ -548,7 +548,7 @@ export class UIScene extends Phaser.Scene {
         const c = r.name[r.cursor].charCodeAt(0) - A;
         r.name[r.cursor] = String.fromCharCode(A + ((c + d + 26) % 26));
       };
-      if (code !== 'Enter') uiSound.hover(false);
+      if (code !== 'Enter' && code !== 'Space') uiSound.hover(false);
       else uiSound.press();
       if (code === 'ArrowUp') bump(1);
       else if (code === 'ArrowDown') bump(-1);
@@ -557,7 +557,7 @@ export class UIScene extends Phaser.Scene {
       else if (/^Key[A-Z]$/.test(code)) {
         r.name[r.cursor] = code.slice(3);
         r.cursor = Math.min(2, r.cursor + 1);
-      } else if (code === 'Enter') {
+      } else if (code === 'Enter' || code === 'Space') {
         const sm = r.summary;
         const res = submit({ name: r.name.join(''), score: sm.score, grade: sm.grade, wave: sm.wave, victory: sm.outcome === 'victory', endless: sm.endless, level: sm.level, difficulty: sm.difficulty });
         sm.rank = res.rank || res.dailyRank;
@@ -569,7 +569,7 @@ export class UIScene extends Phaser.Scene {
       this.updateName();
       return;
     }
-    if (code === 'Enter') {
+    if (code === 'Enter' || code === 'Space') {
       uiSound.press();
       const cb = r.onDone;
       this.results = undefined;
@@ -639,9 +639,11 @@ export class UIScene extends Phaser.Scene {
       else if (code === 'ArrowLeft' || code === 'KeyA') this.select(Math.max(0, this.sel - 1));
       else if (code === 'ArrowRight' || code === 'KeyD') this.select(Math.min(this.cards.length - 1, this.sel + 1));
       else if (code === 'Enter') this.pick(this.sel);
+      // Space confirms too, but not in the first moments: a player mashing Space to stomp mustn't pick blind.
+      else if (code === 'Space' && this.time.now - this.modalOpenedAt > 450) this.pick(this.sel);
       else if (code === 'KeyR') this.rerollOffer();
       else if (code === 'KeyX') this.skipOffer();
-    } else if (this.modal === 'bulletin' && code === 'Enter') {
+    } else if (this.modal === 'bulletin' && (code === 'Enter' || code === 'Space')) {
       this.continueFromBulletin();
     } else if (this.modal === 'results') {
       this.resultsKey(code);

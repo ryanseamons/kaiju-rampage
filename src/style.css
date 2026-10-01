@@ -455,3 +455,7 @@ html[lang='ja'] .difficulty .pill button { font-family: var(--gothic); font-weig
 #overlay .settings .sound-open { justify-self: end; padding: 0.3em 1em; border-radius: 99em; font-size: 0.85em; border: 0.08em solid var(--yellow); color: var(--yellow); background: transparent; }
 #overlay .settings .sound-open:hover { background: rgba(255, 210, 63, 0.12); }
 .settings .note { margin-top: 0.4em; padding-top: 0.8em; border-top: 0.06em solid rgba(243, 234, 210, 0.12); }
+
+.panel.sound h3.cand { margin-top: 1.6em; padding-top: 1em; border-top: 0.06em solid rgba(255, 95, 210, 0.35); color: #ff9fe6; }
+.panel.sound .cand-note { font-size: 0.8em; color: var(--muted); margin: 0 0 0.6em; }
+.panel.sound .tag.sug { background: rgba(255, 210, 63, 0.16); color: var(--yellow); }

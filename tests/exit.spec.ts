@@ -28,9 +28,9 @@ test('pause → exit asks first, then returns to the title', async ({ page }) =>
   await page.waitForFunction(() => (window as any).__kaiju?.state()?.modal === 'title', null, { timeout: 15_000 });
   expect((await st(page)).phase).toBe('title');
   await expect(page.locator('#pause')).toBeHidden();
-  // and a new run starts cleanly from there
+  // and a new run starts cleanly from there (Space works as well as Enter)
   await page.waitForTimeout(400);
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Space');
   await page.waitForFunction(() => (window as any).__kaiju.state().phase === 'playing');
   expect((await st(page)).wave).toBe(1);
 });
