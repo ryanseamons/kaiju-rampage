@@ -73,6 +73,16 @@ Published as a public repo (github.com/ryanseamons/kaiju-rampage) and a Cloudfla
 
 The order is right on every row. The absolute numbers are not tuned to the bot. It dies in wave 2 at tier 1 on every setting, because since the flow-field change infantry reach it and it flattens too little (31–57 buildings) to grow. A human who beat Easy on the first run is a much stronger player than this bot, so the multipliers in `src/difficulty.ts` are set relative to Easy, which the one real player called "good easy". Improving the bot's growth routing is the next step for balance evidence.
 
+## Pass 3, continued: the daily rampage
+
+The daily menu item used to reload into the same game with a badge. It is now its own mode, built in six deployed milestones:
+
+1. **Daily core.** One click to a briefing card (stage, twist, threat, boss, reset timer, today's top five). The day is UTC so the world shares one board. Gameplay randomness runs on three seeded streams (`src/rand.ts`: spawns, enemy behaviour, drops) so everyone gets the same city, army and offers; it is structural, not frame-perfect (the loop is variable-timestep). First run of the day is ranked, later ones practice. A copyable Wordle-style result line.
+2. **Global board.** One API module (`src/shared/daily-api.ts`) with the rules (one ranked score per player token per day, plausibility limits, a per-IP cap), served by a Cloudflare Pages Function on a free D1 database in production and by the Node server (JSON file) everywhere else. Verified live: post, rank, duplicate refusal; the test row was deleted. CORS is open so another deployment can share the board.
+3. **Twists**, 4. **stages**, 5. **featured threats**, 6. **bosses**: as listed in the README. New content is daily-only by default, so normal mode and its balance evidence are unchanged; `?stage= / ?twist= / ?threat= / ?boss=` reach any of it.
+
+Original names throughout (Tetsuryu, Sky Fortress Kumo, Hikari): the brief allows genre inspiration, not borrowed properties. Each piece has a spec (stages render, twists apply, each threat spawns and acts, each boss fights and can be beaten, the date → content function reaches everything within 60 days). Not yet tuned by play: boss HP and attack damage are first guesses.
+
 ## Decisions made during the build
 
 - The optional live narration model is `claude-opus-5-5` at medium effort (BRIEF.md started from a smaller model), configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.

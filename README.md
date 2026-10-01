@@ -90,6 +90,17 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 
 `?daily=1` (or **Daily rampage** on the title) opens today's briefing: the UTC day's stage, twist, featured threat and boss, a reset timer, and today's top five. Everyone gets the same city, army and upgrade offers (seeded spawn, AI and drop streams in `src/rand.ts`); the first run of the day is ranked, later ones are practice. `src/daily.ts` maps a date to its content.
 
+Each day draws from rotating cycles, so everything comes round regularly:
+
+| | |
+|---|---|
+| **Stages** | Shiokaze Bay · Lantern Night Market (stall plazas, lantern-lit streets) · Neon Megacity · Harbor Industrial (fuel tanks that chain-explode, cranes) · Snow Mountain Town (moonlit, snowfall) · Typhoon (rain, flooded roads, telegraphed lightning that hits you and the army) |
+| **Twists** (one, sometimes two) | Glass Kaiju (double damage both ways) · Blackout (darkness and searchlights) · Starving (no hearts; eat to heal) · Air Superiority (jets from the start, twice as often) · Giant from the Start (wave 3, Behemoth-sized, three mutations) · Firestorm (fire spreads between buildings) |
+| **Featured threat** (all run long) | Maser Tank · Drone Swarm · Freeze Tank (slows you) · Net Helicopter (pins you) · Railgun Truck (laser sight, instant round) · Submarine (torpedoes from the bay) · Riot Line (shield walls) |
+| **Final boss** | M-01 Shiokaze Guardian · Tetsuryu, the Iron Dragon · Sky Fortress Kumo · Hikari, the Moth Queen |
+
+For testing any of it outside the daily: `?stage=`, `?twist=a,b`, `?threat=` and `?boss=` (ids in `src/daily.ts`).
+
 The board is one small API (`src/shared/daily-api.ts`: one ranked score per player per day, plausibility checks, a per-IP cap) with two adapters:
 
 - **Public site:** a Cloudflare Pages Function (`functions/api/daily/[day]/scores.ts`) on a free D1 database `kaiju-daily`, bound to the Pages project as `DB` in the dashboard (Settings → Bindings). The table creates itself on first use.
