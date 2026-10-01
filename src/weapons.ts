@@ -2,7 +2,7 @@
 // their five evolutions (from supply crates), and the stomp. Kaiju Rage boosts everything.
 import Phaser from 'phaser';
 import type { GameScene } from './scenes/GameScene';
-import type { Enemy } from './enemies';
+import { isBoss, type Enemy } from './enemies';
 import { circleHits, type Destructible } from './city';
 import { sfx } from './sfx';
 import { rng } from './rand';
@@ -15,7 +15,8 @@ interface Spine extends Phaser.GameObjects.Image {
   hitSet: Set<Enemy>;
 }
 
-const enemyRadius = (e: Enemy) => (e.etype === 'mech' ? 40 : e.etype === 'walker' ? 26 : e.etype === 'tank' || e.etype === 'cannon' || e.etype === 'heli' ? 12 : 4);
+const enemyRadius = (e: Enemy) =>
+  isBoss(e) ? 40 : e.etype === 'walker' ? 26 : e.etype === 'sub' ? 18 : ['tank', 'cannon', 'heli', 'maser', 'freeze', 'railgun', 'netheli'].includes(e.etype) ? 12 : e.etype === 'riot' ? 6 : 4;
 
 export class Weapons {
   private cd = { claw: 0.5, breath: 1.5, tail: 2, spines: 1, aura: 0 };

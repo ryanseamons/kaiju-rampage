@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DAILY, LAND_H, REWARDS, SEED, START_WAVE, TIERS, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL, waveDmgMult, waveHpMult } from '../config';
 import { City, LANDMARK, LANDMARK_NEWS, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
-import { Enemy, EnemyManager, ENEMY_ROSTER } from '../enemies';
+import { Enemy, EnemyManager, ENEMY_ROSTER, isBoss, isHeavy, type EnemyType } from '../enemies';
 import { Weapons } from '../weapons';
 import { Fx } from '../fx';
 import { RunTracker } from '../stats';
@@ -22,7 +22,7 @@ import { Score } from '../score';
 import { NavField } from '../nav';
 import { gradeFor, qualifies } from '../scores';
 import { rng } from '../rand';
-import { THREAT_PARAM, dailyConfig, markRanked, rankedUsed, type DailyConfig, type ThreatId } from '../daily';
+import { BOSS_PARAM, THREAT_PARAM, dailyConfig, markRanked, rankedUsed, type BossId, type DailyConfig, type ThreatId } from '../daily';
 import { TWIST_PARAM, Twists } from '../twists';
 import { Weather } from '../weather';
 import { STAGE_DEF } from '../stages';
@@ -74,6 +74,13 @@ export class GameScene extends Phaser.Scene {
   twists: Twists = new Twists(this, []);
   /** Today's featured threat (or `?threat=`). */
   threat: ThreatId | null = null;
+  /** Today's final boss (or `?boss=`); the flagship mech otherwise. */
+  get bossId(): BossId {
+    return this.dailyCfg?.boss ?? BOSS_PARAM ?? 'guardian';
+  }
+  get bossType(): EnemyType {
+    return this.bossId === 'guardian' ? 'mech' : this.bossId;
+  }
   private weather?: Weather;
   /** Today's daily content, or null outside the daily. */
   readonly dailyCfg: DailyConfig | null = DAILY ? dailyConfig(DAILY) : null;
@@ -175,7 +182,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies.group, this.city.solids, undefined, (e, z) => {
       const d = (z as Phaser.GameObjects.Zone).getData('d') as Destructible;
       const en = e as Enemy;
-      return d.alive && !en.flying && en.etype !== 'mech' && en.etype !== 'walker';
+      return d.alive && !en.flying && !isHeavy(en);
     });
     this.physics.add.overlap(this.player, this.enemies.group, (_p, e) => this.onEnemyContact(e as Enemy));
     this.physics.add.overlap(this.player, this.enemies.shots, (_p, shot) => this.enemies.impact(shot as never));
@@ -586,7 +593,7 @@ export class GameScene extends Phaser.Scene {
       this.fx.word(p.x, p.y - 26 * p.scale, t('itemQuake'), '#ffb13b', 1.4 + p.tierIdx * 0.7);
       for (const e of [...this.enemies.list]) {
         if (!v.contains(e.x, e.y)) continue;
-        if (e.etype === 'mech' || e.etype === 'walker') this.damageEnemy(e, e.maxHp * (e.etype === 'mech' ? 0.08 : 0.3), 0, 0);
+        if (isHeavy(e)) this.damageEnemy(e, e.maxHp * (isBoss(e) ? 0.08 : 0.3), 0, 0);
         else this.killEnemy(e, false);
       }
     }
@@ -644,7 +651,7 @@ export class GameScene extends Phaser.Scene {
       if (e.elite) e.setTint(0xffd24a);
       else if (e.etype === 'walker') e.setTint(0x9aa66a);
     });
-    if (e.etype !== 'mech' && e.etype !== 'walker' && !e.flying && (kx || ky)) {
+    if (!isHeavy(e) && !e.flying && (kx || ky)) {
       e.setVelocity(kx, ky);
       e.stun = 0.14;
     }
@@ -705,6 +712,9 @@ export class GameScene extends Phaser.Scene {
         this.pickups.drop(e.x, e.y, 'crate');
         break;
       case 'mech':
+      case 'tetsuryu':
+      case 'kumo':
+      case 'hikari':
         this.stats.bossDefeated = true;
         this.score.add(r.score);
         this.bossDeath(e);
@@ -960,6 +970,11 @@ export class GameScene extends Phaser.Scene {
         this.hurtPlayer(n, this.player.x, this.player.y);
       },
       heartChance: (base: number) => this.twists.heal(base),
+      /** Finish off the boss (tests the victory path for every boss). */
+      killBoss: () => {
+        const b = this.enemies.boss;
+        if (b) this.damageEnemy(b, b.hp + 1, 0, 0);
+      },
     };
     const w = window as unknown as { __kaiju: unknown };
     w.__kaiju = {

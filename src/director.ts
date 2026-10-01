@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, TIME_SCALE, WAVE1_GRACE_S, waveDef, type WaveDef } from './config';
 import type { EnemyType } from './enemies';
 import type { GameScene } from './scenes/GameScene';
-import { t } from './i18n';
+import { dailyName, t } from './i18n';
 import { sfx } from './sfx';
 import { music } from './audio/music';
 import { rng } from './rand';
@@ -115,8 +115,8 @@ export class Director {
     if (w.boss) {
       if (this.bossAt >= 0 && this.time >= this.bossAt) {
         this.bossAt = -1;
-        e.spawnOffscreen('mech');
-        s.ui.banner(t('warning'), t('mechInbound'), true);
+        e.spawnOffscreen(s.bossType);
+        s.ui.banner(t('warning'), s.bossId === 'guardian' ? t('mechInbound') : t('bossInbound', { name: dailyName('boss', s.bossId) }), true);
         sfx.alarm();
         music.play('boss');
       }

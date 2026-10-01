@@ -71,6 +71,7 @@ export class UIScene extends Phaser.Scene {
   private fpsText!: Phaser.GameObjects.Text;
   private bossRoot!: Phaser.GameObjects.Container;
   private bossBarFill!: Phaser.GameObjects.Rectangle;
+  private bossLabel?: Phaser.GameObjects.Text;
   private chips!: Phaser.GameObjects.Container;
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
@@ -155,7 +156,7 @@ export class UIScene extends Phaser.Scene {
     this.fpsText = this.add.text(VIEW_W - 10, VIEW_H - 14, '', txt(11, '#8888aa')).setOrigin(1, 1);
     const bossBg = this.add.rectangle(0, 0, 560, 16, 0x2a0a12).setStrokeStyle(2, 0xff3355);
     this.bossBarFill = this.add.rectangle(-278, 0, 556, 12, 0xff3355).setOrigin(0, 0.5);
-    const bossLabel = this.add.text(0, -20, t('bossName'), txt(14, '#ff8899')).setOrigin(0.5);
+    const bossLabel = (this.bossLabel = this.add.text(0, -20, t('bossName'), txt(14, '#ff8899')).setOrigin(0.5));
     this.bossRoot = this.add.container(VIEW_W / 2, 92, [bossBg, this.bossBarFill, bossLabel]).setVisible(false);
     c.add([panel, hpBg, this.hpBar, this.hpText, gBg, this.growBar, this.growText, this.chips, this.waveText, this.timerText, this.districtText,
       this.destroyedText, this.scoreText, this.comboText, this.comboBar, this.rageText, xpBg, this.xpBar, this.lvText, this.stompBox, this.stompBar, this.stompText, this.stompHint, this.fpsText, this.bossRoot]);
@@ -200,7 +201,7 @@ export class UIScene extends Phaser.Scene {
     this.growText.setText(next ? `${cur} ▸ ${tierName(next.tier)}  ${Math.floor(p.growth * 100)}%` : t('maxSize', { a: cur }));
     const w = gs.wave;
     this.waveText.setText(w.endless ? t('waveEndless', { n: w.wave }) : t('wave', { n: w.wave, total: WAVES.length }));
-    if (w.boss) this.timerText.setText(gs.enemies.boss ? t('destroyMech') : t('somethingComing'));
+    if (w.boss) this.timerText.setText(gs.enemies.boss ? (gs.bossId === 'guardian' ? t('destroyMech') : t('defeatBoss')) : t('somethingComing'));
     else {
       const left = Math.max(0, gs.waveDuration - gs.waveTime);
       this.timerText.setText(t('timer', { t: `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}` }));
@@ -228,6 +229,8 @@ export class UIScene extends Phaser.Scene {
     const b = gs.enemies.boss;
     this.bossRoot.setVisible(!!b && !b.dead);
     if (b) this.bossBarFill.width = 556 * Phaser.Math.Clamp(b.hp / b.maxHp, 0, 1);
+    // Whichever boss today brought.
+    if (b && this.gs && this.gs.bossId !== 'guardian') this.bossLabel?.setText(dailyName('boss', this.gs.bossId).toUpperCase());
     this.refreshChips();
   }
 

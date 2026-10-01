@@ -78,6 +78,9 @@ export const REWARDS = {
   railgun: { mass: 5, xp: 8, score: 300 },
   sub: { mass: 10, xp: 15, score: 800 },
   riot: { mass: 1, xp: 2, score: 60 },
+  tetsuryu: { mass: 0, xp: 0, score: 10000 },
+  kumo: { mass: 0, xp: 0, score: 10000 },
+  hikari: { mass: 0, xp: 0, score: 10000 },
 };
 
 export interface WaveDef {

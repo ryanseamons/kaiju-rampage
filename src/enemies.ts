@@ -16,7 +16,15 @@ import { t } from './i18n';
 
 export type EnemyType = 'soldier' | 'rocket' | 'heli' | 'tank' | 'cannon' | 'walker' | 'mech'
   // daily featured threats
-  | 'maser' | 'drone' | 'freeze' | 'netheli' | 'railgun' | 'sub' | 'riot';
+  | 'maser' | 'drone' | 'freeze' | 'netheli' | 'railgun' | 'sub' | 'riot'
+  // daily bosses (the flagship mech is 'mech')
+  | 'tetsuryu' | 'kumo' | 'hikari';
+
+const BOSS_TYPES = new Set<EnemyType>(['mech', 'tetsuryu', 'kumo', 'hikari']);
+/** The final-wave boss, whichever one today brought. */
+export const isBoss = (e: { etype: EnemyType }) => BOSS_TYPES.has(e.etype);
+/** Bosses and the walker: shrug off knockback, walk through buildings. */
+export const isHeavy = (e: { etype: EnemyType }) => BOSS_TYPES.has(e.etype) || e.etype === 'walker';
 /** Everything the military can field (jets are a bombing-run event). */
 export const ENEMY_ROSTER = ['soldier', 'rocket', 'heli', 'tank', 'cannon', 'walker', 'mech', 'jet'] as const;
 
@@ -42,6 +50,9 @@ const KINDS: Record<EnemyType, Kind> = {
   railgun: { hp: 80, size: SIZE.tank, tex: 'railgun', scale: 1.6 },
   sub: { hp: 160, size: 4, tex: 'sub', scale: 1.8 },
   riot: { hp: 45, size: SIZE.house, tex: 'riot0', scale: 1.2 },
+  tetsuryu: { hp: 3000, size: SIZE.mech, tex: 'ryuHead', scale: 2.6 },
+  kumo: { hp: 2800, size: SIZE.mech, tex: 'kumo', scale: 2.4, flying: true },
+  hikari: { hp: 2600, size: SIZE.mech, tex: 'hikari0', scale: 2.4, flying: true },
 };
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
@@ -70,6 +81,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   detourY = 0;
   detourT = 0;
   crushT = 0;
+  /** Tetsuryu: body segments trailing the head. */
+  segs?: Phaser.GameObjects.Image[];
+  trail?: { x: number; y: number }[];
 
   constructor(scene: GameScene, type: EnemyType, x: number, y: number, hpMult: number, elite = false) {
     const k = KINDS[type];
@@ -94,6 +108,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setTint(0x9fe8ff);
         this.turret.setTint(0x9fe8ff);
       }
+    } else if (type === 'tetsuryu') {
+      body.setCircle(12, 6, 1);
+      this.telegraph = scene.add.graphics().setDepth(9040);
+      this.trail = [];
+      this.segs = Array.from({ length: 12 }, (_, i) => scene.add.image(x, y, 'ryuSeg').setScale(2.4 * (1 - i * 0.035)));
+    } else if (type === 'kumo' || type === 'hikari') {
+      body.setCircle(type === 'kumo' ? 26 : 20, type === 'kumo' ? 22 : 16, type === 'kumo' ? 2 : 6);
+      this.telegraph = scene.add.graphics().setDepth(9040);
+      this.shadow = scene.add.image(x, y, 'shadow').setScale(type === 'kumo' ? 6 : 4, type === 'kumo' ? 3 : 2).setDepth(-40).setAlpha(0.7);
+      if (type === 'hikari') this.play('hikari-flap');
     } else if (type === 'riot') {
       this.play('riot-walk');
       body.setCircle(5, 1, 0);
@@ -127,6 +151,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   destroyAll() {
+    this.segs?.forEach((g) => g.destroy());
     this.turret?.destroy();
     this.shadow?.destroy();
     this.telegraph?.destroy();
@@ -203,7 +228,7 @@ export class EnemyManager {
 
   /** Spawn just outside the visible area, on land, on a road. */
   spawnOffscreen(type: EnemyType, elite = false) {
-    const R = this.viewRadius(type === 'mech' || type === 'walker' ? 0 : 40);
+    const R = this.viewRadius(BOSS_TYPES.has(type) || type === 'walker' ? 0 : 40);
     const p = this.s.player;
     for (let i = 0; i < 8; i++) {
       const a = rng.spawn.frac() * Math.PI * 2;
@@ -256,12 +281,12 @@ export class EnemyManager {
   }
 
   spawn(type: EnemyType, x: number, y: number, elite = false) {
-    const e = new Enemy(this.s, type, x, y, type === 'mech' ? this.hpMult * 0.8 + 0.2 : this.hpMult, elite);
+    const e = new Enemy(this.s, type, x, y, BOSS_TYPES.has(type) ? this.hpMult * 0.8 + 0.2 : this.hpMult, elite);
     this.group.add(e);
     this.list.push(e);
     this.spawnedTypes.add(type);
     if (this.spawnLog.length < 40) this.spawnLog.push(elite ? `${type}*` : type);
-    if (type === 'mech') this.boss = e;
+    if (BOSS_TYPES.has(type)) this.boss = e;
     return e;
   }
 
@@ -275,7 +300,7 @@ export class EnemyManager {
 
   clearAll() {
     for (const e of [...this.list]) {
-      if (e.etype === 'mech') continue;
+      if (isBoss(e)) continue;
       this.s.fx.dust(e.x, e.y, 2);
       this.remove(e);
     }
@@ -389,7 +414,7 @@ export class EnemyManager {
       }
       // Blocked by a building: sidestep along the perpendicular that leans toward the kaiju, briefly.
       e.detourT -= dt;
-      if (!e.flying && e.etype !== 'mech' && e.etype !== 'walker' && e.detourT <= 0 && (!body.touching.none || !body.blocked.none) && !this.s.nav.dir(e.x, e.y)) {
+      if (!e.flying && !isHeavy(e) && e.detourT <= 0 && (!body.touching.none || !body.blocked.none) && !this.s.nav.dir(e.x, e.y)) {
         const v = body.velocity;
         const L = v.length() || 1;
         const px = -v.y / L, py = v.x / L;
@@ -425,11 +450,21 @@ export class EnemyManager {
         case 'sub':
           this.updateSub(e, dt, d);
           break;
+        case 'tetsuryu':
+          this.updateTetsuryu(e, dt, d, ux, uy);
+          break;
+        case 'kumo':
+          this.updateKumo(e, dt, d);
+          break;
+        case 'hikari':
+          this.updateHikari(e, dt, d, ux, uy);
+          break;
         default:
           this.updateMech(e, dt, d, ux, uy);
       }
     }
     this.updateJets(dt);
+    this.updateClouds(dt);
 
     // projectiles
     for (const obj of this.shots.getChildren() as Projectile[]) {
@@ -588,6 +623,230 @@ export class EnemyManager {
     e.mode = 'walk';
     e.fireCd = cfg.cooldown + rng.ai.frac() * 2;
     this.s.time.delayedCall(140, () => e.telegraph?.clear());
+  }
+
+  /** Flatten whatever small buildings a boss passes over (collateral: not credited to the kaiju). */
+  private flatten(e: Enemy, r: number, maxSize = 2) {
+    e.crushT -= 1 / 60;
+    if (e.crushT > 0) return;
+    e.crushT = 0.25;
+    for (const b of this.s.city.grid.query(e.x, e.y, r, [])) if (b.sizeClass <= maxSize) this.s.destroyDestructible(b, true, false);
+  }
+
+  /** A line from (x, y) at angle a: does it pass within w of the kaiju (ahead of the origin)? */
+  private onLine(x: number, y: number, a: number, len: number, w: number) {
+    const p = this.s.player;
+    const line = new Phaser.Geom.Line(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len);
+    const pt = Phaser.Geom.Line.GetNearestPoint(line, new Phaser.Geom.Point(p.x, p.y));
+    const ahead = (pt.x - x) * Math.cos(a) + (pt.y - y) * Math.sin(a) > 0;
+    return ahead && Phaser.Math.Distance.Between(pt.x, pt.y, p.x, p.y) < p.radius + w;
+  }
+
+  /** Tetsuryu: coils after the kaiju; body segments hurt to cross; plasma breath; tail slam. */
+  private updateTetsuryu(e: Enemy, dt: number, d: number, ux: number, uy: number) {
+    const s = this.s, p = s.player, body = e.body as Phaser.Physics.Arcade.Body, g = e.telegraph!;
+    g.clear();
+    e.modeT -= dt;
+    // body: segments follow the head's trail
+    const tr = e.trail!;
+    tr.unshift({ x: e.x, y: e.y });
+    if (tr.length > 160) tr.pop();
+    e.segs!.forEach((sg, i) => {
+      const q = tr[Math.min(tr.length - 1, (i + 1) * 9)];
+      sg.setPosition(q.x, q.y).setDepth(q.y - 1);
+      if (e.contactCd <= 0 && Phaser.Math.Distance.Between(q.x, q.y, p.x, p.y) < p.radius + 18) {
+        e.contactCd = 0.6;
+        s.hurtPlayer(9 * this.dmgMult, q.x, q.y);
+      }
+    });
+    if (e.mode === 'walk') {
+      // sinuous approach
+      e.orbit += dt * 1.6;
+      const side = Math.sin(e.orbit) * 0.9;
+      const vx = ux * Math.cos(side) - uy * Math.sin(side), vy = uy * Math.cos(side) + ux * Math.sin(side);
+      const sp = d > 200 ? 115 : 70;
+      body.setVelocity(vx * sp, vy * sp);
+      e.setRotation(Math.atan2(vy, vx));
+      e.setFlipY(vx < 0);
+      this.flatten(e, 30, 3);
+      if (e.modeT <= 0) {
+        body.setVelocity(0, 0);
+        const tail = tr[tr.length - 1];
+        const tailNear = tail && Phaser.Math.Distance.Between(tail.x, tail.y, p.x, p.y) < 160;
+        e.mode = tailNear ? 'quake' : 'laser';
+        e.modeT = e.mode === 'laser' ? 2.2 : 1.2;
+        e.aim = Math.atan2(p.y - e.y, p.x - e.x) - 0.45;
+        sfx.alarm();
+      }
+      return;
+    }
+    body.setVelocity(0, 0);
+    if (e.mode === 'laser') {
+      // 0.9 s telegraph, then a plasma beam that sweeps 0.9 rad
+      const L = 900;
+      if (e.modeT > 1.3) {
+        g.lineStyle(3, 0xd08aff, 0.6).lineBetween(e.x, e.y, e.x + Math.cos(e.aim) * L, e.y + Math.sin(e.aim) * L);
+        g.lineStyle(3, 0xd08aff, 0.35).lineBetween(e.x, e.y, e.x + Math.cos(e.aim + 0.9) * L, e.y + Math.sin(e.aim + 0.9) * L);
+      } else {
+        const a = e.aim + 0.9 * (1 - e.modeT / 1.3);
+        g.lineStyle(26, 0xb05aff, 0.45).lineBetween(e.x, e.y, e.x + Math.cos(a) * L, e.y + Math.sin(a) * L);
+        g.lineStyle(9, 0xffffff, 0.9).lineBetween(e.x, e.y, e.x + Math.cos(a) * L, e.y + Math.sin(a) * L);
+        e.fireCd -= dt;
+        if (e.fireCd <= 0 && this.onLine(e.x, e.y, a, L, 14)) {
+          e.fireCd = 0.12;
+          s.hurtPlayer(5 * this.dmgMult, p.x, p.y);
+        }
+      }
+    } else if (e.mode === 'quake' && e.modeT <= 0.2 && e.shotsLeft !== -1) {
+      const tail = tr[tr.length - 1] ?? { x: e.x, y: e.y };
+      s.fx.ring(tail.x, tail.y, 150, 0xd08aff, 400);
+      s.shake(0.014, 220);
+      sfx.stomp();
+      if (Phaser.Math.Distance.Between(tail.x, tail.y, p.x, p.y) < 150 + p.radius) s.hurtPlayer(14 * this.dmgMult, tail.x, tail.y);
+      e.shotsLeft = -1;
+    }
+    if (e.modeT <= 0) {
+      e.mode = 'walk';
+      e.modeT = rng.ai.float(4, 6);
+      e.shotsLeft = 0;
+    }
+  }
+
+  /** Sky Fortress Kumo: hovers over the kaiju; carpet bombs, drone flights, and a downward blast. */
+  private updateKumo(e: Enemy, dt: number, d: number) {
+    const s = this.s, p = s.player, body = e.body as Phaser.Physics.Arcade.Body, g = e.telegraph!;
+    g.clear();
+    e.modeT -= dt;
+    const hx = p.x + Math.sin(this.s.gameTime / 2600) * 160, hy = p.y - 140;
+    const vx = hx - e.x, vy = hy - e.y, L = Math.hypot(vx, vy) || 1;
+    body.setVelocity((vx / L) * Math.min(75, L), (vy / L) * Math.min(75, L));
+    e.shadow?.setPosition(e.x, e.y + 150);
+    if (e.mode === 'walk') {
+      if (e.modeT <= 0) {
+        const r = rng.ai.frac();
+        e.mode = r < 0.45 ? 'salvo' : r < 0.7 ? 'charge' : 'laser';
+        e.modeT = e.mode === 'laser' ? 1.6 : 1.2;
+        e.aim = Math.atan2(p.y - e.y, p.x - e.x);
+        if (e.mode === 'salvo') this.carpet(e);
+        if (e.mode === 'charge') {
+          for (let i = 0; i < 4; i++) this.spawn('drone', e.x + rng.ai.between(-40, 40), e.y + rng.ai.between(10, 40));
+          sfx.charge();
+        }
+        if (e.mode === 'laser') sfx.alarm();
+      }
+      return;
+    }
+    if (e.mode === 'laser') {
+      // the blast lands where the fortress's shadow is
+      const sx = e.x, sy = e.y + 150, R = 80;
+      if (e.modeT > 0.3) g.lineStyle(3, 0xff3355, 0.5 + 0.5 * Math.sin(e.modeT * 30)).strokeCircle(sx, sy, R);
+      else if (e.shotsLeft !== -1) {
+        e.shotsLeft = -1;
+        s.fx.explode(sx, sy, R);
+        s.shake(0.014, 200);
+        sfx.explode(true);
+        if (Phaser.Math.Distance.Between(sx, sy, p.x, p.y) < R + p.radius * 0.5) s.hurtPlayer(26 * this.dmgMult, sx, sy);
+      }
+    }
+    if (e.modeT <= 0) {
+      e.mode = 'walk';
+      e.modeT = rng.ai.float(2.5, 4);
+      e.shotsLeft = 0;
+    }
+    void d;
+  }
+
+  /** Kumo's carpet bombing: six marked spots in a line through the kaiju, then the bombs. */
+  private carpet(e: Enemy) {
+    const s = this.s, p = s.player;
+    const a = rng.ai.frac() * Math.PI;
+    const spots = Array.from({ length: 6 }, (_, i) => ({ x: p.x + Math.cos(a) * (i - 2.5) * 70, y: p.y + Math.sin(a) * (i - 2.5) * 70 }));
+    const g = s.add.graphics().setDepth(9040);
+    spots.forEach((q) => g.lineStyle(2, 0xff3355, 0.8).strokeCircle(q.x, q.y, 36));
+    spots.forEach((q, i) =>
+      s.time.delayedCall(1100 + i * 110, () => {
+        s.fx.explode(q.x, q.y, 40);
+        sfx.explode(false);
+        if (Phaser.Math.Distance.Between(q.x, q.y, p.x, p.y) < 36 + p.radius * 0.5) s.hurtPlayer(12 * this.dmgMult, q.x, q.y);
+        if (i === spots.length - 1) g.destroy();
+      }),
+    );
+    void e;
+  }
+
+  // Hikari's scale-dust clouds: linger, and sting while the kaiju stands in them.
+  private clouds: { g: Phaser.GameObjects.Arc; x: number; y: number; r: number; t: number; tick: number }[] = [];
+  private updateClouds(dt: number) {
+    const p = this.s.player;
+    this.clouds = this.clouds.filter((c) => {
+      c.t -= dt;
+      c.tick -= dt;
+      c.g.setAlpha(Math.min(0.35, c.t * 0.2));
+      if (c.tick <= 0 && Phaser.Math.Distance.Between(c.x, c.y, p.x, p.y) < c.r + p.radius * 0.5) {
+        c.tick = 0.5;
+        this.s.hurtPlayer(4 * this.dmgMult, c.x, c.y);
+      }
+      if (c.t <= 0) c.g.destroy();
+      return c.t > 0;
+    });
+  }
+
+  /** Hikari, the Moth Queen: flutters around the kaiju; dust clouds, wing gusts, and her own rampage. */
+  private updateHikari(e: Enemy, dt: number, d: number, ux: number, uy: number) {
+    const s = this.s, p = s.player, body = e.body as Phaser.Physics.Arcade.Body, g = e.telegraph!;
+    g.clear();
+    e.modeT -= dt;
+    e.shadow?.setPosition(e.x, e.y + 110);
+    if (e.mode === 'walk') {
+      e.orbit += e.orbitDir * dt * 0.7;
+      const R = 230 + Math.sin(s.gameTime / 900) * 50;
+      const tx = p.x + Math.cos(e.orbit) * R, ty = p.y + Math.sin(e.orbit) * R * 0.7 - 60;
+      const vx = tx - e.x, vy = ty - e.y, L = Math.hypot(vx, vy) || 1;
+      body.setVelocity((vx / L) * Math.min(130, L * 2), (vy / L) * Math.min(130, L * 2));
+      e.setFlipX(ux < 0);
+      if (e.modeT <= 0) {
+        body.setVelocity(0, 0);
+        const r = rng.ai.frac();
+        e.mode = r < 0.4 ? 'salvo' : r < 0.75 ? 'charge' : 'quake';
+        e.modeT = e.mode === 'charge' ? 1.0 : 0.8;
+        if (e.mode === 'salvo') {
+          // three dust clouds around the kaiju
+          for (let i = 0; i < 3; i++) {
+            const cx = p.x + rng.ai.between(-90, 90), cy = p.y + rng.ai.between(-70, 70), r2 = 55;
+            this.clouds.push({ g: s.add.circle(cx, cy, r2, 0xb08aff, 0.3).setDepth(9030), x: cx, y: cy, r: r2, t: 5.5, tick: 0.6 });
+          }
+          sfx.breath(0.6, false);
+        }
+        if (e.mode === 'quake') {
+          // her own rampage: she flattens a patch of the city
+          for (const b of s.city.grid.query(e.x, e.y + 110, 90, [])) if (b.sizeClass <= 3) s.destroyDestructible(b, false, false);
+          s.fx.ring(e.x, e.y + 110, 90, 0xd8b46a, 400);
+          s.shake(0.01, 200);
+        }
+      }
+      return;
+    }
+    body.setVelocity(0, 0);
+    if (e.mode === 'charge') {
+      // wing gust: telegraphed, then a blast in a wide arc toward the kaiju
+      const R = 280;
+      if (e.modeT > 0.3) g.lineStyle(3, 0xf2e6c8, 0.4 + 0.4 * Math.sin(e.modeT * 28)).strokeCircle(e.x, e.y, R);
+      else if (e.shotsLeft !== -1) {
+        e.shotsLeft = -1;
+        s.fx.ring(e.x, e.y, R, 0xf2e6c8, 350);
+        sfx.tail();
+        if (d < R) {
+          s.hurtPlayer(10 * this.dmgMult, e.x, e.y);
+          p.slowT = Math.max(p.slowT, 1.2);
+        }
+      }
+    }
+    if (e.modeT <= 0) {
+      e.mode = 'walk';
+      e.modeT = rng.ai.float(3, 5);
+      e.shotsLeft = 0;
+    }
+    void uy;
   }
 
   /** Drone swarm: a loose orbit that tightens, then a kamikaze dive. */

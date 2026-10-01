@@ -53,6 +53,7 @@ const S = {
   wave: { en: 'WAVE {n}/{total}', ja: 'ウェーブ {n}/{total}' },
   timer: { en: '{t} until the army regroups', ja: '軍の再編まで {t}' },
   destroyMech: { en: 'DESTROY THE MECH', ja: 'メカを破壊せよ' },
+  defeatBoss: { en: 'DEFEAT THE BOSS', ja: 'ボスを倒せ' },
   somethingComing: { en: 'SOMETHING IS COMING…', ja: '何かが近づいている…' },
   flattened: { en: 'BUILDINGS FLATTENED: {n}', ja: '破壊した建物: {n}' },
   stompReady: { en: '[SPACE] STOMP!', ja: '[SPACE] 踏みつけ!' },
@@ -72,6 +73,7 @@ const S = {
   tierCopy2: { en: 'Houses crumble underfoot. The tanks take you seriously now.', ja: '足元で家々が崩れる。戦車も本気だ。' },
   tierCopy3: { en: 'Towers crumble underfoot. Tanks are just speed bumps.', ja: '高層ビルも踏み潰せる。戦車はただの段差だ。' },
   warning: { en: 'WARNING', ja: '警告' },
+  bossInbound: { en: '{name} incoming', ja: '{name} 接近中' },
   mechInbound: { en: 'Flagship mech M-01 "SHIOKAZE GUARDIAN" inbound', ja: '旗艦メカ M-01「シオカゼ・ガーディアン」接近中' },
   // level-up
   levelUp: { en: 'LEVEL UP!', ja: 'レベルアップ!' },

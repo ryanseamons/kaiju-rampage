@@ -506,6 +506,46 @@ export function generateTextures(scene: Phaser.Scene) {
   pixelTex(scene, 'tvtower', 60, 150, drawTvTower);
   pixelTex(scene, 'torii', 30, 30, drawTorii);
   pixelTex(scene, 'fueltank', 30, 32, drawFuelTank);
+  // ── Daily bosses ──
+  // Tetsuryu: an iron dragon's head and armoured body segments.
+  pixelTex(scene, 'ryuHead', 38, 26, (c) => {
+    poly(c, [2, 13, 14, 3, 30, 5, 37, 11, 37, 15, 30, 21, 14, 23], '#4a5468');
+    poly(c, [14, 3, 30, 5, 34, 10, 16, 9], '#6a7488');
+    poly(c, [8, 4, 4, 0, 13, 4], '#c8ccd8'); poly(c, [16, 3, 14, 0, 21, 4], '#c8ccd8');
+    rect(c, 24, 9, 4, 3, '#ff3355'); rect(c, 25, 10, 2, 1, '#ffd0d8');
+    poly(c, [30, 15, 37, 15, 33, 19], '#2a2f3c');
+    for (let x = 30; x < 37; x += 2) rect(c, x, 15, 1, 2, '#e8ecf4');
+  });
+  pixelTex(scene, 'ryuSeg', 22, 22, (c) => {
+    ell(c, 11, 12, 10, 9, '#3e4658'); ell(c, 11, 10, 8, 6, '#58627a');
+    poly(c, [8, 4, 11, 0, 14, 4], '#c8ccd8');
+    rect(c, 5, 13, 12, 2, '#2a2f3c'); rect(c, 10, 16, 2, 2, '#ff3355');
+  });
+  // Sky Fortress Kumo: a flying battleship with rotor pods.
+  pixelTex(scene, 'kumo', 96, 56, (c) => {
+    ell(c, 48, 30, 44, 14, '#3a4250'); ell(c, 48, 26, 40, 10, '#525c6c');
+    rect(c, 30, 14, 36, 10, '#5a6474'); rect(c, 40, 6, 16, 9, '#6a7484'); rect(c, 46, 2, 4, 5, '#8a94a4');
+    for (const x of [6, 74]) { ell(c, x + 8, 18, 10, 4, '#2a2f3c'); rect(c, x + 7, 18, 2, 10, '#2a2f3c'); ell(c, x + 8, 30, 8, 6, '#454e5e'); }
+    rect(c, 44, 38, 8, 10, '#2a2f3c'); ell(c, 48, 48, 5, 4, '#ff3355');
+    for (let x = 22; x < 76; x += 8) rect(c, x, 28, 3, 2, '#ffd66b');
+  });
+  // Hikari: a giant moth queen, two wing frames.
+  for (let f = 0; f < 2; f++)
+    pixelTex(scene, `hikari${f}`, 72, 52, (c) => {
+      const up = f === 0;
+      const wing = (sx: number) => {
+        const tip = up ? 4 : 18;
+        poly(c, [36, 24, 36 + sx * 34, tip, 36 + sx * 30, 34, 36, 30], '#d8b46a');
+        poly(c, [36, 30, 36 + sx * 26, 36, 36 + sx * 18, 50, 36, 36], '#c09a50');
+        ell(c, 36 + sx * 20, up ? 16 : 24, 6, 5, '#f2e6c8'); ell(c, 36 + sx * 20, up ? 16 : 24, 3, 3, '#5a3a8a');
+        ell(c, 36 + sx * 14, 40, 3, 3, '#5a3a8a');
+      };
+      wing(-1);
+      wing(1);
+      ell(c, 36, 30, 4, 12, '#6a4a3a'); ell(c, 36, 18, 4, 4, '#4a2a2a');
+      rect(c, 34, 16, 1, 1, '#9ffcff'); rect(c, 37, 16, 1, 1, '#9ffcff');
+      poly(c, [34, 15, 28, 8, 33, 14], '#e8d8a8'); poly(c, [38, 15, 44, 8, 39, 14], '#e8d8a8');
+    });
   // ── Daily threats ──
   pixelTex(scene, 'maser', 22, 16, (c) => {
     rect(c, 1, 3, 20, 11, '#2a3a4a'); rect(c, 1, 3, 20, 2, '#3a4e62');

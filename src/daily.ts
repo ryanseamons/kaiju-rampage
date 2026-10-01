@@ -17,7 +17,7 @@ export const AVAILABLE = {
   stages: ['bay', 'market', 'neon', 'harbor', 'snow', 'typhoon'] as StageId[],
   twists: ['glass', 'blackout', 'starving', 'air', 'giant', 'firestorm'] as TwistId[],
   threats: ['maser', 'drones', 'freeze', 'netheli', 'railgun', 'sub', 'riot'] as ThreatId[],
-  bosses: ['guardian'] as BossId[],
+  bosses: ['guardian', 'tetsuryu', 'kumo', 'hikari'] as BossId[],
 };
 
 /** Debug: `?threat=drones` forces a featured threat in any mode. */
@@ -25,6 +25,13 @@ export const THREAT_PARAM = ((): ThreatId | null => {
   if (typeof location === 'undefined') return null; // imported by node-side tests
   const v = new URLSearchParams(location.search).get('threat');
   return v && (THREATS as readonly string[]).includes(v) ? (v as ThreatId) : null;
+})();
+
+/** Debug: `?boss=hikari` picks the final boss in any mode. */
+export const BOSS_PARAM = ((): BossId | null => {
+  if (typeof location === 'undefined') return null;
+  const v = new URLSearchParams(location.search).get('boss');
+  return v && (BOSSES as readonly string[]).includes(v) ? (v as BossId) : null;
 })();
 
 /** Daily #1. */
