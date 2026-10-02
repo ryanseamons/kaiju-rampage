@@ -2,9 +2,11 @@
 // wasn't used last time, jitters its pitch, and respects a voice cap and a minimum gap so swarms
 // don't turn into noise. Clips are peak-normalised at load, so a bank's `peak` is its real level.
 //
-// Kenney CC0 clips live in public/sfx/k/ (in the repository). Epidemic Sound clips, when present,
-// live in public/sfx/es/ (deployed only, gitignored) and are listed in public/sfx/es/banks.json;
-// a bank whose files are missing just doesn't play, and the caller falls back to synthesis.
+// Kenney CC0 clips live in public/sfx/k/ (in the repository). Epidemic Sound clips (licensed) are
+// listed in es-banks.json and streamed from the CDN (AUDIO_BASE); a bank whose files can't load
+// just doesn't play, and the caller falls back to synthesis.
+import esBanks from './es-banks.json';
+import { AUDIO_BASE } from '../config';
 import { audio, onAudioReady, prefs } from './core';
 
 interface BankDef {
@@ -56,7 +58,7 @@ async function loadBank(name: string, def: BankDef) {
     await Promise.all(
       def.files.map(async (f) => {
         try {
-          const r = await fetch(`${import.meta.env.BASE_URL}${f}`);
+          const r = await fetch(/^https?:/.test(f) ? f : `${import.meta.env.BASE_URL}${f}`);
           if (!r.ok) return null;
           const buf = await g.ctx.decodeAudioData(await r.arrayBuffer());
           let peak = 0;
@@ -78,16 +80,8 @@ async function preload() {
   if (started) return;
   started = true;
   await Promise.all(Object.entries(KENNEY).map(([n, d]) => loadBank(n, d)));
-  // Optional licensed banks (deployed site only).
-  try {
-    const r = await fetch(`${import.meta.env.BASE_URL}sfx/es/banks.json`);
-    if (r.ok) {
-      const j = (await r.json()) as Record<string, BankDef>;
-      await Promise.all(Object.entries(j).map(([n, d]) => loadBank(`es.${n}`, { ...d, files: d.files.map((f) => `sfx/es/${f}`) })));
-    }
-  } catch {
-    /* none */
-  }
+  // Licensed banks, streamed from the CDN (src/config.ts AUDIO_BASE).
+  await Promise.all(Object.entries(esBanks as Record<string, BankDef>).map(([n, d]) => loadBank(`es.${n}`, { ...d, files: d.files.map((f) => `${AUDIO_BASE}sfx/${f}`) })));
 }
 
 onAudioReady(() => void preload());

@@ -1,0 +1,115 @@
+{
+ "roar": {
+  "files": [
+   "roar-0.mp3",
+   "roar-1.mp3"
+  ],
+  "peak": 0.6,
+  "gap": 600,
+  "voices": 1
+ },
+ "roarBig": {
+  "files": [
+   "roar-big.mp3"
+  ],
+  "peak": 0.7,
+  "gap": 1500,
+  "voices": 1
+ },
+ "collapse": {
+  "files": [
+   "collapse-0.mp3",
+   "collapse-1.mp3"
+  ],
+  "peak": 0.4,
+  "gap": 150,
+  "voices": 2
+ },
+ "collapseBig": {
+  "files": [
+   "collapse-big.mp3"
+  ],
+  "peak": 0.55,
+  "gap": 400,
+  "voices": 2
+ },
+ "explosion": {
+  "files": [
+   "explosion-0.mp3",
+   "explosion-1.mp3",
+   "explosion-2.mp3"
+  ],
+  "peak": 0.45,
+  "gap": 90,
+  "voices": 3
+ },
+ "explosionBig": {
+  "files": [
+   "explosion-big-0.mp3",
+   "explosion-big-1.mp3"
+  ],
+  "peak": 0.65,
+  "gap": 300,
+  "voices": 2
+ },
+ "stomp": {
+  "files": [
+   "stomp-0.mp3",
+   "stomp-1.mp3",
+   "stomp-2.mp3"
+  ],
+  "peak": 0.7,
+  "gap": 200,
+  "voices": 1
+ },
+ "cannon": {
+  "files": [
+   "cannon-0.mp3",
+   "cannon-1.mp3"
+  ],
+  "peak": 0.45,
+  "gap": 150,
+  "voices": 2
+ },
+ "car": {
+  "files": [
+   "car-0.mp3"
+  ],
+  "peak": 0.35,
+  "gap": 80,
+  "voices": 2
+ },
+ "charge": {
+  "files": [
+   "charge-0.mp3"
+  ],
+  "peak": 0.35,
+  "gap": 500,
+  "voices": 1
+ },
+ "jet": {
+  "files": [
+   "jet-0.mp3"
+  ],
+  "peak": 0.5,
+  "gap": 800,
+  "voices": 2
+ },
+ "siren": {
+  "files": [
+   "siren-0.mp3"
+  ],
+  "peak": 0.3,
+  "gap": 2500,
+  "voices": 1
+ },
+ "rifle": {
+  "files": [
+   "rifle-0.mp3",
+   "rifle-1.mp3"
+  ],
+  "peak": 0.18,
+  "gap": 140,
+  "voices": 2
+ }
+}

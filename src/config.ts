@@ -21,6 +21,9 @@ export const RENDERER = params.get('renderer') === 'canvas' ? 'canvas' : 'auto';
 /** Debug: start at a later wave (e.g. `?startWave=5` to see the boss). Also grants that wave's expected tier. */
 export const START_WAVE = Math.max(1, Math.min(5, Number(params.get('startWave') ?? 1)));
 export const MUTED = params.get('mute') === '1';
+/** Licensed audio (Epidemic Sound) is streamed from Bunny CDN, not shipped in the repository or the
+ * build: src/audio/tracks.json and es-banks.json list it, scripts/audio-upload.sh puts it there. */
+export const AUDIO_BASE: string = import.meta.env.VITE_AUDIO_BASE ?? 'https://images.voyage.io/downloads/kaiju-rampage/';
 
 export const VIEW_W = 1280;
 export const VIEW_H = 720;

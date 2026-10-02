@@ -40,8 +40,7 @@ test('title buttons update in place', async ({ page }) => {
 });
 
 test('sound test lists tracks, plays one, and remembers votes', async ({ page }) => {
-  test.skip(!fs.existsSync('public/music/tracks.json'), 'no recorded tracks in this checkout');
-  const list: { id: string; contexts: string[] }[] = JSON.parse(fs.readFileSync('public/music/tracks.json', 'utf8')).tracks;
+  const list: { id: string; contexts: string[] }[] = JSON.parse(fs.readFileSync('src/audio/tracks.json', 'utf8')).tracks;
   const n = list.length;
   // Whatever is in the list today: one track in rotation, one candidate (the line-up changes as tracks are voted on).
   const a = list.find((x) => x.contexts[0] !== 'candidate')!.id;

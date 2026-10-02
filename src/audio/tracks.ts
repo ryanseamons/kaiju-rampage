@@ -1,5 +1,7 @@
-// Recorded soundtrack: an optional track list at public/music/tracks.json. The files are licensed for
-// the deployed site only, so they are not in the repository; without the list the composer plays.
+// Recorded soundtrack (Epidemic Sound, licensed): the list is tracks.json; the files stream from
+// the CDN (AUDIO_BASE). A track that fails to load is dropped and the composer covers for it.
+import trackList from './tracks.json';
+import { AUDIO_BASE } from '../config';
 import type { MusicContext } from './composer';
 
 export interface TrackInfo {
@@ -19,7 +21,6 @@ export interface TrackInfo {
 }
 
 let list: TrackInfo[] | null = null;
-let loading: Promise<TrackInfo[]> | null = null;
 const cursor = new Map<MusicContext, number>();
 const order = new Map<MusicContext, TrackInfo[]>();
 
@@ -36,12 +37,8 @@ function shuffle<T>(xs: T[]) {
 
 export const tracks = {
   load(): Promise<TrackInfo[]> {
-    if (disabled) return Promise.resolve((list = []));
-    loading ??= fetch(`${import.meta.env.BASE_URL}music/tracks.json`, { cache: "no-cache" })
-      .then((r) => (r.ok ? r.json() : { tracks: [] }))
-      .then((j: { tracks?: TrackInfo[] }) => (list = Array.isArray(j.tracks) ? j.tracks : []))
-      .catch(() => (list = []));
-    return loading;
+    list ??= disabled ? [] : (trackList as { tracks: TrackInfo[] }).tracks;
+    return Promise.resolve(list);
   },
   /** null until the list has loaded; [] when there is none. */
   get ready() {
@@ -62,7 +59,7 @@ export const tracks = {
   },
   /** Every track, in list order ([] until loaded or when there is none). */
   all: (): TrackInfo[] => list ?? [],
-  url: (t: TrackInfo) => `${import.meta.env.BASE_URL}music/${t.id}.mp3`,
+  url: (t: TrackInfo) => `${AUDIO_BASE}music/${t.id}.mp3`,
   /** A track failed to load: stop offering it. */
   drop(t: TrackInfo) {
     for (const [c, o] of order) order.set(c, o.filter((x) => x.id !== t.id));

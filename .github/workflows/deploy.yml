@@ -1,0 +1,83 @@
+# Every push to main deploys the game twice from one commit:
+#   - kaiju.ryanseamons.com (Cloudflare Pages, direct upload; the D1 binding lives in the dashboard)
+#   - Voyage Labs (the game kaiju-rampage), once LABS_DEPLOY is "true"
+# The licensed audio streams from the CDN, so neither build needs anything outside the repository
+# except the Voyage Labs SDK and CLI, which come from Latitude's private repositories.
+# Quality bar: the full Playwright gate runs locally before pushing (it drives the game on a GPU);
+# this workflow typechecks, builds and deploys.
+#
+# Secrets: CLOUDFLARE_API_TOKEN (Pages edit), CLOUDFLARE_ACCOUNT_ID, LATITUDE_READ_TOKEN (contents:read
+# on latitudegames/voyage-labs-sdk and voyage-labs-cli). Variables: CLOUDFLARE_DEPLOY ("true" once its
+# secrets are set), LABS_DEPLOY ("true" once the repo
+# is connected to the game in the Voyage Labs dashboard), VOYAGE_LABS_API_URL (optional; the preview
+# while Labs is on one). No Voyage Labs token: the CLI exchanges this job's GitHub OIDC identity.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  cloudflare:
+    if: vars.CLOUDFLARE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npm run build
+      - name: Deploy kaiju.ryanseamons.com
+        run: npx wrangler pages deploy dist --project-name kaiju-rampage --branch main --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  labs:
+    if: vars.LABS_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # the Voyage Labs CLI trades this for a short-lived deploy credential
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Voyage Labs SDK
+        uses: actions/checkout@v4
+        with:
+          repository: latitudegames/voyage-labs-sdk
+          token: ${{ secrets.LATITUDE_READ_TOKEN }}
+          path: vendor/voyage-labs-sdk
+      - run: npm ci && npm run build
+        working-directory: vendor/voyage-labs-sdk
+      - name: Voyage Labs CLI
+        uses: actions/checkout@v4
+        with:
+          repository: latitudegames/voyage-labs-cli
+          token: ${{ secrets.LATITUDE_READ_TOKEN }}
+          path: vendor/voyage-labs-cli
+      - run: npm ci && npm run build
+        working-directory: vendor/voyage-labs-cli
+      - run: npm run build:labs
+      - name: Deploy to Voyage Labs
+        run: node vendor/voyage-labs-cli/dist/index.js deploy --publish
+        env:
+          VOYAGE_LABS_API_URL: ${{ vars.VOYAGE_LABS_API_URL }}

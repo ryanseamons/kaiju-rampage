@@ -1,5 +1,5 @@
 // Records each soundtrack context to evidence/music/*.webm and checks it is audible and unclipped.
-// Uses the recorded tracks when public/music/tracks.json is present, the composer otherwise
+// Uses the recorded tracks (src/audio/tracks.json, streamed from the CDN); ?music=composed for the composer
 // (?music=composed forces the composer). Opt-in (slow): MUSIC=1 npx playwright test music
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
@@ -24,7 +24,6 @@ async function openTitle(page: import('@playwright/test').Page, query = '') {
 
 test('recorded tracks rotate and sit level with the composer', async ({ page }) => {
   test.skip(!process.env.MUSIC, 'set MUSIC=1');
-  test.skip(!fs.existsSync('public/music/tracks.json'), 'no recorded tracks in this checkout');
   test.setTimeout(4 * 60_000);
   await openTitle(page);
   const out: Record<string, unknown> = {};

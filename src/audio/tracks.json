@@ -1,0 +1,576 @@
+{
+  "source": "Epidemic Sound (licensed for web use by the site owner); the files stream from the CDN, only this list is in the repository",
+  "tracks": [
+    {
+      "id": "flowing-force",
+      "title": "The Flowing Force",
+      "artist": "Yi Nantiro",
+      "contexts": [
+        "title"
+      ]
+    },
+    {
+      "id": "ninja-skills",
+      "title": "Ninja Skills",
+      "artist": "Ava Low",
+      "contexts": [
+        "tier1"
+      ],
+      "tags": [
+        "8-bit",
+        "Hopeful",
+        "Restless"
+      ],
+      "start": 9.6
+    },
+    {
+      "id": "press-x-twice",
+      "title": "Press X Twice",
+      "artist": "Lexica",
+      "contexts": [
+        "tier2"
+      ],
+      "tags": [
+        "Electro",
+        "8-bit",
+        "Chasing",
+        "Eccentric"
+      ]
+    },
+    {
+      "id": "no-one-escapes",
+      "title": "No One Escapes",
+      "artist": "Dian Shuai",
+      "contexts": [
+        "boss"
+      ],
+      "tags": [
+        "Orchestral Hybrid",
+        "Action",
+        "Epic"
+      ]
+    },
+    {
+      "id": "red-phoenix",
+      "title": "Red Phoenix",
+      "artist": "Yi Nantiro",
+      "contexts": [
+        "victory"
+      ],
+      "tags": [
+        "Contemporary Classical",
+        "Southeast Asian",
+        "Hopeful"
+      ],
+      "start": 6.8
+    },
+    {
+      "id": "bit-tokyo-boy",
+      "title": "Tokyo Boy",
+      "artist": "Akibakid",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "title",
+      "tags": [
+        "8-bit",
+        "Electronic",
+        "Happy",
+        "Restless"
+      ]
+    },
+    {
+      "id": "bit-back-to-business",
+      "title": "Back to Business",
+      "artist": "William Benckert",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "victory",
+      "tags": [
+        "8-bit",
+        "Synthwave",
+        "Happy",
+        "Hopeful"
+      ]
+    },
+    {
+      "id": "bit-pixels",
+      "title": "Pixels",
+      "artist": "Ava Low",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier1",
+      "tags": [
+        "8-bit",
+        "Eccentric",
+        "Restless"
+      ]
+    },
+    {
+      "id": "bit-jump-jump-jump",
+      "title": "Jump Jump Jump!",
+      "artist": "Ava Low",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier1",
+      "tags": [
+        "8-bit",
+        "Happy",
+        "Eccentric"
+      ]
+    },
+    {
+      "id": "bit-caribbean-arcade",
+      "title": "Caribbean Arcade",
+      "artist": "Christian Nanzell",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier1",
+      "tags": [
+        "8-bit",
+        "Electro",
+        "Quirky"
+      ]
+    },
+    {
+      "id": "bit-heartbit",
+      "title": "HeartBIT",
+      "artist": "Rocket Jr",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier2",
+      "tags": [
+        "8-bit",
+        "Eccentric",
+        "Quirky"
+      ]
+    },
+    {
+      "id": "bit-glitching-through-the-sky",
+      "title": "Glitching Through the Sky",
+      "artist": "William Benckert",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier2",
+      "tags": [
+        "8-bit",
+        "Euphoric",
+        "Running"
+      ]
+    },
+    {
+      "id": "bit-8-bit-sheriff",
+      "title": "8-bit Sheriff",
+      "artist": "Wave Saver",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier2",
+      "tags": [
+        "8-bit",
+        "Electronic",
+        "Happy",
+        "Dark"
+      ]
+    },
+    {
+      "id": "bit-hypower",
+      "title": "HYPOWER",
+      "artist": "Akibakid",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "8-bit",
+        "Electronic",
+        "Restless"
+      ]
+    },
+    {
+      "id": "bit-electromagic",
+      "title": "Electromagic",
+      "artist": "Akibakid",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "8-bit",
+        "Electro",
+        "Happy",
+        "Restless"
+      ]
+    },
+    {
+      "id": "bit-through-the-prism",
+      "title": "Through the Prism",
+      "artist": "Ava Low",
+      "contexts": [
+        "defeat"
+      ],
+      "tags": [
+        "8-bit",
+        "Dark",
+        "Restless"
+      ],
+      "start": 19
+    },
+    {
+      "id": "bit-circuit",
+      "title": "Circuit",
+      "artist": "Carl Henriksson",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "boss",
+      "tags": [
+        "8-bit",
+        "Electro",
+        "Busy & Frantic"
+      ]
+    },
+    {
+      "id": "bit-8-bit-win",
+      "title": "8-bit Win (A Nice Final Boss)",
+      "artist": "VELDA",
+      "contexts": [
+        "victory"
+      ],
+      "tags": [
+        "8-bit",
+        "1980s",
+        "Hopeful",
+        "Quirky"
+      ]
+    },
+    {
+      "id": "bit-i-want-it-all",
+      "title": "I Want It All",
+      "artist": "Peachwood",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "victory",
+      "tags": [
+        "8-bit",
+        "Electro",
+        "Funny",
+        "Happy"
+      ]
+    },
+    {
+      "id": "arcade-fever",
+      "title": "Arcade Fever",
+      "artist": "PØW",
+      "contexts": [
+        "tier3"
+      ],
+      "tags": [
+        "J-rock",
+        "Japan",
+        "Euphoric",
+        "Restless"
+      ]
+    },
+    {
+      "id": "tiger-tracks",
+      "title": "Tiger Tracks",
+      "artist": "Lexica",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "Electro",
+        "8-bit",
+        "Quirky"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "heart-made-of-pixels",
+      "title": "A Heart Made of Pixels",
+      "artist": "Christoffer Moe Ditlevsen",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "Synthwave",
+        "8-bit",
+        "Dreamy"
+      ],
+      "suggest": "defeat"
+    },
+    {
+      "id": "out-of-control",
+      "title": "Out of Control",
+      "artist": "PØW",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "J-rock",
+        "Happy",
+        "Busy & Frantic"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "samurai-punk",
+      "title": "Samurai Punk",
+      "artist": "PØW",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "J-rock",
+        "J-pop",
+        "Euphoric"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "helios",
+      "title": "Helios",
+      "artist": "Lexica",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "Electro",
+        "8-bit",
+        "Quirky"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "mayonaka",
+      "title": "Mayonaka",
+      "artist": "Usnow",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "J-rock",
+        "Japan",
+        "Restless"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "burn-it-all",
+      "title": "Burn It All",
+      "artist": "PØW",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "Metal",
+        "Rock",
+        "Dark"
+      ],
+      "suggest": "tier3"
+    },
+    {
+      "id": "guru-meditation",
+      "title": "Guru Meditation",
+      "artist": "Bitwraith",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "8-bit",
+        "1980s",
+        "Dreamy"
+      ],
+      "suggest": "defeat"
+    },
+    {
+      "id": "yoake",
+      "title": "YOAKE",
+      "artist": "Usnow",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "J-rock",
+        "Sentimental"
+      ],
+      "suggest": "defeat"
+    },
+    {
+      "id": "cowboy-rush",
+      "title": "Cowboy Rush",
+      "artist": "PØW",
+      "contexts": [
+        "candidate"
+      ],
+      "tags": [
+        "J-rock",
+        "J-pop",
+        "Epic",
+        "Euphoric"
+      ],
+      "suggest": "victory"
+    },
+    {
+      "id": "final-boss",
+      "title": "Final Boss",
+      "artist": "Ruiqi Zhao",
+      "contexts": [
+        "tier3"
+      ],
+      "tags": [
+        "Hybrid Trap",
+        "Orchestral Hybrid",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "mammoth",
+      "title": "MAMMOTH",
+      "artist": "Cushy",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Trap EDM",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "street-rev-anthem",
+      "title": "Street Rev Anthem",
+      "artist": "Aiyo",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Electronic",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "faithless",
+      "title": "FAITHLESS",
+      "artist": "STRLGHT",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Dark Electro",
+        "Phonk",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "uk-underground",
+      "title": "UK Underground",
+      "artist": "Carl Henriksson",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Electro",
+        "Angry",
+        "Busy & Frantic"
+      ],
+      "new": true
+    },
+    {
+      "id": "chop-to-the-neck",
+      "title": "Chop to the Neck",
+      "artist": "Ava Low",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Drift Phonk",
+        "Dark",
+        "Restless"
+      ],
+      "new": true
+    },
+    {
+      "id": "freaks-of-the-night",
+      "title": "Freaks of the Night",
+      "artist": "Mother Hydra",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Rawstyle",
+        "Horror",
+        "Angry"
+      ],
+      "new": true
+    },
+    {
+      "id": "battle-cry",
+      "title": "Battle Cry",
+      "artist": "Taelimb",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Orchestral Hybrid",
+        "Dubstep",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "the-mad",
+      "title": "The Mad",
+      "artist": "Heyson",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Dubstep",
+        "Build",
+        "Epic",
+        "Dark"
+      ],
+      "new": true
+    },
+    {
+      "id": "inferno",
+      "title": "INFERNO",
+      "artist": "ROONIN",
+      "contexts": [
+        "candidate"
+      ],
+      "suggest": "tier3",
+      "tags": [
+        "Drift Phonk",
+        "Dark",
+        "Restless"
+      ],
+      "new": true
+    }
+  ]
+}

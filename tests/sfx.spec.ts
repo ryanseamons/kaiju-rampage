@@ -12,10 +12,9 @@ test('effect samples load and play', async ({ page }) => {
   await page.waitForFunction((n) => (window as any).__kaijuSamples.loaded().length >= n, KENNEY.length, { timeout: 30_000 });
   const loaded: string[] = await page.evaluate(() => (window as any).__kaijuSamples.loaded());
   for (const b of KENNEY) expect(loaded, `bank ${b}`).toContain(b);
-  // Licensed Epidemic banks, when this checkout has them (the deployed site does; the repository doesn't).
-  const esFile = 'public/sfx/es/banks.json';
-  if (fs.existsSync(esFile)) {
-    const es = Object.keys(JSON.parse(fs.readFileSync(esFile, 'utf8')));
+  // Licensed Epidemic banks, streamed from the CDN.
+  {
+    const es = Object.keys(JSON.parse(fs.readFileSync('src/audio/es-banks.json', 'utf8')));
     await page.waitForFunction((n) => (window as any).__kaijuSamples.loaded().filter((b: string) => b.startsWith('es.')).length >= n, es.length, { timeout: 30_000 });
     const now: string[] = await page.evaluate(() => (window as any).__kaijuSamples.loaded());
     for (const b of es) expect(now, `bank es.${b}`).toContain(`es.${b}`);
@@ -25,7 +24,7 @@ test('effect samples load and play', async ({ page }) => {
   await page.evaluate(() => (window as any).__kaijuMusic.play('victory'));
   const rec = page.evaluate(() => (window as any).__kaijuAudio.record(2));
   await page.waitForTimeout(200);
-  const list = fs.existsSync('public/sfx/es/banks.json') ? ['es.stomp', 'es.collapse', 'glass', 'es.roar'] : ['punch', 'debris', 'glass', 'powerup'];
+  const list = ['es.stomp', 'es.collapse', 'glass', 'es.roar'];
   const played = await page.evaluate((l) => l.map((b, i) => new Promise((r) => setTimeout(() => r((window as any).__kaijuSamples.play(b)), i * 300))), list);
   expect(played).toBeTruthy();
   const b64 = await rec;

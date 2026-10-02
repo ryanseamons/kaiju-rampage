@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Cut, normalise and encode downloaded Epidemic Sound effects into public/sfx/es/ (gitignored),
-and write public/sfx/es/banks.json, which src/audio/samples.ts reads at startup.
+"""Cut, normalise and encode downloaded Epidemic Sound effects into licensed-audio/sfx/ (gitignored),
+and write src/audio/es-banks.json, which src/audio/samples.ts imports. Then scripts/audio-upload.sh
+puts the clips on the CDN the game streams from.
 
 Usage: python3 scripts/es-sfx.py [downloads dir]
 
 Each clip is cut either from its onset (the first moment within 30 dB of its peak) or around its
 loudest 50 ms (for long recordings such as a two-minute collapse or a 20 s jet pass), faded out,
-peak-normalised and encoded as mono 112 kbps mp3. The licence covers the deployed site, not the
-repository, so nothing here is committed.
+peak-normalised and encoded as mono 112 kbps mp3. The clips are licensed; only the bank list is
+committed (the files live on the CDN).
 """
 import glob, json, os, subprocess, sys
 import numpy as np
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser('~/Downloads')
-OUT = 'public/sfx/es'
+OUT = 'licensed-audio/sfx'
+BANKS = 'src/audio/es-banks.json'
 FF = os.environ.get('FFMPEG', 'ffmpeg')
 SR = 44100
 
@@ -88,9 +90,9 @@ def main():
         banks.setdefault(bank, []).append(f'{name}.mp3')
         print(f'{bank:13s} {name:16s} {len(y) / SR:4.1f}s  <- {os.path.basename(hits[0])[3:70]}')
     out = {b: {'files': f, 'peak': BANKS[b][0], 'gap': BANKS[b][1], 'voices': BANKS[b][2]} for b, f in banks.items()}
-    with open(f'{OUT}/banks.json', 'w') as fh:
+    with open(BANKS, 'w') as fh:
         json.dump(out, fh, indent=1)
-    print(f'{sum(len(f) for f in banks.values())} clips in {len(banks)} banks -> {OUT}/banks.json')
+    print(f'{sum(len(f) for f in banks.values())} clips in {len(banks)} banks -> {BANKS}')
 
 
 if __name__ == '__main__':

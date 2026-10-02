@@ -1,8 +1,8 @@
 // Music engine. Two sources behind one API:
-//  - recorded tracks from public/music/tracks.json (licensed for the deployed site, kept out of the
-//    repository), streamed through the music bus and rotated per context with crossfades;
+//  - recorded tracks (src/audio/tracks.json, files on the CDN), streamed through the music bus and
+//    rotated per context with crossfades;
 //  - the procedural composer (lookahead scheduler: 25 ms tick, 0.2 s lookahead, as in the tavern
-//    project) when there is no track list, e.g. in a fresh clone.
+//    project) with ?music=composed, or when a track can't load.
 import { audio, onAudioReady, prefs, type Graph } from './core';
 import { compose, type MusicContext, type Piece } from './composer';
 import { Voices } from './instruments';
