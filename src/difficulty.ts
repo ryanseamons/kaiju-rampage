@@ -1,5 +1,6 @@
 // Difficulty: a live setting (picked on the title screen, remembered per browser, `?difficulty=` for
-// tests). Easy is the original tuning, with every multiplier at 1. The daily rampage is always Medium,
+// tests). Easy started as the original tuning (every multiplier 1) and was nudged up on 2026-10-06
+// because it played too easy. The daily rampage is always Medium,
 // so everyone plays today's city on the same terms.
 import { DAILY } from './config';
 
@@ -30,7 +31,7 @@ export interface DifficultyDef {
 }
 
 export const DIFFICULTY: Record<DifficultyId, DifficultyDef> = {
-  easy: { id: 'easy', hp: 1, dmg: 1, spawn: 1, cap: 1, heal: 1, tier3Dmg: 1, heavy: 1, elites: 1, jetGap: 1, ring: 1, score: 0.75 },
+  easy: { id: 'easy', hp: 1.12, dmg: 1.15, spawn: 1.12, cap: 1.12, heal: 0.88, tier3Dmg: 1.12, heavy: 1.3, elites: 1, jetGap: 0.9, ring: 1.12, score: 0.75 },
   medium: { id: 'medium', hp: 1.4, dmg: 1.55, spawn: 1.4, cap: 1.45, heal: 0.62, tier3Dmg: 1.45, heavy: 2.1, elites: 2, jetGap: 0.72, ring: 1.4, score: 1 },
   hard: { id: 'hard', hp: 1.75, dmg: 2.0, spawn: 1.7, cap: 1.8, heal: 0.42, tier3Dmg: 1.8, heavy: 3.0, elites: 3, jetGap: 0.55, ring: 1.7, score: 1.5 },
 };
