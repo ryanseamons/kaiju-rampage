@@ -46,9 +46,9 @@ export class Director {
     // Easy: one elite at 35%. Medium and Hard spread more of them through the wave.
     const k = this.s.diff.elites;
     this.elitesAt = n >= 2 ? Array.from({ length: k }, (_, i) => d * (k === 1 ? 0.35 : 0.2 + (0.55 * i) / (k - 1))) : [];
-    // Each wave builds to one big moment. On a walker wave the ring comes early, as the build-up, and the
-    // walker is the peak; they never land together.
-    this.ringAt = w.ring ? d * (w.walker ? 0.25 : 0.65) : -1;
+    // Each wave builds to one big moment: the ring late in the wave, or on a walker wave the walker alone
+    // (the two used to land six seconds apart).
+    this.ringAt = w.ring && !w.walker ? d * 0.65 : -1;
     this.walkerAt = w.walker ? (w.endless ? d * 0.5 : d * 0.6) : -1;
     this.walkerUp = false;
     this.calmT = 0;
@@ -69,7 +69,8 @@ export class Director {
     // Pressure through the wave (intro, build, peak, wind-down; flat on the boss wave), times the army's
     // catch-up since your last growth spurt, eased off while the walker is up and just after it falls.
     const progress = Phaser.Math.Clamp(this.time / this.duration, 0, 1);
-    const cu = (this.pressure = catchUp(s.player.tierIdx, s.player.growth, this.tier3Time));
+    // On the boss wave the boss is the fight: the rest of the army doesn't climb past full strength.
+    const cu = (this.pressure = Math.min(w.boss ? 1 : Infinity, catchUp(s.player.tierIdx, s.player.growth, this.tier3Time)));
     e.dmgMult = waveDmgMult(w.wave) * df.dmg * (1 + (cu - 1) / 2);
     const walker = e.list.some((x) => x.etype === 'walker' && !x.dead);
     if (this.walkerUp && !walker) this.calmT = AFTER_HEAVY_CALM_S * TIME_SCALE;

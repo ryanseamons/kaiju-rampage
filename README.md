@@ -58,7 +58,9 @@ npm run build
 
 **The loop:** crushing the city makes you **grow**; killing the military gives crystals that **level you up**. You crush on contact anything in your size class: cars and trees at tier 1, houses at tier 2, towers and tanks at tier 3. You can claw or shoulder-charge things one class bigger. Anything larger is a wall. Each tier zooms the camera out, heals you, and changes how the army behaves: at tier 1 infantry advance and shoot, at tier 2 they panic and tanks become the main threat, and at tier 3 tanks keep their distance and shell you from afar. There are 5 waves (about 10 minutes); wave 5 ends when you destroy the mech **M-01 Shiokaze Guardian**. **Landmarks** (Shiokaze Castle, the KBN-7 tower, the Old Town pagodas and their torii gates) are worth big points and growth, and the news desk notices when they fall.
 
-**Difficulty.** Easy is the original tuning. Medium and Hard raise enemy HP and damage, spawn rates and caps, add elites (2 and 3 per wave), bring jets in from wave 3 and more often, field more cannon batteries and helicopters once you reach tier 3 (where you'd otherwise outgrow the army), add tier-3 damage, cut heart drops and level-up heals, and thicken the encirclement ring. Score is ×0.75 on Easy, ×1 on Medium and ×1.5 on Hard, and the high-score table shows each run's mode. The knobs live in `src/difficulty.ts`.
+**Difficulty.** Easy is the original tuning. Medium and Hard raise enemy HP and damage, spawn rates and caps, add elites (2 and 3 per wave), bring jets in from wave 3 and more often, field more cannon batteries and helicopters once you reach tier 3 (where you'd otherwise outgrow the army), add tier-3 damage, cut heart drops and level-up heals, and thicken the encirclement ring. The walker and the bosses have their own, gentler damage scale (×1, ×1.15, ×1.3) with no tier-3 surcharge; on harder settings they attack more often rather than hitting harder. Score is ×0.75 on Easy, ×1 on Medium and ×1.5 on Hard, and the high-score table shows each run's mode. The knobs live in `src/difficulty.ts`.
+
+**Pacing.** Difficulty isn't one rising line. Each wave opens gently while its new units arrive, builds to a peak around 80% (the encirclement ring, or on wave 3 the walker on its own), then winds down into the news break. The army also catches up between growth spurts: right after a tier-up (full heal, more power, a new class of things to crush) it's at 75% strength, and it climbs back past full strength as you near the next tier (at City-Ender, the climb runs on time spent at that size). While the walker is up, the rest of the army thins out, and for 12 s after it falls. The robots announce every attack: a missile salvo locks on with a red reticle and a charge sound half a second before launch, and the missiles turn slowly enough to dodge. The curves are `waveShape` and `catchUp` in `src/config.ts`.
 
 There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, Atomic Breath, Tail Spin, Spine Volley, Fallout Aura, Thick Hide, Regeneration, Scaled Plating, Quickstep, Aftershock, Tectonic Rhythm, Magnetism, Growth Hormone and Rampage.
 
@@ -81,6 +83,7 @@ There are 16 upgrades, offered 3 at a time: Serrated Claws, Long Reach, Frenzy, 
 | `?seed=1234` | Fixed city layout and upgrade offers |
 | `?fast=1` (or `?fast=2`) | Test speed: waves are 40% (or 25%) as long, and growth and XP are scaled up to match. Rules are unchanged, but it plays easier than normal because enemy pressure per second is the same. |
 | `?startWave=5` | Debug: start at a later wave with that wave's expected size (for example, to see the boss) |
+| `?levels=10` | Debug: begin with that many level-ups to pick (pair with `?startWave` for a mid-run build) |
 | `?mute=1` | No sound |
 | `?difficulty=easy` | Force a difficulty (`easy`, `medium`, `hard`) for this load; the tests pin `easy` |
 | `?daily=1` | Today's daily rampage (UTC day; same city, army and offers for everyone; Medium). `?daily=2026-10-05` pins a date |
@@ -159,6 +162,7 @@ Playwright starts its own isolated servers: a mock Anthropic endpoint on :8790, 
 | `teeth.spec.ts` | The military can hurt you: a kaiju that stands still in wave 2 at normal speed takes ≥40 damage within 35 s (it took 157 in the last run). |
 | `live-ai.spec.ts` | Skipped unless `LIVE_NARRATION_URL` points at a narration server with a real key. |
 | `pacing.spec.ts` | Skipped unless `PACING=1`: a normal-speed run that logs when each tier and wave is reached (`DIFFICULTY=medium`, `START_WAVE=3` to vary it). |
+| `encounter.spec.ts` | Skipped unless `CURVE=1`: the bot plays from `START_WAVE` (default 3) with `LEVELS` level-ups on `DIFFICULTY` (default medium) and logs damage per 10 game seconds, the army's catch-up pressure, and the robot fight (HP on arrival, lowest HP, damage taken, how long it lasted) to `screenshots/curve-*.json`. |
 | `difficulty.spec.ts` | Skipped unless `DIFF=1`: a stationary kaiju at wave 2 (tier 2) and wave 4 (tier 3) on each difficulty; damage per game second must rise from Easy to Medium to Hard. |
 | `landmarks.spec.ts` | The castle, the KBN-7 tower, pagodas and torii are placed, and each renders (`landmark-*.png`). |
 | `overlay.spec.ts` | Title buttons (difficulty, menu, settings) update in place without rebuilding the poster; the Sound Test lists every track, plays one and remembers votes. |
