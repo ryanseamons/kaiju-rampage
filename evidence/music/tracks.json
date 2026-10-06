@@ -1,0 +1,50 @@
+{
+  "title": {
+    "title": "The Flowing Force",
+    "artist": "Yi Nantiro",
+    "rms": 0.017,
+    "peak": 0.113
+  },
+  "tier1": {
+    "title": "Ninja Skills",
+    "artist": "Ava Low",
+    "rms": 0.036,
+    "peak": 0.152
+  },
+  "tier2": {
+    "title": "Press X Twice",
+    "artist": "Lexica",
+    "rms": 0.026,
+    "peak": 0.102
+  },
+  "tier3": {
+    "title": "Final Boss",
+    "artist": "Ruiqi Zhao",
+    "rms": 0.017,
+    "peak": 0.074
+  },
+  "boss": {
+    "title": "No One Escapes",
+    "artist": "Dian Shuai",
+    "rms": 0.015,
+    "peak": 0.09
+  },
+  "victory": {
+    "title": "8-bit Win (A Nice Final Boss)",
+    "artist": "VELDA",
+    "rms": 0.029,
+    "peak": 0.091
+  },
+  "defeat": {
+    "title": "Through the Prism",
+    "artist": "Ava Low",
+    "rms": 0.03,
+    "peak": 0.121
+  },
+  "rotate": [
+    "Arcade Fever",
+    "Final Boss"
+  ],
+  "trackRms": 0.036149453007788934,
+  "composedRms": 0.041261836706942674
+}
