@@ -168,6 +168,8 @@ interface Projectile extends Phaser.Physics.Arcade.Image {
   splash: number;
   turn: number;
   speed: number;
+  /** Fired by the walker or a boss: exempt from the tier-3 surcharge. */
+  boss?: boolean;
 }
 
 interface JetRun {
@@ -204,6 +206,9 @@ export class EnemyManager {
   /** Wave scaling, set by the director. */
   hpMult = 1;
   dmgMult = 1;
+  /** The walker and the bosses have their own damage scale and attack tempo (see difficulty.ts). */
+  bossDmgMult = 1;
+  bossTempo = 1;
 
   constructor(private s: GameScene) {
     this.group = s.physics.add.group();
@@ -281,7 +286,7 @@ export class EnemyManager {
   }
 
   spawn(type: EnemyType, x: number, y: number, elite = false) {
-    const e = new Enemy(this.s, type, x, y, BOSS_TYPES.has(type) ? this.hpMult * 0.8 + 0.2 : this.hpMult, elite);
+    const e = new Enemy(this.s, type, x, y, isHeavy({ etype: type }) ? this.hpMult * 0.8 + 0.2 : this.hpMult, elite);
     this.group.add(e);
     this.list.push(e);
     this.spawnedTypes.add(type);
@@ -312,12 +317,13 @@ export class EnemyManager {
     this.jets = [];
   }
 
-  private fire(kind: Projectile['kind'], x: number, y: number, angle: number, speed: number, dmg: number, life: number, splash = 0, turn = 0, effect?: 'freeze') {
+  private fire(kind: Projectile['kind'], x: number, y: number, angle: number, speed: number, dmg: number, life: number, splash = 0, turn = 0, effect?: 'freeze', boss = false) {
     const tex = kind === 'bullet' ? 'bullet' : kind === 'shell' ? 'shell' : kind === 'torpedo' ? 'torpedo' : 'missile';
     const p = this.s.physics.add.image(x, y, tex) as Projectile;
     this.shots.add(p);
     p.kind = kind;
-    p.dmg = dmg * this.dmgMult;
+    p.dmg = dmg * (boss ? this.bossDmgMult : this.dmgMult);
+    p.boss = boss;
     p.life = life;
     p.splash = splash;
     p.turn = turn;
@@ -656,7 +662,7 @@ export class EnemyManager {
       sg.setPosition(q.x, q.y).setDepth(q.y - 1);
       if (e.contactCd <= 0 && Phaser.Math.Distance.Between(q.x, q.y, p.x, p.y) < p.radius + 18) {
         e.contactCd = 0.6;
-        s.hurtPlayer(9 * this.dmgMult, q.x, q.y);
+        s.hurtPlayer(9 * this.bossDmgMult, q.x, q.y, true);
       }
     });
     if (e.mode === 'walk') {
@@ -694,7 +700,7 @@ export class EnemyManager {
         e.fireCd -= dt;
         if (e.fireCd <= 0 && this.onLine(e.x, e.y, a, L, 14)) {
           e.fireCd = 0.12;
-          s.hurtPlayer(5 * this.dmgMult, p.x, p.y);
+          s.hurtPlayer(5 * this.bossDmgMult, p.x, p.y, true);
         }
       }
     } else if (e.mode === 'quake' && e.modeT <= 0.2 && e.shotsLeft !== -1) {
@@ -702,12 +708,12 @@ export class EnemyManager {
       s.fx.ring(tail.x, tail.y, 150, 0xd08aff, 400);
       s.shake(0.014, 220);
       sfx.stomp();
-      if (Phaser.Math.Distance.Between(tail.x, tail.y, p.x, p.y) < 150 + p.radius) s.hurtPlayer(14 * this.dmgMult, tail.x, tail.y);
+      if (Phaser.Math.Distance.Between(tail.x, tail.y, p.x, p.y) < 150 + p.radius) s.hurtPlayer(14 * this.bossDmgMult, tail.x, tail.y, true);
       e.shotsLeft = -1;
     }
     if (e.modeT <= 0) {
       e.mode = 'walk';
-      e.modeT = rng.ai.float(4, 6);
+      e.modeT = rng.ai.float(4, 6) * this.bossTempo;
       e.shotsLeft = 0;
     }
   }
@@ -745,12 +751,12 @@ export class EnemyManager {
         s.fx.explode(sx, sy, R);
         s.shake(0.014, 200);
         sfx.explode(true);
-        if (Phaser.Math.Distance.Between(sx, sy, p.x, p.y) < R + p.radius * 0.5) s.hurtPlayer(26 * this.dmgMult, sx, sy);
+        if (Phaser.Math.Distance.Between(sx, sy, p.x, p.y) < R + p.radius * 0.5) s.hurtPlayer(26 * this.bossDmgMult, sx, sy, true);
       }
     }
     if (e.modeT <= 0) {
       e.mode = 'walk';
-      e.modeT = rng.ai.float(2.5, 4);
+      e.modeT = rng.ai.float(2.5, 4) * this.bossTempo;
       e.shotsLeft = 0;
     }
     void d;
@@ -767,7 +773,7 @@ export class EnemyManager {
       s.time.delayedCall(1100 + i * 110, () => {
         s.fx.explode(q.x, q.y, 40);
         sfx.explode(false);
-        if (Phaser.Math.Distance.Between(q.x, q.y, p.x, p.y) < 36 + p.radius * 0.5) s.hurtPlayer(12 * this.dmgMult, q.x, q.y);
+        if (Phaser.Math.Distance.Between(q.x, q.y, p.x, p.y) < 36 + p.radius * 0.5) s.hurtPlayer(12 * this.bossDmgMult, q.x, q.y, true);
         if (i === spots.length - 1) g.destroy();
       }),
     );
@@ -784,7 +790,7 @@ export class EnemyManager {
       c.g.setAlpha(Math.min(0.35, c.t * 0.2));
       if (c.tick <= 0 && Phaser.Math.Distance.Between(c.x, c.y, p.x, p.y) < c.r + p.radius * 0.5) {
         c.tick = 0.5;
-        this.s.hurtPlayer(4 * this.dmgMult, c.x, c.y);
+        this.s.hurtPlayer(4 * this.bossDmgMult, c.x, c.y, true);
       }
       if (c.t <= 0) c.g.destroy();
       return c.t > 0;
@@ -836,14 +842,14 @@ export class EnemyManager {
         s.fx.ring(e.x, e.y, R, 0xf2e6c8, 350);
         sfx.tail();
         if (d < R) {
-          s.hurtPlayer(10 * this.dmgMult, e.x, e.y);
+          s.hurtPlayer(10 * this.bossDmgMult, e.x, e.y, true);
           p.slowT = Math.max(p.slowT, 1.2);
         }
       }
     }
     if (e.modeT <= 0) {
       e.mode = 'walk';
-      e.modeT = rng.ai.float(3, 5);
+      e.modeT = rng.ai.float(3, 5) * this.bossTempo;
       e.shotsLeft = 0;
     }
     void uy;
@@ -950,7 +956,7 @@ export class EnemyManager {
     if (!obj.active) return;
     if (obj.effect === 'freeze') this.s.player.slowT = 2.4;
     if (obj.splash > 0) this.splash(obj);
-    else this.s.hurtPlayer(obj.dmg, obj.x, obj.y);
+    else this.s.hurtPlayer(obj.dmg, obj.x, obj.y, obj.boss);
     obj.destroy();
   }
 
@@ -958,7 +964,7 @@ export class EnemyManager {
     const s = this.s;
     s.fx.explode(obj.x, obj.y, obj.splash);
     const d = Phaser.Math.Distance.Between(obj.x, obj.y, s.player.x, s.player.y);
-    if (d < obj.splash + s.player.radius) s.hurtPlayer(obj.dmg, obj.x, obj.y);
+    if (d < obj.splash + s.player.radius) s.hurtPlayer(obj.dmg, obj.x, obj.y, obj.boss);
   }
 
   private updateMech(e: Enemy, dt: number, d: number, ux: number, uy: number) {
@@ -982,10 +988,13 @@ export class EnemyManager {
         body.setVelocity(0, 0);
         const r = rng.ai.frac();
         e.mode = mini ? (r < 0.6 ? 'salvo' : 'quake') : r < 0.4 ? 'salvo' : r < 0.75 ? 'laser' : 'quake';
-        e.modeT = e.mode === 'salvo' ? 1.4 : e.mode === 'laser' ? 1.9 : 1.6;
+        // A salvo locks on for half a second before the first launch.
+        e.modeT = e.mode === 'salvo' ? 1.8 : e.mode === 'laser' ? 1.9 : 1.6;
         e.shotsLeft = mini ? 4 : 8;
         e.aim = Math.atan2(p.y - e.y, p.x - e.x);
-        if (e.mode !== 'salvo') sfx.alarm();
+        // Every attack is announced, missiles included: the robots should be hard, not unreadable.
+        if (e.mode === 'salvo') sfx.charge();
+        else sfx.alarm();
       }
       return;
     }
@@ -993,10 +1002,18 @@ export class EnemyManager {
     const headY = e.y - (mini ? 76 : 120);
     if (e.mode === 'salvo') {
       const total = mini ? 4 : 8;
+      if (e.modeT > 1.3) {
+        // lock-on reticle around the kaiju
+        const r = p.radius + 14 + 30 * (e.modeT - 1.3);
+        g.lineStyle(3, 0xff3355, 0.85).strokeCircle(p.x, p.y, r);
+        g.lineBetween(p.x - r - 8, p.y, p.x - r + 8, p.y).lineBetween(p.x + r - 8, p.y, p.x + r + 8, p.y);
+        g.lineBetween(p.x, p.y - r - 8, p.x, p.y - r + 8).lineBetween(p.x, p.y + r - 8, p.x, p.y + r + 8);
+      }
       if (e.shotsLeft > 0 && e.modeT < 1.3 - (total - e.shotsLeft) * 0.12) {
         e.shotsLeft--;
         const side = e.shotsLeft % 2 ? -1 : 1;
-        this.fire('missile', e.x + side * (mini ? 26 : 40), headY + 25, -Math.PI / 2 + side * 0.6, 210, 9, 4.5, 0, 2.2);
+        // Lazy homing (a ~140 px turning circle): a kaiju that keeps moving across their path shakes most of them.
+        this.fire('missile', e.x + side * (mini ? 26 : 40), headY + 25, -Math.PI / 2 + side * 0.6, 210, 7, 4.5, 0, 1.5, undefined, true);
         sfx.shot();
       }
     } else if (e.mode === 'laser') {
@@ -1017,7 +1034,7 @@ export class EnemyManager {
         const on = Phaser.Math.Distance.Between(pt.x, pt.y, p.x, p.y) < p.radius + 10 && (pt.x - e.x) * Math.cos(e.aim) + (pt.y - headY) * Math.sin(e.aim) > 0;
         if (on && e.contactCd <= 0) {
           e.contactCd = 0.25;
-          s.hurtPlayer(7 * this.dmgMult, pt.x, pt.y);
+          s.hurtPlayer(7 * this.bossDmgMult, pt.x, pt.y, true);
         }
         if (Math.random() < 0.5) s.fx.hit(pt.x, pt.y, 2);
         s.shake(0.004, 60);
@@ -1033,12 +1050,12 @@ export class EnemyManager {
         s.fx.dust(e.x, e.y, 16);
         s.shake(0.02, 300);
         sfx.stomp();
-        if (Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y) < R + p.radius) s.hurtPlayer((mini ? 12 : 16) * this.dmgMult, e.x, e.y);
+        if (Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y) < R + p.radius) s.hurtPlayer((mini ? 12 : 16) * this.bossDmgMult, e.x, e.y, true);
       }
     }
     if (e.modeT <= 0) {
       e.mode = 'walk';
-      e.modeT = rng.ai.float(2.2, 3.2);
+      e.modeT = rng.ai.float(2.2, 3.2) * this.bossTempo;
     }
   }
 }

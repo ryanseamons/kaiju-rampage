@@ -1,7 +1,7 @@
-// Wave director: spawn rates that ramp through each wave, plus the set pieces
+// Wave director: spawn pressure shaped through each wave and caught up between growth spurts, plus the set pieces
 // (elites, the encirclement ring, the heavy walker, air strikes, the boss) and the news prefetch.
 import Phaser from 'phaser';
-import { BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, TIME_SCALE, WAVE1_GRACE_S, waveDef, type WaveDef } from './config';
+import { AFTER_HEAVY_CALM_S, BULLETIN_LEAD_S, BULLETIN_MIN_FRACTION, HEAVY_FOCUS, TIME_SCALE, WAVE1_GRACE_S, catchUp, waveDef, waveDmgMult, waveShape, type WaveDef } from './config';
 import type { EnemyType } from './enemies';
 import type { GameScene } from './scenes/GameScene';
 import { dailyName, t } from './i18n';
@@ -24,6 +24,12 @@ export class Director {
   private jetsAnnounced = false;
   private threatAcc = 0;
   private threatT = 10;
+  /** Game seconds spent at City-Ender size (the catch-up clock for the last tier). */
+  private tier3Time = 0;
+  private walkerUp = false;
+  private calmT = 0;
+  /** The army's catch-up since the last growth spurt (1 = the listed rates); shown in the debug state. */
+  pressure = 1;
 
   constructor(private s: GameScene) {}
 
@@ -40,8 +46,12 @@ export class Director {
     // Easy: one elite at 35%. Medium and Hard spread more of them through the wave.
     const k = this.s.diff.elites;
     this.elitesAt = n >= 2 ? Array.from({ length: k }, (_, i) => d * (k === 1 ? 0.35 : 0.2 + (0.55 * i) / (k - 1))) : [];
-    this.ringAt = w.ring ? d * 0.5 : -1;
-    this.walkerAt = w.walker ? (w.endless ? d * 0.3 : d * 0.55) : -1;
+    // Each wave builds to one big moment. On a walker wave the ring comes early, as the build-up, and the
+    // walker is the peak; they never land together.
+    this.ringAt = w.ring ? d * (w.walker ? 0.25 : 0.65) : -1;
+    this.walkerAt = w.walker ? (w.endless ? d * 0.5 : d * 0.6) : -1;
+    this.walkerUp = false;
+    this.calmT = 0;
     // Harder settings bring the air force in a wave early (wave 3).
     const air = this.s.twists?.has('air') ?? false;
     const jets = w.jets || air || (this.s.diff.jetGap < 1 && n >= 3);
@@ -55,16 +65,25 @@ export class Director {
   update(dt: number) {
     const s = this.s, w = this.wave, e = s.enemies, tier = s.tier, df = s.diff;
     this.time += dt;
-    const progress = w.boss ? 0.6 : Phaser.Math.Clamp(this.time / this.duration, 0, 1);
-    // Pressure climbs through the wave: 70% of the listed rate at the start, 130% at the end.
-    const ramp = 0.7 + 0.6 * progress;
+    if (tier === 3) this.tier3Time += dt;
+    // Pressure through the wave (intro, build, peak, wind-down; flat on the boss wave), times the army's
+    // catch-up since your last growth spurt, eased off while the walker is up and just after it falls.
+    const progress = Phaser.Math.Clamp(this.time / this.duration, 0, 1);
+    const cu = (this.pressure = catchUp(s.player.tierIdx, s.player.growth, this.tier3Time));
+    e.dmgMult = waveDmgMult(w.wave) * df.dmg * (1 + (cu - 1) / 2);
+    const walker = e.list.some((x) => x.etype === 'walker' && !x.dead);
+    if (this.walkerUp && !walker) this.calmT = AFTER_HEAVY_CALM_S * TIME_SCALE;
+    this.walkerUp = walker;
+    this.calmT = Math.max(0, this.calmT - dt);
+    const focus = walker ? HEAVY_FOCUS : this.calmT > 0 ? 0.4 : 1;
+    const ramp = (w.boss ? 1 : waveShape(progress)) * cu * focus;
 
     // infantry: squads at higher tiers (none during the opening grace period of wave 1)
     const grace = w.wave === 1 && this.time < WAVE1_GRACE_S * TIME_SCALE;
     if (!grace) this.soldierAcc += w.soldierRate * df.spawn * ramp * dt;
     const squad = tier === 3 ? 4 : tier === 2 ? 2 : 1;
     const infantry = e.count('soldier') + e.count('rocket');
-    if (infantry < w.soldierMax * df.cap) {
+    if (infantry < w.soldierMax * df.cap * cu) {
       while (this.soldierAcc >= squad) {
         this.soldierAcc -= squad;
         const kind: EnemyType = rng.spawn.frac() < w.rocketShare ? 'rocket' : 'soldier';
@@ -73,13 +92,13 @@ export class Director {
       }
     }
     this.soldierAcc = Math.min(this.soldierAcc, squad * 2);
-    this.tankAcc = this.spawnKind('tank', w.tankRate * (tier === 1 ? 0.6 : 1) * df.spawn * ramp, w.tankMax * df.cap, this.tankAcc, dt);
+    this.tankAcc = this.spawnKind('tank', w.tankRate * (tier === 1 ? 0.6 : 1) * df.spawn * ramp, Math.round(w.tankMax * df.cap * cu), this.tankAcc, dt);
     // Heavy weapons are the tier-3 threat: harder settings field them in greater numbers, from wave 3.
     const heavy = tier >= 3 ? df.heavy : 1;
-    this.heliAcc = this.spawnKind('heli', w.heliRate * df.spawn * heavy * ramp, Math.round(w.heliMax * df.cap * Math.sqrt(heavy)), this.heliAcc, dt);
+    this.heliAcc = this.spawnKind('heli', w.heliRate * df.spawn * heavy * ramp, Math.round(w.heliMax * df.cap * Math.sqrt(heavy) * cu), this.heliAcc, dt);
     const cannonRate = w.cannonRate || (df.heavy > 1 && w.wave >= 3 ? 0.04 : 0);
     const cannonMax = w.cannonMax || (df.heavy > 1 && w.wave >= 3 ? 2 : 0);
-    this.cannonAcc = this.spawnKind('cannon', tier >= 3 ? cannonRate * heavy * ramp : 0, Math.round(cannonMax * df.cap * Math.sqrt(heavy)), this.cannonAcc, dt);
+    this.cannonAcc = this.spawnKind('cannon', tier >= 3 ? cannonRate * heavy * ramp : 0, Math.round(cannonMax * df.cap * Math.sqrt(heavy) * cu), this.cannonAcc, dt);
 
     // the day's featured threat, all run long
     this.spawnThreat(dt, ramp);

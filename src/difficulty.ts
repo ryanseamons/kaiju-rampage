@@ -26,13 +26,18 @@ export interface DifficultyDef {
   jetGap: number;
   /** Extra troops in the encirclement ring. */
   ring: number;
+  /** The walker and the bosses: damage (instead of `dmg` and `tier3Dmg`, which would stack into one-salvo
+   * kills) and the pause between their attacks (lower is more often). Harder settings make the robots
+   * busier more than they make each hit bigger. */
+  boss: number;
+  bossTempo: number;
   score: number;
 }
 
 export const DIFFICULTY: Record<DifficultyId, DifficultyDef> = {
-  easy: { id: 'easy', hp: 1, dmg: 1, spawn: 1, cap: 1, heal: 1, tier3Dmg: 1, heavy: 1, elites: 1, jetGap: 1, ring: 1, score: 0.75 },
-  medium: { id: 'medium', hp: 1.4, dmg: 1.55, spawn: 1.4, cap: 1.45, heal: 0.62, tier3Dmg: 1.45, heavy: 2.1, elites: 2, jetGap: 0.72, ring: 1.4, score: 1 },
-  hard: { id: 'hard', hp: 1.75, dmg: 2.0, spawn: 1.7, cap: 1.8, heal: 0.42, tier3Dmg: 1.8, heavy: 3.0, elites: 3, jetGap: 0.55, ring: 1.7, score: 1.5 },
+  easy: { id: 'easy', hp: 1, dmg: 1, spawn: 1, cap: 1, heal: 1, tier3Dmg: 1, heavy: 1, elites: 1, jetGap: 1, ring: 1, boss: 1, bossTempo: 1, score: 0.75 },
+  medium: { id: 'medium', hp: 1.4, dmg: 1.55, spawn: 1.4, cap: 1.45, heal: 0.62, tier3Dmg: 1.45, heavy: 2.1, elites: 2, jetGap: 0.72, ring: 1.4, boss: 1.15, bossTempo: 0.85, score: 1 },
+  hard: { id: 'hard', hp: 1.75, dmg: 2.0, spawn: 1.7, cap: 1.8, heal: 0.42, tier3Dmg: 1.8, heavy: 3.0, elites: 3, jetGap: 0.55, ring: 1.7, boss: 1.3, bossTempo: 0.7, score: 1.5 },
 };
 
 const KEY = 'kaiju.difficulty';

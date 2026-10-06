@@ -20,6 +20,8 @@ export const SEED = DAILY ? dailySeed(DAILY) : Number(params.get('seed') ?? Math
 export const RENDERER = params.get('renderer') === 'canvas' ? 'canvas' : 'auto';
 /** Debug: start at a later wave (e.g. `?startWave=5` to see the boss). Also grants that wave's expected tier. */
 export const START_WAVE = Math.max(1, Math.min(5, Number(params.get('startWave') ?? 1)));
+/** Debug: begin the run with this many level-ups to pick (e.g. `?startWave=3&levels=10` for a mid-run build). */
+export const START_LEVELS = Math.max(0, Math.min(40, Number(params.get('levels') ?? 0)));
 export const MUTED = params.get('mute') === '1';
 /** Licensed audio (Epidemic Sound) is streamed from Bunny CDN, not shipped in the repository or the
  * build: src/audio/tracks.json and es-banks.json list it, scripts/audio-upload.sh puts it there. */
@@ -155,6 +157,35 @@ export const BULLETIN_WAIT_MS = FAST ? 8000 : 2000; // tests (?fast) tolerate a 
 /** Enemy HP and damage multipliers for wave n (endless waves keep climbing). */
 export const waveHpMult = (n: number) => 1 + 0.15 * (n - 1) + 0.12 * Math.max(0, n - WAVES.length);
 export const waveDmgMult = (n: number) => 1 + 0.08 * (n - 1) + 0.06 * Math.max(0, n - WAVES.length);
+
+/**
+ * Spawn pressure through a wave (0..1 progress): a gentle opening while the wave's new units arrive a few
+ * at a time, a build to a peak at 80% (where the ring and the walker land), then a wind-down into the news
+ * break. Averages ~0.95, close to the old flat ramp (0.7 → 1.3).
+ */
+export function waveShape(progress: number) {
+  if (progress < 0.15) return 0.6;
+  if (progress < 0.8) return 0.6 + (0.8 * (progress - 0.15)) / 0.65;
+  return 1.4 - (0.8 * (progress - 0.8)) / 0.2;
+}
+
+/**
+ * The army catches up between growth spurts. Each tier-up is a power spike (full heal, bigger claws, a new
+ * class of things to crush), so right after one the army is under strength, and it closes the gap as you
+ * near the next tier. City-Ender has no next tier, so there it climbs with time spent at that size.
+ * Scales spawn rates and caps fully and enemy damage by half as much. Set pieces (the walker, bosses) are
+ * exempt: they have their own scale.
+ */
+export function catchUp(tierIdx: number, growth: number, secondsAtTier3: number) {
+  if (tierIdx === 0) return 0.85 + 0.25 * growth;
+  if (tierIdx === 1) return 0.75 + 0.5 * growth;
+  return 0.75 + 0.55 * Math.min(1, secondsAtTier3 / (180 * TIME_SCALE));
+}
+
+/** Seconds of thinned-out spawns after the walker falls: a breather before the wave builds again. */
+export const AFTER_HEAVY_CALM_S = 12;
+/** While the walker is up, the rest of the army spawns at this share of its rate: the fight is the walker. */
+export const HEAVY_FOCUS = 0.55;
 
 /** Combo: each kill or destruction within COMBO_WINDOW seconds extends the chain. */
 export const COMBO_WINDOW = 2.2;

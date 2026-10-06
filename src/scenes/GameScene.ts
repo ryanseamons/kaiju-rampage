@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DAILY, LAND_H, REWARDS, SEED, START_WAVE, TIERS, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL, waveDmgMult, waveHpMult } from '../config';
+import { DAILY, LAND_H, REWARDS, SEED, START_LEVELS, START_WAVE, TIERS, WAVES, WORLD_H, WORLD_W, XP_TO_LEVEL, waveDmgMult, waveHpMult } from '../config';
 import { City, LANDMARK, LANDMARK_NEWS, circleHits, districtAt, type Destructible } from '../city';
 import { Kaiju } from '../player';
 import { Enemy, EnemyManager, ENEMY_ROSTER, isBoss, isHeavy, type EnemyType } from '../enemies';
@@ -264,6 +264,8 @@ export class GameScene extends Phaser.Scene {
     this.netImg = this.add.image(0, 0, 'net').setVisible(false);
     this.weather = new Weather(this);
     if (this.twists.has('giant')) this.pendingLevelUps += 3;
+    this.pendingLevelUps += START_LEVELS;
+    this.player.level += START_LEVELS;
     // Announce the day's twists after the wave banner.
     [...this.twists.on].forEach((id, i) => this.time.delayedCall(2600 + i * 2400, () => this.ui.banner(`${t('dailyTwist').toUpperCase()}: ${dailyName('twist', id)}`, dailyDesc('twist', id), true)));
     const threat = this.threat;
@@ -274,6 +276,8 @@ export class GameScene extends Phaser.Scene {
     const n = this.waveIdx + 1;
     this.enemies.hpMult = waveHpMult(n) * this.diff.hp;
     this.enemies.dmgMult = waveDmgMult(n) * this.diff.dmg;
+    this.enemies.bossDmgMult = waveDmgMult(n) * this.diff.boss;
+    this.enemies.bossTempo = this.diff.bossTempo;
     this.director.start(n);
     this.stats.startWave();
     const sub = n <= WAVES.length ? t((['wave1', 'wave2', 'wave3', 'wave4', 'wave5'] as const)[n - 1]) : t('waveEndlessSub');
@@ -644,11 +648,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
   }
 
-  hurtPlayer(dmg: number, _sx: number, _sy: number) {
+  /** `boss`: from the walker or a boss, which have their own damage scale (no tier-3 surcharge). */
+  hurtPlayer(dmg: number, _sx: number, _sy: number, boss = false) {
     const p = this.player;
     if (p.invuln > 0 || this.phase !== 'playing') return;
     // Tier 3 outgrows most of the army; harder settings keep what's left dangerous.
-    const real = this.twists.taken(dmg * (1 - p.mods.armor) * (this.tier === 3 ? this.diff.tier3Dmg : 1));
+    const real = this.twists.taken(dmg * (1 - p.mods.armor) * (this.tier === 3 && !boss ? this.diff.tier3Dmg : 1));
     p.hp -= real;
     this.damageTaken += real;
     p.invuln = 0.06;
@@ -1038,6 +1043,7 @@ export class GameScene extends Phaser.Scene {
       waveDuration: this.wave.boss ? null : this.waveDuration,
       tier: this.tier,
       difficulty: this.diff.id,
+      pressure: +this.director.pressure.toFixed(2),
       landmarks: this.city.landmarks.map((d) => ({ id: d.landmark, x: d.x, y: d.y, alive: d.alive })),
       landmarksDown: this.landmarksDown,
       maxTierReached: this.maxTierReached,
