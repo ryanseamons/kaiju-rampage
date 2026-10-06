@@ -1,0 +1,83 @@
+{
+  "difficulty": "medium",
+  "startWave": 5,
+  "outcome": "dying",
+  "endedInWave": 5,
+  "level": 22,
+  "gameSeconds": 82,
+  "minHpPct": -7,
+  "robot": {
+    "type": "mech",
+    "arrivedAt": 4,
+    "hpPctAtArrival": 100,
+    "minHpPct": 0,
+    "lasted": 78,
+    "dmgPct": 486
+  },
+  "buckets": [
+    {
+      "t": 0,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 11,
+      "minHpPct": 89,
+      "enemies": 11
+    },
+    {
+      "t": 10,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 37,
+      "minHpPct": 82,
+      "enemies": 20
+    },
+    {
+      "t": 20,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 80,
+      "minHpPct": 70,
+      "enemies": 27
+    },
+    {
+      "t": 30,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 63,
+      "minHpPct": 49,
+      "enemies": 32
+    },
+    {
+      "t": 40,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 63,
+      "minHpPct": 47,
+      "enemies": 28
+    },
+    {
+      "t": 50,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 60,
+      "minHpPct": 66,
+      "enemies": 34
+    },
+    {
+      "t": 60,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 98,
+      "minHpPct": 27,
+      "enemies": 31
+    },
+    {
+      "t": 71,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 61,
+      "minHpPct": 4,
+      "enemies": 43
+    }
+  ]
+}

@@ -83,6 +83,34 @@ The daily menu item used to reload into the same game with a badge. It is now it
 
 Original names throughout (Tetsuryu, Sky Fortress Kumo, Hikari): the brief allows genre inspiration, not borrowed properties. Each piece has a spec (stages render, twists apply, each threat spawns and acts, each boss fights and can be beaten, the date → content function reaches everything within 60 days). Not yet tuned by play: boss HP and attack damage are first guesses.
 
+## Pass 4: pacing after a playtest
+
+A playtester's verdict: fun, but "it got too easy too fast, and then a robot totally destroyed me from full health". Both halves showed up in the numbers:
+
+- **The robots were one-shot machines on Medium.** Their attacks were multiplied by the difficulty's `dmg` (×1.55) and, at City-Ender size, by `tier3Dmg` too (×1.45). One 8-missile salvo from the mech did about 214 of the kaiju's 300 HP, and the missiles turned fast enough (2.2 rad/s) that a 40 px kaiju couldn't shake them. The wave-3 walker's 4-missile salvo did about 65 of 180, and it arrived six seconds after a 34-trooper encirclement ring.
+- **The middle was flat.** Spawns ramped in a straight line through every wave, and each tier-up is a big power spike (full heal, ×1.9 then ×3.4 damage, a new class of things to crush). Nothing pushed back after that spike until the robot did, all at once.
+
+What changed, following the usual design advice (each new problem starts easy, builds to one big challenge, then eases off; an upgrade should feel strong right away, then the enemies catch up):
+
+- **The robots are hard but readable.** The walker and the bosses have their own damage scale (`boss`: ×1, ×1.15, ×1.3) with no tier-3 surcharge. On harder settings they attack more often (`bossTempo` 1, 0.85, 0.7) rather than hitting harder. Missiles do 7 instead of 9 and turn at 1.5 rad/s (a ~140 px circle), and a salvo now locks on for half a second with a red reticle and a charge sound. The walker's HP follows the bosses' gentler wave scaling. Medium per-attack worst cases: mech salvo 214 → 85 (if every missile lands), mech laser 83 → 42, walker salvo 65 → 37. The daily bosses use the same scale.
+- **Waves have a shape** (`waveShape`): 0.6 for the first 15% while new units trickle in, then a build to 1.4 at 80%, then a wind-down to 0.6 into the news break (average about 0.95, close to the old 0.7 → 1.3 ramp). Each wave has one big moment: the ring at 65%, or on wave 3 the walker alone at 60% (no ring). While the walker is up, the rest of the army spawns at 55%, and at 40% for 12 s after it falls.
+- **The army catches up between growth spurts** (`catchUp`): spawn rates and caps ×0.75 right after reaching Behemoth, climbing to ×1.25 as you near City-Ender; ×0.75 → ×1.3 over the first 180 s at City-Ender; ×0.85 → ×1.1 as a hatchling. Enemy damage moves half as far. On the boss wave it stops at ×1, so the mech is the fight, not the trash.
+
+**Evidence** (`tests/encounter.spec.ts`, `CURVE=1`, seed 2024, the same bot before and after, files in `evidence/balance/`). `?startWave` gives the tier but no upgrades, so a new `?levels=N` hands the bot a mid-run build (10 level-ups for wave 3, 16 for wave 5):
+
+| Medium | Before | After |
+|---|---|---|
+| Wave 5 (mech): survived | 82 s | 206 s |
+| Wave 5: worst 10 s | 98% of max HP | 83% |
+| Wave 3: survived | 46 s | 59 s |
+
+| Easy, wave 3 (the bot reaches the walker here) | Before | After |
+|---|---|---|
+| Enemies nearby when the walker arrived | 62 (the ring had just landed) | ~30 |
+| Damage while the walker was up | 4.4% of max HP per second | 2.8% per second |
+
+The bot still dies on Medium in wave 3 before the walker arrives, and still loses the mech fight on Medium. It's a weak player: it doesn't chase the mech, and it dies to infantry a human would crush. So these numbers show direction, not the final balance. The single-seed runs are noisy too. The next step is real people playing Medium, with the probe's per-10-second damage log as the thing to compare.
+
 ## Decisions made during the build
 
 - The optional live narration model is `claude-opus-5-5` at medium effort (BRIEF.md started from a smaller model), configurable via `NARRATION_MODEL` / `NARRATION_EFFORT`.

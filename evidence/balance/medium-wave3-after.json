@@ -1,0 +1,57 @@
+{
+  "difficulty": "medium",
+  "startWave": 3,
+  "outcome": "dying",
+  "endedInWave": 3,
+  "level": 12,
+  "gameSeconds": 59,
+  "minHpPct": -2,
+  "robot": null,
+  "buckets": [
+    {
+      "t": 0,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 2,
+      "minHpPct": 98,
+      "enemies": 9,
+      "pressure": 0.79
+    },
+    {
+      "t": 10,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 27,
+      "minHpPct": 80,
+      "enemies": 13,
+      "pressure": 0.81
+    },
+    {
+      "t": 20,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 34,
+      "minHpPct": 67,
+      "enemies": 19,
+      "pressure": 0.85
+    },
+    {
+      "t": 30,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 71,
+      "minHpPct": 40,
+      "enemies": 26,
+      "pressure": 0.89
+    },
+    {
+      "t": 40,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 32,
+      "minHpPct": 22,
+      "enemies": 40,
+      "pressure": 0.92
+    }
+  ]
+}

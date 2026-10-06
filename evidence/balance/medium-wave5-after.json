@@ -1,0 +1,199 @@
+{
+  "difficulty": "medium",
+  "startWave": 5,
+  "outcome": "dying",
+  "endedInWave": 5,
+  "level": 25,
+  "gameSeconds": 206,
+  "minHpPct": -6,
+  "robot": {
+    "type": "mech",
+    "arrivedAt": 4,
+    "hpPctAtArrival": 100,
+    "minHpPct": 0,
+    "lasted": 202,
+    "dmgPct": 783
+  },
+  "buckets": [
+    {
+      "t": 0,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 9,
+      "minHpPct": 94,
+      "enemies": 9,
+      "pressure": 0.78
+    },
+    {
+      "t": 10,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 9,
+      "minHpPct": 97,
+      "enemies": 19,
+      "pressure": 0.81
+    },
+    {
+      "t": 20,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 30,
+      "minHpPct": 90,
+      "enemies": 23,
+      "pressure": 0.84
+    },
+    {
+      "t": 30,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 57,
+      "minHpPct": 63,
+      "enemies": 25,
+      "pressure": 0.87
+    },
+    {
+      "t": 40,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 79,
+      "minHpPct": 45,
+      "enemies": 24,
+      "pressure": 0.9
+    },
+    {
+      "t": 50,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 83,
+      "minHpPct": 30,
+      "enemies": 24,
+      "pressure": 0.94
+    },
+    {
+      "t": 60,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 40,
+      "minHpPct": 36,
+      "enemies": 29,
+      "pressure": 0.97
+    },
+    {
+      "t": 71,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 59,
+      "minHpPct": 58,
+      "enemies": 25,
+      "pressure": 1
+    },
+    {
+      "t": 81,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 28,
+      "minHpPct": 59,
+      "enemies": 26,
+      "pressure": 1
+    },
+    {
+      "t": 91,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 18,
+      "minHpPct": 88,
+      "enemies": 29,
+      "pressure": 1
+    },
+    {
+      "t": 101,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 43,
+      "minHpPct": 62,
+      "enemies": 27,
+      "pressure": 1
+    },
+    {
+      "t": 111,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 33,
+      "minHpPct": 57,
+      "enemies": 32,
+      "pressure": 1
+    },
+    {
+      "t": 121,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 63,
+      "minHpPct": 37,
+      "enemies": 30,
+      "pressure": 1
+    },
+    {
+      "t": 131,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 9,
+      "minHpPct": 37,
+      "enemies": 15,
+      "pressure": 1
+    },
+    {
+      "t": 141,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 16,
+      "minHpPct": 92,
+      "enemies": 19,
+      "pressure": 1
+    },
+    {
+      "t": 151,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 36,
+      "minHpPct": 80,
+      "enemies": 20,
+      "pressure": 1
+    },
+    {
+      "t": 161,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 28,
+      "minHpPct": 76,
+      "enemies": 18,
+      "pressure": 1
+    },
+    {
+      "t": 171,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 15,
+      "minHpPct": 66,
+      "enemies": 23,
+      "pressure": 1
+    },
+    {
+      "t": 181,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 53,
+      "minHpPct": 21,
+      "enemies": 24,
+      "pressure": 1
+    },
+    {
+      "t": 191,
+      "wave": 5,
+      "tier": 3,
+      "dmgPct": 21,
+      "minHpPct": 22,
+      "enemies": 29,
+      "pressure": 1
+    }
+  ]
+}

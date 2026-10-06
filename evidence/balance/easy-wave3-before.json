@@ -1,0 +1,107 @@
+{
+  "difficulty": "easy",
+  "startWave": 3,
+  "outcome": "playing",
+  "endedInWave": 4,
+  "level": 15,
+  "gameSeconds": 120,
+  "minHpPct": 30,
+  "robot": {
+    "type": "walker",
+    "arrivedAt": 66,
+    "hpPctAtArrival": 86,
+    "minHpPct": 31,
+    "lasted": 34,
+    "dmgPct": 149
+  },
+  "buckets": [
+    {
+      "t": 0,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 4,
+      "minHpPct": 97,
+      "enemies": 6
+    },
+    {
+      "t": 10,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 9,
+      "minHpPct": 96,
+      "enemies": 15
+    },
+    {
+      "t": 20,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 24,
+      "minHpPct": 86,
+      "enemies": 21
+    },
+    {
+      "t": 30,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 42,
+      "minHpPct": 73,
+      "enemies": 27
+    },
+    {
+      "t": 40,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 26,
+      "minHpPct": 74,
+      "enemies": 40
+    },
+    {
+      "t": 50,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 67,
+      "minHpPct": 56,
+      "enemies": 62
+    },
+    {
+      "t": 60,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 39,
+      "minHpPct": 51,
+      "enemies": 48
+    },
+    {
+      "t": 71,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 34,
+      "minHpPct": 48,
+      "enemies": 38
+    },
+    {
+      "t": 81,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 51,
+      "minHpPct": 35,
+      "enemies": 36
+    },
+    {
+      "t": 91,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 54,
+      "minHpPct": 31,
+      "enemies": 11
+    },
+    {
+      "t": 101,
+      "wave": 3,
+      "tier": 2,
+      "dmgPct": 13,
+      "minHpPct": 30,
+      "enemies": 15
+    }
+  ]
+}
