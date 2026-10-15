@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "test": "playwright test",
     "deploy": "npm run build && wrangler pages deploy dist --project-name kaiju-rampage --branch main --commit-dirty=true",
-    "build:labs": "npm run build && node scripts/build-labs.mjs"
+    "build:labs": "npm run build && tsc -p labs && node scripts/build-labs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

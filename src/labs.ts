@@ -1,29 +1,30 @@
 // Voyage Labs services. The Labs build (`npm run build:labs`) adds the platform's browser SDK as a
 // plain script (window.VoyageLabs); every other build, and the public repository, never contains
-// it. Inside the Labs player a signed-in player's best run goes on the game's `highscores`
-// leaderboard, which survives new builds (browser storage is per build there). Guests, and every
-// other host, keep the local per-browser table. Every call fails soft: null means "not available".
+// it. Inside the Labs player a signed-in player's best run goes on the game's own board, kept by its
+// game server (labs/backend.ts) so it survives new builds (browser storage is per build there). Guests,
+// and every other host, keep the local per-browser table. Every call fails soft: null means "not available".
 import type { DifficultyId } from './difficulty';
 
-interface LabsEntry { username: string; score: number; details: number[]; rank: number }
-interface LabsBoard {
-  submit(input: { score: number; details?: number[]; method?: 'keepBest' | 'forceUpdate' }): Promise<{ rank: number; updated: boolean }>;
-  list(query?: { scope?: 'global'; start?: number; limit?: number }): Promise<{ total: number; entries: LabsEntry[] }>;
-  getMyEntry(): Promise<LabsEntry | null>;
-}
+interface LabsEntry { name: string; score: number; details: number[]; rank: number }
 interface LabsSdk {
   ready(): void;
   player: { get(): Promise<{ displayName: string; isGuest: boolean }> };
-  leaderboards: { board(name: string): LabsBoard };
+  backend: { request(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<Response> };
 }
 
-const BOARD = 'highscores';
 const DIFFS: DifficultyId[] = ['easy', 'medium', 'hard'];
 
 const sdk = (): LabsSdk | null => {
   const v = (window as unknown as { VoyageLabs?: LabsSdk }).VoyageLabs;
   return v && window.parent !== window ? v : null;
 };
+
+/** A JSON call to the game server; the first one can take a few seconds while it wakes. */
+async function call<T>(s: LabsSdk, path: string, init?: RequestInit): Promise<T> {
+  const res = await s.backend.request(path, { timeoutMs: 20_000, ...init });
+  if (!res.ok) throw new Error(`${path} ${res.status}`);
+  return (await res.json()) as T;
+}
 
 let player: { name: string } | null = null;
 
@@ -50,14 +51,15 @@ export async function labsSubmit(run: LabsRun): Promise<{ rank: number; total: n
   const s = sdk();
   if (!s || !player) return null;
   try {
-    const board = s.leaderboards.board(BOARD);
-    const res = await board.submit({
-      score: Math.round(run.score),
-      details: [DIFFS.indexOf(run.difficulty), run.wave, run.level, run.victory ? 1 : 0, run.endless ? 1 : 0],
-      method: 'keepBest',
+    const res = await call<{ rank: number; total: number; improved: boolean }>(s, '/score', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        score: Math.round(run.score),
+        details: [DIFFS.indexOf(run.difficulty), run.wave, run.level, run.victory ? 1 : 0, run.endless ? 1 : 0],
+      }),
     });
-    const { total } = await board.list({ scope: 'global', limit: 1 });
-    return { rank: res.rank, total, best: res.updated };
+    return { rank: res.rank, total: res.total, best: res.improved };
   } catch (e) {
     console.warn('[labs] submit failed', e);
     return null;
@@ -66,7 +68,7 @@ export async function labsSubmit(run: LabsRun): Promise<{ rank: number; total: n
 
 export interface LabsRow { name: string; score: number; difficulty: DifficultyId; wave: number; victory: boolean; endless: boolean; rank: number }
 const row = (e: LabsEntry): LabsRow => ({
-  name: e.username, score: e.score, rank: e.rank, difficulty: DIFFS[e.details[0]] ?? 'medium',
+  name: e.name, score: e.score, rank: e.rank, difficulty: DIFFS[e.details[0]] ?? 'medium',
   wave: e.details[1] ?? 0, victory: e.details[3] === 1, endless: e.details[4] === 1,
 });
 
@@ -75,9 +77,8 @@ export async function labsBoard(limit = 10): Promise<{ total: number; top: LabsR
   const s = sdk();
   if (!s) return null;
   try {
-    const board = s.leaderboards.board(BOARD);
-    const [list, mine] = await Promise.all([board.list({ scope: 'global', limit }), player ? board.getMyEntry() : Promise.resolve(null)]);
-    return { total: list.total, top: list.entries.map(row), mine: mine ? row(mine) : null };
+    const b = await call<{ total: number; entries: LabsEntry[]; mine: LabsEntry | null }>(s, `/scores?limit=${limit}`);
+    return { total: b.total, top: b.entries.map(row), mine: player && b.mine ? row(b.mine) : null };
   } catch (e) {
     console.warn('[labs] board unavailable', e);
     return null;
